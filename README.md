@@ -1,33 +1,46 @@
-# Graduation Game Project
+# Gachon GradProject SubwayCarry
 
-26년도 2학기 졸업프로젝트용 게임 개발 저장소.
+Unity project for the 2026-2 Gachon University graduation project.
 
-세부 기획은 팀 합류가 확정된 뒤 별도 비공개 문서로 공유한다. 이 저장소에는 개발 환경, 협업 규칙, 구현 코드, 공개 가능한 작업 문서만 둔다.
+This repository is intended for confirmed team members. It contains source code, Unity project files, setup notes, collaboration documents, and project design documents.
 
-## Recommended Stack
+## Project
 
-- Engine: Unity
-- Language: C#
-- Editor: VSCode
-- Version Control: Git + GitHub
-- Large Files: Git LFS
+| Item | Value |
+| --- | --- |
+| Unity project | `SubwayCarry` |
+| Template | Universal 2D |
+| Unity Editor | `6000.3.7f1` |
+| Language | C# |
+| Editor | VSCode |
+| VCS | Git / GitHub |
+| Large file storage | Git LFS |
+| Local root | `E:\UnityProjects\graduation-game-project` |
+| Unity project path | `E:\UnityProjects\graduation-game-project\SubwayCarry` |
+| GitHub | `https://github.com/chelego/Gachon-GradProject-SubwayCarry` |
 
-## Current Project
+## Repository Layout
 
-- Unity project folder: `SubwayCarry`
-- Template: Universal 2D
-- Unity Editor: `6000.3.7f1`
-- Local root: `E:\UnityProjects\graduation-game-project`
-- Project path: `E:\UnityProjects\graduation-game-project\SubwayCarry`
-- GitHub: `https://github.com/chelego/Gachon-GradProject-SubwayCarry`
+```text
+graduation-game-project/
+├─ SubwayCarry/        Unity project
+├─ docs/               Setup and team documents
+├─ .vscode/            Workspace-level VSCode recommendations
+├─ .gitignore          Unity ignore rules
+├─ .gitattributes      Unity text rules and Git LFS rules
+└─ README.md
+```
 
-## First Setup
+## Branches
 
-1. Unity Hub 설치
-2. 팀이 정한 동일한 Unity Editor LTS 버전 설치
-3. VSCode 설치
-4. VSCode 추천 확장 설치
-5. Git LFS 활성화
-6. Unity 프로젝트 생성 후 이 저장소 안에서 작업
+| Branch | Purpose |
+| --- | --- |
+| `main` | Stable baseline |
+| `develop` | Integration branch |
+| `feature/*` | Feature work |
 
-자세한 내용은 `docs/SETUP.md` 참고.
+Default development work should start from `develop`.
+
+## Setup
+
+See [docs/SETUP.md](docs/SETUP.md).

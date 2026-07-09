@@ -1,128 +1,150 @@
-# 개발 환경 구축 가이드
+# Setup
 
-## 1. 엔진 선택
+## Required Tools
 
-이 프로젝트는 Unity 기준으로 진행하는 것을 추천한다.
+Install the following tools before working on the project.
 
-이유:
+| Tool | Version / Note |
+| --- | --- |
+| Unity Hub | Required |
+| Unity Editor | `6000.3.7f1` |
+| VSCode | Recommended code editor |
+| Git | Required |
+| Git LFS | Required for binary assets |
+| GitHub account | Required for collaboration |
 
-- 2D 쿼터뷰 게임 구현에 충분히 적합함
-- C# 기반이라 컴공 팀원이 역할을 나누기 좋음
-- 충돌, 물리, UI, 애니메이션, 타일맵, 씬 관리가 무난함
-- 졸업프로젝트 포트폴리오로 설명하기 좋음
-- GitHub 협업 자료와 예제가 많음
+## VSCode Extensions
 
-Godot도 가능하지만, 팀원 모집과 협업 안정성을 생각하면 Unity가 더 무난하다.
+Recommended extensions:
 
-## 2. 설치할 프로그램
+- `ms-dotnettools.csharp`
+- `ms-dotnettools.csdevkit`
+- `visualstudiotoolsforunity.vstuc`
+- `eamodio.gitlens`
 
-필수:
+The repository includes `.vscode/extensions.json`.
 
-- Git
-- Git LFS
-- VSCode
-- Unity Hub
-- Unity Editor LTS
+## Unity Project
 
-추천 VSCode 확장:
+Current project configuration:
 
-- C# Dev Kit
-- C#
-- Unity
-- GitLens
+| Item | Value |
+| --- | --- |
+| Project name | `SubwayCarry` |
+| Template | Universal 2D |
+| Unity Editor | `6000.3.7f1` |
+| Project root | `E:\UnityProjects\graduation-game-project` |
+| Unity project path | `E:\UnityProjects\graduation-game-project\SubwayCarry` |
+| GitHub repository | `https://github.com/chelego/Gachon-GradProject-SubwayCarry` |
 
-## 3. Unity 설치 방식
+Open this folder in Unity Hub:
 
-1. Unity Hub 설치
-2. Unity Hub 로그인
-3. `Installs`에서 Unity Editor LTS 버전 설치
-4. 설치 모듈은 일단 아래만 선택
-   - Microsoft Visual Studio Community는 선택하지 않아도 됨
-   - Windows Build Support는 선택 권장
-   - Documentation은 선택 사항
+```text
+E:\UnityProjects\graduation-game-project\SubwayCarry
+```
 
-팀원 전원이 같은 Unity Editor 버전을 맞춰야 한다.
+## Unity Editor Settings
 
-## 4. Unity 프로젝트 생성 설정
+Verify the following settings after opening the project.
 
-Unity Hub에서 새 프로젝트 생성:
+Path:
 
-- Template: `2D` 또는 `Universal 2D`
-- Project name: 팀에서 정한 이름
-- Location: 이 저장소 폴더 안
+```text
+Edit > Project Settings > Editor
+```
 
-현재 프로젝트는 아래 설정으로 생성했다.
+Required settings:
 
-- Template: `Universal 2D`
-- Project name: `SubwayCarry`
-- Unity Editor: `6000.3.7f1`
-- Location: `E:\UnityProjects\graduation-game-project`
-- Actual project path: `E:\UnityProjects\graduation-game-project\SubwayCarry`
-- GitHub repository: `https://github.com/chelego/Gachon-GradProject-SubwayCarry`
+| Setting | Value |
+| --- | --- |
+| Version Control Mode | Visible Meta Files |
+| Asset Serialization Mode | Force Text |
 
-프로젝트 생성 후 Unity에서 아래 설정 권장:
+These settings are required for Git-based Unity collaboration.
 
-- `Edit > Project Settings > Editor`
-  - Version Control Mode: `Visible Meta Files`
-  - Asset Serialization Mode: `Force Text`
+## Git LFS
 
-이 설정은 Git 충돌을 줄이는 데 중요하다.
-
-## 5. GitHub 협업 규칙
-
-브랜치 예시:
-
-- `main`: 안정 버전
-- `develop`: 통합 개발 버전
-- `feature/player-movement`: 기능 개발
-- `feature/npc-ai`: NPC AI 개발
-- `feature/ui`: UI 개발
-
-작업 방식:
-
-1. `develop`에서 feature 브랜치 생성
-2. 기능 구현
-3. 커밋
-4. GitHub에 push
-5. Pull Request 생성
-6. 확인 후 `develop`에 병합
-
-커밋 메시지 예시:
-
-- `feat: add player movement`
-- `feat: implement object damage state`
-- `fix: prevent npc overlap`
-- `docs: update setup guide`
-
-## 6. Git LFS 사용
-
-이미지, 사운드, 영상, 원본 아트 파일은 용량이 커질 수 있으므로 Git LFS로 관리한다.
-
-처음 한 번 실행:
+Git LFS must be installed before cloning or adding large assets.
 
 ```powershell
 git lfs install
 ```
 
-이 저장소에는 `.gitattributes`가 포함되어 있어서 주요 이미지/사운드 파일은 Git LFS 대상으로 잡혀 있다.
+The repository tracks common binary asset formats through `.gitattributes`.
 
-## 7. 공개 저장소 주의사항
+Examples:
 
-기획 핵심 아이디어는 공개 저장소에 자세히 적지 않는다.
+- `.png`
+- `.jpg`
+- `.psd`
+- `.wav`
+- `.mp3`
+- `.ogg`
+- `.fbx`
+- `.blend`
 
-공개해도 되는 것:
+## Clone
 
-- 개발 환경
-- 코드
-- 공개 가능한 작업 규칙
-- 구현 이슈
-- 추상적인 시스템 이름
+```powershell
+git clone https://github.com/chelego/Gachon-GradProject-SubwayCarry.git
+cd Gachon-GradProject-SubwayCarry
+git checkout develop
+git lfs pull
+```
 
-공개하지 않는 것이 좋은 것:
+Open the Unity project folder:
 
-- 게임 핵심 콘셉트 전체
-- 상세 스테이지 구조
-- 차별화 포인트를 그대로 드러내는 문서
-- 비공개 기획서 원문
+```text
+Gachon-GradProject-SubwayCarry\SubwayCarry
+```
 
-비공개 기획은 별도 문서나 private 저장소, Notion, Google Drive 등으로 관리한다.
+## Branch Workflow
+
+Use `develop` as the base branch for feature work.
+
+```powershell
+git checkout develop
+git pull
+git checkout -b feature/example-feature
+```
+
+After implementing a feature:
+
+```powershell
+git add .
+git commit -m "feat: add example feature"
+git push -u origin feature/example-feature
+```
+
+Create a pull request into `develop`.
+
+## Commit Message Format
+
+Use short English commit messages.
+
+Examples:
+
+- `feat: add player movement`
+- `feat: implement object damage`
+- `feat: add npc state machine`
+- `fix: prevent collision bug`
+- `docs: update setup guide`
+
+## Repository Policy
+
+This repository is for confirmed team members.
+
+Allowed:
+
+- Source code
+- Unity project settings
+- Setup documents
+- Collaboration documents
+- Design documents
+- Task documents
+- Planning notes
+
+Not allowed:
+
+- Unapproved external assets
+- Secrets or credentials
