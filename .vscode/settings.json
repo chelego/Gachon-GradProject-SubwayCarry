@@ -1,0 +1,13 @@
+{
+  "files.exclude": {
+    "**/[Ll]ibrary": true,
+    "**/[Tt]emp": true,
+    "**/[Oo]bj": true,
+    "**/[Bb]uild": true,
+    "**/[Bb]uilds": true,
+    "**/[Ll]ogs": true
+  },
+  "editor.formatOnSave": true,
+  "files.eol": "\n"
+}
+
