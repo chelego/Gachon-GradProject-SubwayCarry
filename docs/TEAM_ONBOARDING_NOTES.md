@@ -11,7 +11,9 @@
 - Unity 프로젝트 생성 완료
 - 프로젝트 이름: `SubwayCarry`
 - 프로젝트 템플릿: `Universal 2D`
-- 프로젝트 위치: `graduation-game-project/SubwayCarry`
+- Unity Editor 버전: `6000.3.7f1`
+- 로컬 프로젝트 루트: `E:\UnityProjects\graduation-game-project`
+- Unity 프로젝트 위치: `E:\UnityProjects\graduation-game-project\SubwayCarry`
 - VSCode 사용 예정
 - GitHub에 코드를 올리며 작업 예정
 - Git 설치 확인됨
@@ -50,7 +52,7 @@ Unity를 사용하는 이유:
 팀원들은 아래 환경을 맞추면 된다.
 
 1. Unity Hub 설치
-2. 팀에서 정한 동일한 Unity Editor 버전 설치
+2. Unity Editor `6000.3.7f1` 설치
 3. VSCode 설치
 4. Git 설치
 5. Git LFS 설치
@@ -132,7 +134,7 @@ Unity 프로젝트를 생성한 뒤 아래 설정을 맞춘다.
 
 ## 다음 진행 단계
 
-현재 다음 단계는 Unity 프로젝트 기본 설정 확인과 GitHub 연결이다.
+현재 다음 단계는 Unity Hub에서 E드라이브 위치의 프로젝트를 다시 등록하고 GitHub를 연결하는 것이다.
 
 이후 진행할 작업:
 

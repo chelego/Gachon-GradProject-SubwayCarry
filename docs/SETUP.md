@@ -55,8 +55,9 @@ Unity Hub에서 새 프로젝트 생성:
 
 - Template: `Universal 2D`
 - Project name: `SubwayCarry`
-- Location: `graduation-game-project`
-- Actual project path: `graduation-game-project/SubwayCarry`
+- Unity Editor: `6000.3.7f1`
+- Location: `E:\UnityProjects\graduation-game-project`
+- Actual project path: `E:\UnityProjects\graduation-game-project\SubwayCarry`
 
 프로젝트 생성 후 Unity에서 아래 설정 권장:
 

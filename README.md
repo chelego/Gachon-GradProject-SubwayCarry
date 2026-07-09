@@ -16,7 +16,9 @@
 
 - Unity project folder: `SubwayCarry`
 - Template: Universal 2D
-- Project path: `graduation-game-project/SubwayCarry`
+- Unity Editor: `6000.3.7f1`
+- Local root: `E:\UnityProjects\graduation-game-project`
+- Project path: `E:\UnityProjects\graduation-game-project\SubwayCarry`
 
 ## First Setup
 
