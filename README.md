@@ -19,6 +19,7 @@
 - Unity Editor: `6000.3.7f1`
 - Local root: `E:\UnityProjects\graduation-game-project`
 - Project path: `E:\UnityProjects\graduation-game-project\SubwayCarry`
+- GitHub: `https://github.com/chelego/Gachon-GradProject-SubwayCarry`
 
 ## First Setup
 

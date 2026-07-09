@@ -16,6 +16,7 @@
 - Unity 프로젝트 위치: `E:\UnityProjects\graduation-game-project\SubwayCarry`
 - VSCode 사용 예정
 - GitHub에 코드를 올리며 작업 예정
+- GitHub 저장소: `https://github.com/chelego/Gachon-GradProject-SubwayCarry`
 - Git 설치 확인됨
 - Git LFS 설치 및 초기 설정 완료
 - Unity용 `.gitignore` 작성 완료

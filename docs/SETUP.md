@@ -58,6 +58,7 @@ Unity Hub에서 새 프로젝트 생성:
 - Unity Editor: `6000.3.7f1`
 - Location: `E:\UnityProjects\graduation-game-project`
 - Actual project path: `E:\UnityProjects\graduation-game-project\SubwayCarry`
+- GitHub repository: `https://github.com/chelego/Gachon-GradProject-SubwayCarry`
 
 프로젝트 생성 후 Unity에서 아래 설정 권장:
 
