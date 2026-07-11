@@ -90,6 +90,8 @@ Do not work directly on `main`.
 6. Open a pull request into `develop`.
 7. Merge after review.
 
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for commit and Unity asset rules.
+
 ## Unity Collaboration Rules
 
 Unity settings:
@@ -100,6 +102,18 @@ Unity settings:
 | Asset Serialization Mode | Force Text |
 
 Do not delete `.meta` files manually.
+
+Store project-owned assets under:
+
+```text
+SubwayCarry/Assets/_Project
+```
+
+The initial build scene is:
+
+```text
+Assets/_Project/Scenes/Bootstrap.unity
+```
 
 Do not commit Unity generated folders:
 

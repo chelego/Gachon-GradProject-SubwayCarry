@@ -44,3 +44,11 @@ Default development work should start from `develop`.
 ## Setup
 
 See [docs/SETUP.md](docs/SETUP.md).
+
+## Development
+
+- Project-owned Unity assets: `SubwayCarry/Assets/_Project`
+- Initial scene: `Assets/_Project/Scenes/Bootstrap.unity`
+- C# root namespace: `SubwayCarry`
+- Contribution rules: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Project folders: [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)
