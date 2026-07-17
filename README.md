@@ -1,46 +1,49 @@
-# Gachon GradProject SubwayCarry
+# 가천대학교 졸업프로젝트 SubwayCarry
 
-Unity project for the 2026-2 Gachon University graduation project.
+`SubwayCarry`는 2026학년도 2학기 가천대학교 졸업프로젝트로 개발하는 Unity 게임이다.
 
-This repository is intended for confirmed team members. It contains source code, Unity project files, setup notes, collaboration documents, and project design documents.
+플레이어는 혼잡한 수도권 지하철에서 케이크를 목적지까지 운반한다. 배송마다 노선, 교통비, 물건 가치, 혼잡도와 손해 위험이 달라진다. 최종 배송을 완료하면 전액 장학금을 받고, 파산하면 해당 게임의 진행이 모두 초기화된다.
 
-## Project
+## 프로젝트 정보
 
-| Item | Value |
+| 항목 | 값 |
 | --- | --- |
-| Unity project | `SubwayCarry` |
-| Template | Universal 2D |
+| Unity 프로젝트 | `SubwayCarry` |
+| 템플릿 | `Universal 2D` |
 | Unity Editor | `6000.3.7f1` |
-| Language | C# |
-| Editor | VSCode |
-| VCS | Git / GitHub |
-| Large file storage | Git LFS |
-| Local root | `E:\UnityProjects\graduation-game-project` |
-| Unity project path | `E:\UnityProjects\graduation-game-project\SubwayCarry` |
-| GitHub | `https://github.com/chelego/Gachon-GradProject-SubwayCarry` |
+| 개발 언어 | C# |
+| 코드 편집기 | VSCode |
+| 버전 관리 | Git / GitHub |
+| 대용량 파일 | Git LFS |
 
-## Repository Layout
+## 문서
+
+상세 문서는 모두 [`docs/`](docs/README.md)에 있다.
+
+- [게임 기획서](docs/GAME_DESIGN.md)
+- [개발 작업 분해](docs/DEVELOPMENT_BREAKDOWN.md)
+- [프로젝트 구조](docs/PROJECT_STRUCTURE.md)
+- [협업 규칙](docs/CONTRIBUTING.md)
+
+## 저장소 구조
 
 ```text
 graduation-game-project/
-├─ SubwayCarry/        Unity project
-├─ docs/               Setup and team documents
-├─ .vscode/            Workspace-level VSCode recommendations
-├─ .gitignore          Unity ignore rules
-├─ .gitattributes      Unity text rules and Git LFS rules
-└─ README.md
+|-- SubwayCarry/        Unity 프로젝트
+|-- docs/               프로젝트 문서
+|-- .vscode/            VSCode 권장 설정
+|-- .gitignore          Unity 제외 규칙
+|-- .gitattributes      텍스트 및 Git LFS 규칙
+`-- README.md           저장소 안내
 ```
 
-## Branches
+## 브랜치
 
-| Branch | Purpose |
+| 브랜치 | 용도 |
 | --- | --- |
-| `main` | Stable baseline |
-| `develop` | Integration branch |
-| `feature/*` | Feature work |
+| `main` | 안정 버전 |
+| `develop` | 개발 통합 브랜치 |
+| `feature/*` | 기능 개발 |
+| `fix/*` | 오류 수정 |
 
-Default development work should start from `develop`.
-
-## Setup
-
-See [docs/SETUP.md](docs/SETUP.md).
+개발은 `develop`에서 분기하고 Pull Request를 통해 다시 `develop`에 합친다.
