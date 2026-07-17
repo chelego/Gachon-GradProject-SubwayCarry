@@ -23,7 +23,6 @@
 - [게임 기획서](docs/GAME_DESIGN.md)
 - [개발 작업 분해](docs/DEVELOPMENT_BREAKDOWN.md)
 - [프로젝트 구조](docs/PROJECT_STRUCTURE.md)
-- [협업 규칙](docs/CONTRIBUTING.md)
 
 ## 저장소 구조
 
@@ -36,14 +35,3 @@ graduation-game-project/
 |-- .gitattributes      텍스트 및 Git LFS 규칙
 `-- README.md           저장소 안내
 ```
-
-## 브랜치
-
-| 브랜치 | 용도 |
-| --- | --- |
-| `main` | 안정 버전 |
-| `develop` | 개발 통합 브랜치 |
-| `feature/*` | 기능 개발 |
-| `fix/*` | 오류 수정 |
-
-개발은 `develop`에서 분기하고 Pull Request를 통해 다시 `develop`에 합친다.
