@@ -1,326 +1,300 @@
-# SubwayCarry Game Design
+# SubwayCarry 게임 기획서
 
-## 1. Overview
+## 1. 게임 개요
 
-SubwayCarry is a 2D quarter-view delivery game set in the Seoul metropolitan subway system. The player protects a fragile cake while moving through stations, train cars, crowds, transfers, and train motion events.
+`SubwayCarry`는 수도권 지하철을 배경으로 한 2D 쿼터뷰 배송 게임이다. 플레이어는 혼잡한 역과 객차를 이동하며 파손되기 쉬운 케이크를 목적지까지 운반한다.
 
-The game combines physical avoidance, passenger behavior, route-based difficulty, and financial risk. NPC passengers are not enemies. They use the subway for their own purposes and create danger through ordinary movement, crowding, luggage, seat competition, boarding, and alighting.
+핵심 위험은 적의 공격이 아니라 열차의 움직임, 승하차 인파, 좌석 경쟁, 승객의 돌발행동, 직접 충돌과 압박이다. NPC는 플레이어를 공격하지 않고 각자의 목적에 따라 지하철을 이용한다.
 
-## 2. Premise and Goal
+## 2. 이야기와 최종 목표
 
-The player is a Gachon University student trying to earn the next semester's tuition during vacation. The university provides a student job program through a delivery application.
+플레이어는 방학 동안 다음 학기 학비를 벌어야 하는 가천대학교 학생이다. 학교에서 제공하는 방학 중 직업 프로그램과 교내 배달 앱을 통해 지하철 배송 업무를 시작한다.
 
-The player accepts subway delivery jobs, earns delivery fees, improves character abilities, and unlocks harder destinations. Completing the final delivery designated by the program grants a full scholarship for the next semester.
+배송을 완료하며 수입과 능력을 쌓고 더 먼 배송지를 개방한다. 프로그램이 지정한 최종 배송을 완료하면 다음 학기 전액 장학금을 받는다.
 
-The final destination and final delivery item are not fixed yet.
+최종 배송지와 최종 배송 물건은 아직 정하지 않았다.
 
-## 3. Design Pillars
+## 3. 핵심 원칙
 
-1. Protect the cake through movement, positioning, facing direction, and safe locations.
-2. Make subway passengers behave like people with individual goals instead of enemies targeting the player.
-3. Use real subway characteristics while compressing stations and travel time for gameplay.
-4. Create financial pressure through fares, compensation, insurance, upgrades, and bankruptcy.
-5. Keep the full delivery loop complete before increasing the number of routes, stations, and NPC types.
+1. 이동, 위치 선정, 바라보는 방향과 운반 자세로 케이크를 보호한다.
+2. NPC는 플레이어를 추적하는 적이 아니라 독립적인 목적을 가진 승객으로 만든다.
+3. 실제 수도권 지하철의 특징을 사용하되 역과 이동시간은 게임에 맞게 축소한다.
+4. 교통비, 배상금, 보험, 강화와 파산으로 경제적인 긴장을 만든다.
+5. 배송 한 건의 전체 흐름을 완성한 뒤 노선, 역과 NPC 콘텐츠를 늘린다.
 
-## 4. Run Structure
+## 4. 한 게임의 진행 구조
 
-A run starts with initial cash and no run upgrades. Standard deliveries start from Gachon University Station.
+새 게임은 초기 자본과 강화가 없는 상태에서 시작한다. 기본 배송은 가천대역에서 출발한다.
 
-1. Open the university delivery application at Gachon University Station.
-2. Select an available delivery.
-3. Review the destination, cake value, expected transport cost, delivery fee, route, time, and difficulty.
-4. Pay the outbound transport cost and begin the delivery.
-5. Board trains, protect the cake, and complete required transfers.
-6. Exit the destination station to complete the delivery.
-7. Receive a settlement based on cake condition and expenses.
-8. Return to Gachon University Station automatically.
-9. Select another delivery, buy services, or continue the saved run later.
+1. 가천대역에서 배달 앱을 연다.
+2. 수행 가능한 배송을 선택한다.
+3. 목적지, 케이크 가치, 예상 교통비, 배달 수수료, 노선, 시간대와 난이도를 확인한다.
+4. 출발 교통비를 내고 배송을 시작한다.
+5. 열차 안에서 케이크를 보호하고 필요한 환승을 수행한다.
+6. 목적지역 출구에 도착해 배송을 완료한다.
+7. 케이크 상태와 비용을 기준으로 정산한다.
+8. 가천대역으로 자동 복귀한다.
+9. 다음 배송을 선택하거나 저장 후 종료한다.
 
-Normal exit saves the current run. Bankruptcy ends the run and resets all run progress.
+정상 종료는 현재 진행을 저장한다. 파산하면 게임 오버되며 해당 게임의 모든 진행이 초기화된다.
 
-## 5. Delivery Selection
+## 5. 배송 선택 화면
 
-The delivery application uses a metropolitan rail map as the main screen. A right sidebar lists deliveries from easier jobs at the bottom to harder jobs at the top.
+- 배달 앱의 메인 화면에 수도권 철도 노선도를 표시한다.
+- 오른쪽 목록은 아래의 쉬운 배송부터 위의 어려운 배송 순서로 배치한다.
+- 난이도는 별 1개부터 5개로 표시한다.
+- 개방된 배송은 노선을 선명하게 표시하고 시작할 수 있다.
+- 잠긴 배송은 노선을 흐리게 미리 보여주지만 시작할 수 없다.
+- 배송 확인 화면에는 목적지, 배송 물건, 물건 가치, 예상 교통비와 배달 수수료를 표시한다.
+- 예상 순수익은 별도로 계산해 보여주지 않는다.
+- 난이도, 별점과 개방 조건은 콘텐츠 제작과 밸런싱 단계에서 결정한다.
 
-- Each delivery displays a one-to-five-star difficulty rating.
-- Available deliveries show their route clearly and can be started.
-- Locked deliveries can be selected for route preview, but their route is dimmed and the start button is disabled.
-- The confirmation screen shows destination, delivery item, item value, expected transport cost, and delivery fee.
-- The confirmation screen does not calculate or display expected net profit.
-- Difficulty formulas, star ratings, and unlock conditions are assigned during content design and balancing.
+## 6. 배송 중 플레이 구간
 
-## 6. Playable Delivery Flow
+### 6.1 출발역
 
-### 6.1 Departure
+출발역의 필요한 구간을 직접 이동하고 승강장에서 열차를 기다린 뒤 직접 탑승한다.
 
-The player moves through the required part of the departure station, waits on the platform, and boards the train directly.
+### 6.2 열차 내부
 
-### 6.2 Train Interior
+객차 안을 이동하고, 운반 상태를 바꾸고, 안전한 위치를 찾고, 열차 움직임에 대응하며 케이크를 보호한다. 연결된 객차 사이를 이동해 더 안전한 칸을 선택할 수 있다.
 
-The player moves inside the train, changes carry state, avoids passengers, finds safe positions, reacts to train motion, and monitors the cake box and cake durability.
+### 6.3 일반 정차역
 
-Train cars can have different passenger counts. The player may move between connected cars to avoid dangerous crowd conditions.
+일반 정차역에서는 열차 안에 남아 승객의 승하차와 혼잡도 변화를 겪는다. 관계없는 역에서 내리려 하면 플레이어 독백과 함께 하차를 막는다.
 
-### 6.3 Intermediate Stations
+### 6.4 환승역
 
-At ordinary intermediate stations, the player stays on the train while passengers board and alight. Trying to leave at an unrelated station is blocked by a short player monologue.
+필수 환승역에서는 직접 하차하고 환승 통로를 지나 다음 열차를 기다린 뒤 다시 탑승한다. 필수 환승역이나 목적지역에서 내리지 못하면 배송에 실패한다.
 
-### 6.4 Transfers
+능력치 강화는 환승역에서만 구매할 수 있으며 구매 즉시 적용된다.
 
-At a required transfer station, the player must leave the train, follow the implemented transfer path, wait for the next train, and board it. Missing a required transfer or failing to leave at the destination causes delivery failure.
+### 6.5 목적지역과 복귀
 
-Character ability upgrades are available only at transfer stations and apply immediately after purchase.
+목적지역에서 하차해 출구에 도착하면 배송이 끝나고 정산 화면으로 전환된다. 역 외부 이동은 구현하지 않으며 정산 후 가천대역으로 자동 복귀한다.
 
-### 6.5 Destination and Return
+## 7. 역과 노선 범위
 
-At the destination, the player leaves the train and reaches the station exit. Crossing the exit trigger ends the delivery and opens the settlement screen.
+- 실제 수도권 노선을 기준으로 하되 모든 역과 통로를 재현하지 않는다.
+- 이동 가능한 역 내부는 가천대역, 필요한 출발 구간, 필수 환승 경로와 목적지역 출구만 만든다.
+- 일반 정차역은 재사용 가능한 승강장 배경과 NPC 승하차 지점만 사용한다.
+- 실제 역 순서에서 중요도가 낮은 중간 역은 생략할 수 있다.
+- 노선 색상, 표지판, 열차 구조, 역 소품, 승객과 혼잡도로 지역 차이를 표현한다.
+- 우선 목표는 무환승 배송부터 다중 환승 배송까지 약 6~8개다.
 
-Outside-station movement is not playable. The return to Gachon University Station is automatic after settlement.
+최종 역 목록과 배송 개방 순서는 콘텐츠 제작 단계에서 결정한다.
 
-## 7. Station and Route Scope
+## 8. 조작과 운반 상태
 
-The game uses the Seoul metropolitan rail network as its reference. The map does not reproduce every real station or corridor.
+### 8.1 기본 조작
 
-- Navigable interiors are built only for Gachon University Station, required departure areas, required transfer routes, and destination exits.
-- Ordinary intermediate stations use reusable platform backgrounds and passenger spawn or exit points.
-- Transfer and destination stations contain only the route needed for gameplay.
-- Real station order can be compressed by removing less important intermediate stations.
-- Line colors, signs, train layouts, station props, passenger patterns, and crowd behavior provide local identity.
-- The initial content target is approximately six to eight deliveries, ranging from a short direct route to routes with multiple transfers.
+- `WASD`: 이동
+- 마우스 위치: 캐릭터가 바라보는 방향
+- 상호작용 입력: 좌석, 벽, 문, 손잡이, 봉, 역 시설과 UI 이용
+- 직접 밀치기나 공격은 없다.
+- 이동, 위치와 방향 전환으로 충돌을 피한다.
 
-The final station list and delivery unlock order are decided during route and content production.
+### 8.2 기본 서 있기
 
-## 8. Controls and Carry States
+케이크 상자를 몸 앞에서 두 손으로 든다. 자유롭게 이동하고 회전할 수 있지만 균형 보호는 없다.
 
-### 8.1 Basic Controls
+### 8.3 기대기
 
-- `WASD`: move the player.
-- Mouse position: set the player's facing direction.
-- Interaction input: use seats, walls, doors, handles, poles, station objects, and UI points.
-- The player does not have a direct push or attack action.
-- Collision is avoided by movement, position, facing direction, and carry state.
+벽이나 열리지 않는 문에 기대면 비교적 안전하다. 다음 역에서 열리는 문에 기대고 있으면 문이 열릴 때 뒤로 넘어진다.
 
-### 8.2 Default Standing
+### 8.4 앉기
 
-The player carries the cake box with both hands in front of the body. Standing allows movement and turning but provides no balance protection.
+일반적으로 가장 안전한 상태다. 난이도와 혼잡도가 높을수록 빈 좌석이 줄어든다. 플레이어와 NPC가 동시에 빈 좌석으로 이동하면 자리 경쟁과 충돌이 발생할 수 있다.
 
-### 8.3 Leaning
+### 8.5 손잡이나 봉 잡기
 
-Leaning against a wall or a non-opening door provides a relatively safe position. Leaning against the door that opens at the next station causes the player to fall backward when the door opens.
+지지물을 잡는 동안 움직일 수 없지만 일반적인 균형잡기는 발생하지 않는다. 직접 충돌과 압박 피해는 받을 수 있다.
 
-### 8.4 Sitting
+### 8.6 머리 위 운반
 
-Sitting is the safest normal state. Seats are scarce at higher crowd levels. The player can observe passengers preparing to leave and wait near a likely empty seat. Other passengers may also compete for the seat after it becomes empty.
+극심한 혼잡에서 케이크가 눌리는 것을 피하기 위한 행동이다.
 
-### 8.5 Holding a Handle or Pole
+- 이동할 수 있지만 속도가 느려진다.
+- 스테미너가 지속적으로 감소한다.
+- 스테미너가 0이 되면 자동으로 기본 자세로 내린다.
+- 잠시 후 스테미너가 회복된다.
+- 균형잡기가 더 어려워지고 실패 충격도 커질 수 있다.
 
-Holding support prevents normal balance events but locks player movement. Collision and compression damage remain possible.
+### 8.7 상태 전환
 
-### 8.6 Overhead Carry
+앉기, 일어나기, 기대기, 떨어지기, 지지물 잡기와 놓기, 머리 위로 올리기와 내리기에는 시전시간이 있다. 전환 중에는 이동할 수 없다. 정확한 시간은 플레이테스트로 조정한다.
 
-The player can lift the cake overhead to avoid compression in severe crowds.
+## 9. 열차 움직임과 균형잡기
 
-- Movement remains possible at reduced speed.
-- Stamina decreases continuously.
-- At zero stamina, the player lowers the cake automatically.
-- Stamina recovery begins after a short delay.
-- Balance events are harder and failure can create a larger impact.
+열차가 출발, 정차하거나 운행 중 속도를 바꿀 때 균형잡기가 발생한다.
 
-### 8.7 State Transitions
+- 기본 서 있기와 머리 위 운반 상태에서 발생한다.
+- 앉기, 기대기, 손잡이나 봉 잡기 상태에서는 일반 균형잡기가 발생하지 않는다.
+- 화면에 `W!`, `A!`, `S!`, `D!` 형태로 입력을 표시한다.
+- 하나라도 놓치거나 잘못 누르면 즉시 넘어진다.
+- 넘어질 때 바닥이나 주변 사물과 실제로 충돌하면 물건이 손상된다.
+- 입력 개수, 제한시간과 충격은 플레이테스트로 조정한다.
 
-Sitting, standing, leaning, leaving a wall, grabbing support, releasing support, lifting the cake, and lowering the cake have short action times. Movement is locked during the transition. Exact times are adjusted through playtesting.
+역 도착 전 한 번의 음성 방송으로 열리는 문 방향을 알리고, 해당 문에 노란색 또는 초록색 안내등을 켠다.
 
-## 9. Train Motion and Balance
+## 10. 케이크 상자와 파손
 
-Balance events occur when the train starts, stops, or changes speed during travel.
+초기 운반 물건은 케이크와 케이크 상자 한 종류다. 다른 물건은 핵심 플레이 검증 후 확장한다.
 
-- Standing and overhead carry trigger the balance input sequence.
-- Sitting, leaning, and holding support prevent the normal balance sequence.
-- The UI displays direct inputs such as `W!`, `A!`, `S!`, or `D!`.
-- Missing or pressing a wrong input causes an immediate fall.
-- Damage is produced by the resulting physical collision with the floor or nearby objects.
-- Balance input length, timing, and force are adjusted during playtesting.
+### 10.1 충돌 피해
 
-Before arrival, one voice announcement indicates the opening side. The opening door also uses a visible yellow or green indicator light. A player leaning on the opening door falls when it opens.
+- 물건 Hitbox가 NPC, 플레이어 신체, 벽, 문, 좌석, 바닥이나 사물과 닿을 때 계산한다.
+- 상대 충돌 속도가 빠를수록 피해가 커진다.
+- 운반 상태 이름만으로 임의 피해 배율을 적용하지 않는다.
+- 넘어짐 피해도 바닥이나 주변 사물과의 실제 충돌로 계산한다.
 
-## 10. Cake Box, Cake, and Damage
+### 10.2 압박 피해
 
-The initial delivery item is a cake inside a cake box. Other fragile items are expansion content after the core system is validated.
+물건이 두 Collider 사이에 끼면 압박을 계산한다. 물건이 들어갈 수 있는 간격이 원래 크기보다 좁아질수록 피해가 증가한다. 구현이 불안정하거나 이해하기 어려우면 단순한 Overlap과 간격 계산으로 바꿀 수 있다.
 
-### 10.1 Collision Damage
+### 10.3 이중 내구도
 
-- Damage is evaluated when the package collider contacts an NPC, player body, wall, door, seat, floor, or other object.
-- Impact damage increases with relative collision speed.
-- Carry states do not apply arbitrary damage by name.
-- A fall causes damage through actual contact with the floor or environment.
+- 케이크 상자와 케이크는 별도 내구도를 가진다.
+- 약한 충격은 상자만 손상시킨다.
+- 상자 보호 한계를 넘은 충격은 초과 피해를 케이크에 전달할 수 있다.
+- 상자 내구도가 0이면 이후 피해가 케이크에 직접 적용된다.
+- 상자만 손상된 경우 케이크 가격 배상금은 발생하지 않는다.
+- 상자가 손상되면 무손상 배송과 무료 복귀 조건을 잃는다.
+- 케이크가 손상되면 물건 가치에 따른 배상금이 발생한다.
 
-### 10.2 Compression Damage
+HUD에는 작은 상자 보호도와 큰 케이크 내구도 퍼센트를 표시한다.
 
-Compression occurs when the package is trapped between two colliders. Damage increases as the available gap becomes smaller than the package size. Compression sources include passengers, the player's body, walls, doors, seats, and station or train objects.
+### 10.4 외형 변화
 
-The calculation can be simplified if detailed physical simulation is unstable or difficult to understand during play.
+내구도는 `100%`부터 `0%`로 관리한다. 외형은 멀쩡함, 조금 파손됨, 많이 파손됨, 파괴됨의 제한된 단계로 표현한다.
 
-### 10.3 Two Durability Layers
+## 11. 배송 결과와 정산
 
-The cake box and cake use separate durability values.
-
-- Light impact damages only the box.
-- Impact above the box protection limit can transfer excess damage to the cake.
-- After box durability reaches zero, later damage is applied directly to the cake.
-- Box damage does not create cake-value compensation by itself.
-- Box damage removes perfect-delivery status and free return transport.
-- Cake damage creates compensation based on item value and damage amount.
-
-The HUD shows a small box protection gauge and a larger cake durability percentage.
-
-### 10.4 Visual Damage
-
-Durability is stored and displayed from `100%` to `0%`. Visuals use a limited number of states: intact, slightly damaged, heavily damaged, and destroyed. Visual thresholds are adjusted after implementation.
-
-## 11. Delivery Result
-
-- `100%`: perfect delivery when both box and cake remain at full durability.
-- `20%` to `100%`: delivery completes; cake damage produces compensation.
-- Below `20%`: delivery fails; no delivery fee is paid.
-- `0%`: immediate delivery failure and full item loss handling.
-
-Net income is calculated as:
+- 상자와 케이크가 모두 `100%`: 무손상 배송
+- 케이크 내구도 `20~100%`: 배송 완료, 손상 정도에 따른 배상
+- 케이크 내구도 `20%` 미만: 배송 실패, 배달 수수료 미지급
+- 케이크 내구도 `0%`: 즉시 배송 실패
 
 ```text
-delivery fee - item compensation - player-paid transport cost
+최종 순수익 = 배달 수수료 - 물건 가치 배상액 - 실제 부담 교통비
 ```
 
-The player pays the outbound fare. A perfect delivery receives free return transport. Any box or cake damage makes the player pay the return fare. Failure also requires compensation and return fare from the failure location.
+출발 교통비는 플레이어가 낸다. 무손상 배송은 복귀 교통비를 지원받고, 상자나 케이크가 조금이라도 손상되면 복귀 교통비를 직접 낸다. 실패하면 배상금과 실패 지점에서 가천대역까지의 복귀 교통비를 부담한다.
 
-The settlement screen shows delivery fee, compensation, return transport, insurance or university service coverage, and final profit or loss.
+정산 화면에는 배달 수수료, 배상액, 복귀 교통비, 보험 또는 학교 서비스 적용 내역과 최종 손익을 표시한다.
 
-## 12. Passenger AI
+## 12. 승객 AI
 
-Passengers follow personal subway goals instead of attacking the player.
-
-Each passenger is assembled from:
+NPC는 플레이어를 공격하지 않고 자신의 지하철 이용 목적을 수행한다.
 
 ```text
-passenger archetype + personality + current goal + sudden behavior + carried object
+승객 유형 + 성격 + 현재 목표 + 돌발행동 + 소지품
 ```
 
-### 12.1 Common Flow
+### 12.1 공통 행동 흐름
 
-1. Spawn with a destination station and personality values.
-2. Board the train.
-3. Select a seat, leaning position, standing position, or door area.
-4. Maintain or reconsider the position during travel.
-5. React to available seats, crowd changes, and the approaching destination.
-6. Prepare early or move at the last moment.
-7. Leave the train at the assigned destination.
+1. 하차역과 성격을 배정받는다.
+2. 열차에 탑승한다.
+3. 좌석, 기대는 위치, 서 있는 위치 또는 문 근처를 선택한다.
+4. 이동 중 현재 위치를 유지하거나 다시 판단한다.
+5. 빈 좌석, 혼잡도와 목적지역 접근에 반응한다.
+6. 미리 하차를 준비하거나 마지막 순간에 움직인다.
+7. 지정된 역에서 하차한다.
 
-### 12.2 Passenger Archetypes
+### 12.2 승객 유형
 
-- Office commuter
-- Student
-- General passenger with varied age and behavior
-- Elderly passenger
-- Middle-aged passenger
-- Child with guardian
-- Traveler or tourist with luggage
-- Late-night passenger or intoxicated passenger
-- Event or group passenger
-- Passenger using mobility support
-- Outer-area passenger with large equipment
+- 출퇴근 직장인
+- 등하교 학생
+- 다양한 일반 승객
+- 노인 승객
+- 중년 승객
+- 어린이와 보호자
+- 여행객과 관광객
+- 심야 승객과 취객
+- 행사 관람객과 단체 승객
+- 이동 보조 승객
+- 큰 장비를 가진 외곽 지역 승객
 
-The first implementation target is office commuters, students, general passengers, elderly passengers, and middle-aged passengers. Additional archetypes are added through shared behavior modules.
+직장인, 학생, 일반 승객, 노인과 중년 승객을 먼저 구현하고 나머지는 공통 행동 모듈을 조합해 추가한다.
 
-### 12.3 Behavior Modules
+### 12.3 행동 모듈
 
-- Walk while looking at a phone
-- Hurry or move through narrow gaps
-- Board before alighting passengers finish
-- Compete for an empty seat
-- Stop or turn suddenly
-- Remain near a door
-- Stand up late for an approaching stop
-- Follow or wait for a group member
-- Use strong or weak avoidance of nearby passengers
-- Rush after missing an intended movement
+- 스마트폰을 보며 이동
+- 급하게 이동하거나 좁은 틈으로 진입
+- 하차가 끝나기 전에 탑승
+- 빈 좌석 경쟁
+- 갑작스러운 정지와 방향 전환
+- 출입문 근처 점유
+- 목적지역 직전 늦게 이동
+- 일행 따라가기
+- 주변 승객을 강하게 또는 약하게 회피
 
-### 12.4 Seats
+좌석은 기존 승객이 일어난 뒤에만 빈 상태가 된다. 플레이어는 하차 준비 행동을 미리 볼 수 있지만 다른 NPC는 좌석이 빈 뒤 잠시 지나야 인식한다.
 
-A seat becomes available only after its passenger stands up. The player can notice preparation cues. Other NPCs recognize the empty seat after a short delay, then decide whether to move based on personality and context.
+## 13. 혼잡도
 
-## 13. Crowding
+혼잡도는 실제 객차 승객 수와 사용 가능한 공간으로 계산한다.
 
-Crowding is based on actual passenger occupancy and available space.
+- 탑승 시 이미 승객이 존재한다.
+- 역마다 승차와 하차 인원이 다르다.
+- 시간대, 노선, 역 특성과 이벤트가 승객 수와 구성을 바꾼다.
+- 정차할 때마다 혼잡도가 변한다.
 
-- Passengers already exist when the player boards.
-- Each station has different boarding and alighting amounts.
-- Time, line, station role, and events change passenger composition and counts.
-- Crowding changes after every stop.
+1. 여유: 좌석, 벽과 지지물을 대부분 이용할 수 있다.
+2. 보통: 안전한 위치가 있을 수 있지만 보장되지 않는다.
+3. 혼잡: 좌석이 거의 없고 대부분의 지지물이 사용 중이다.
+4. 극심한 혼잡: 안전한 위치가 드물지만 게임 진행에 필요한 이동 공간은 남긴다.
 
-Crowd levels:
+## 14. 경제와 성장
 
-1. Relaxed: seats, walls, and support are usually available.
-2. Normal: safe locations may be available but are not guaranteed.
-3. Crowded: seats are usually full and most support positions are occupied.
-4. Severe: safe positions are rare and movement is restricted, but enough space remains for gameplay.
+화폐는 현금 하나만 사용한다. 교통비, 배상금, 강화, 보험, 학교 서비스와 추후 아이템 구매에 사용한다.
 
-## 14. Economy and Growth
+배달 수수료는 거리, 시간, 난이도와 물건 가치에 따라 달라진다. 정확한 금액과 별점은 밸런싱 데이터로 관리한다.
 
-Cash is the only currency. It is used for fares, compensation, upgrades, insurance, university services, and later item purchases.
+### 14.1 능력치 강화
 
-Delivery fees depend on distance, time, difficulty, and item value. Exact values and star ratings are balancing data, not fixed design rules.
+환승역에서만 구매할 수 있고 즉시 적용된다.
 
-### 14.1 Character Upgrades
+- 스테미너: 머리 위 운반 가능 시간 증가
+- 균형감각: 균형잡기 난이도 감소
+- 민첩성: 이동속도 증가
 
-Character upgrades are purchased only at transfer stations and apply immediately.
+### 14.2 학교 서비스
 
-- Stamina: increases overhead carry duration.
-- Balance: reduces balance minigame difficulty.
-- Agility: increases movement speed.
+보험과 학교 서비스는 가천대역에서 구매한다.
 
-Upgrade prices, levels, and values are adjusted during development.
+- 배송 보험: 적용 가능한 배상금 1회를 대신 지급하고 소모
+- 교통비 지원: 적용 가능한 교통비 1회를 대신 지급하고 소모
 
-### 14.2 University Services
+### 14.3 파산
 
-Insurance and other university services are purchased only at Gachon University Station.
+필수 배상금이나 교통비를 낼 수 없고 적용 가능한 보호 수단도 없으면 즉시 게임 오버된다. 현금, 배송 진행, 개방 상태, 능력치, 보험과 학교 서비스를 포함한 해당 게임의 모든 진행이 초기화된다.
 
-- Damage insurance: pays one eligible compensation charge and is consumed.
-- Transport support: pays one eligible transport charge and is consumed.
+## 15. 목표 콘텐츠
 
-The player chooses between keeping operating cash, buying protection, and investing in upgrades.
+- 약 6~8개의 배송
+- 무환승과 다중 환승 노선
+- 여러 노선과 역의 특징
+- 재사용 가능한 역과 열차 모듈
+- 혼잡도 4단계
+- 시간대별 승객 구성
+- 공통 AI 시스템으로 확장 가능한 승객 유형과 행동
+- 배송 선택, 운반, 정산, 성장과 파산까지 완성된 진행 구조
 
-### 14.3 Bankruptcy
+일정에 따라 콘텐츠 수는 줄이거나 늘릴 수 있지만 핵심 배송 구조는 유지한다.
 
-If the player cannot pay required compensation or transport costs and has no applicable protection, the run ends immediately.
+## 16. 첫 Prototype
 
-Bankruptcy resets cash, delivery progress, unlocked run content, upgrades, insurance, and university services. A new game starts from the beginning.
+첫 Prototype은 임시 열차 객차 한 칸, 임시 플레이어, 케이크 상자, 상자와 케이크 내구도, 단순 이동 NPC, 충돌과 압박 피해, 균형잡기 한 종류만 구현한다.
 
-## 15. Content Target
+목표는 혼잡한 객차에서 케이크를 보호하는 행동이 이해하기 쉽고 재미있는지 확인하는 것이다.
 
-The graduation project targets a playable game rather than a feature-only demonstration.
+## 17. 추후 결정
 
-- Approximately six to eight delivery jobs
-- Direct and multi-transfer routes
-- Multiple lines and station identities
-- Reusable station and train modules
-- Four crowd levels
-- Time-based passenger composition
-- As many passenger archetypes and behavior combinations as the common AI system allows
-- Complete selection, delivery, settlement, growth, and bankruptcy loop
-
-Content counts can be reduced or expanded without changing the core delivery loop.
-
-## 16. First Prototype
-
-The first prototype uses one greybox train car, a placeholder player, a cake box, separate box and cake durability, simple moving passengers, collision or compression damage, and one temporary balance event.
-
-It does not include the rail map, complete stations, economy, upgrades, insurance, or final art. Its purpose is to test whether moving through a crowd while protecting the cake is readable and enjoyable.
-
-## 17. Deferred Decisions
-
-- Final delivery destination and item
-- Delivery unlock order and conditions
-- Final list of represented stations and omitted stations
-- Target duration for one complete run
-- Exact explanation and presentation of transfer-station upgrades
-- Optional chained deliveries that begin from a previous destination
-- Exact timings, prices, formulas, difficulty values, visual thresholds, and content counts
+- 최종 배송지와 물건
+- 배송 개방 순서와 조건
+- 구현할 역과 생략할 역
+- 한 게임의 목표 플레이 시간
+- 환승역 능력치 강화의 설정상 표현
+- 목적지역에서 다음 배송을 이어가는 특수 배송
+- 정확한 시간, 가격, 공식, 난이도, 외형 단계와 콘텐츠 수

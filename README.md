@@ -1,49 +1,49 @@
-# Gachon GradProject SubwayCarry
+# 가천대학교 졸업프로젝트 SubwayCarry
 
-SubwayCarry is a Unity game project for the 2026-2 Gachon University graduation project.
+`SubwayCarry`는 2026학년도 2학기 가천대학교 졸업프로젝트로 개발하는 Unity 게임이다.
 
-The player carries a fragile cake through crowded subway trains. Each delivery has a route, transport cost, item value, crowd conditions, and financial risk. The run ends when the player completes the final scholarship delivery or goes bankrupt.
+플레이어는 혼잡한 수도권 지하철에서 케이크를 목적지까지 운반한다. 배송마다 노선, 교통비, 물건 가치, 혼잡도와 손해 위험이 달라진다. 최종 배송을 완료하면 전액 장학금을 받고, 파산하면 해당 게임의 진행이 모두 초기화된다.
 
-## Project
+## 프로젝트 정보
 
-| Item | Value |
+| 항목 | 값 |
 | --- | --- |
-| Unity project | `SubwayCarry` |
-| Template | Universal 2D |
+| Unity 프로젝트 | `SubwayCarry` |
+| 템플릿 | `Universal 2D` |
 | Unity Editor | `6000.3.7f1` |
-| Language | C# |
-| Code editor | VSCode |
-| Version control | Git / GitHub |
-| Large file storage | Git LFS |
+| 개발 언어 | C# |
+| 코드 편집기 | VSCode |
+| 버전 관리 | Git / GitHub |
+| 대용량 파일 | Git LFS |
 
-## Documents
+## 문서
 
-All detailed project documents are stored in [`docs/`](docs/README.md).
+상세 문서는 모두 [`docs/`](docs/README.md)에 있다.
 
-- [Game Design](docs/GAME_DESIGN.md)
-- [Development Breakdown](docs/DEVELOPMENT_BREAKDOWN.md)
-- [Project Structure](docs/PROJECT_STRUCTURE.md)
-- [Contribution Rules](docs/CONTRIBUTING.md)
+- [게임 기획서](docs/GAME_DESIGN.md)
+- [개발 작업 분해](docs/DEVELOPMENT_BREAKDOWN.md)
+- [프로젝트 구조](docs/PROJECT_STRUCTURE.md)
+- [협업 규칙](docs/CONTRIBUTING.md)
 
-## Repository Layout
+## 저장소 구조
 
 ```text
 graduation-game-project/
-|-- SubwayCarry/        Unity project
-|-- docs/               Project documents
-|-- .vscode/            VSCode recommendations
-|-- .gitignore          Unity ignore rules
-|-- .gitattributes      Text and Git LFS rules
-`-- README.md           Repository entry point
+|-- SubwayCarry/        Unity 프로젝트
+|-- docs/               프로젝트 문서
+|-- .vscode/            VSCode 권장 설정
+|-- .gitignore          Unity 제외 규칙
+|-- .gitattributes      텍스트 및 Git LFS 규칙
+`-- README.md           저장소 안내
 ```
 
-## Branches
+## 브랜치
 
-| Branch | Purpose |
+| 브랜치 | 용도 |
 | --- | --- |
-| `main` | Stable baseline |
-| `develop` | Integration branch |
-| `feature/*` | Individual feature work |
-| `fix/*` | Individual bug fixes |
+| `main` | 안정 버전 |
+| `develop` | 개발 통합 브랜치 |
+| `feature/*` | 기능 개발 |
+| `fix/*` | 오류 수정 |
 
-Development work starts from `develop` and returns through a pull request.
+개발은 `develop`에서 분기하고 Pull Request를 통해 다시 `develop`에 합친다.

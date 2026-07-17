@@ -1,10 +1,10 @@
-# Project Documents
+# 프로젝트 문서
 
-| Document | Purpose |
+| 문서 | 내용 |
 | --- | --- |
-| [GAME_DESIGN.md](GAME_DESIGN.md) | Current game rules, content direction, progression, and scope |
-| [DEVELOPMENT_BREAKDOWN.md](DEVELOPMENT_BREAKDOWN.md) | Major development areas, detailed tasks, scenes, assets, milestones, and role options |
-| [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | Unity folder ownership and code organization |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Branch, commit, pull request, scene, prefab, and asset rules |
+| [GAME_DESIGN.md](GAME_DESIGN.md) | 현재 확정된 게임 규칙, 진행 구조, 콘텐츠 방향과 범위 |
+| [DEVELOPMENT_BREAKDOWN.md](DEVELOPMENT_BREAKDOWN.md) | 개발 분야, 세부 작업, 권장 클래스와 함수, 씬, 마일스톤과 역할 선택지 |
+| [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | Unity 폴더와 코드 배치 기준 |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | 브랜치, 커밋, Pull Request, 씬, Prefab과 Asset 협업 규칙 |
 
-`GAME_DESIGN.md` and `DEVELOPMENT_BREAKDOWN.md` are the main documents for selecting team responsibilities.
+팀 역할을 정할 때는 `GAME_DESIGN.md`와 `DEVELOPMENT_BREAKDOWN.md`를 우선 확인한다.
