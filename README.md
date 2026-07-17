@@ -18,8 +18,6 @@
 
 ## 문서
 
-상세 문서는 모두 [`docs/`](docs/README.md)에 있다.
-
 - [게임 기획서](docs/GAME_DESIGN.md)
 - [개발 작업 분해](docs/DEVELOPMENT_BREAKDOWN.md)
 - [프로젝트 구조](docs/PROJECT_STRUCTURE.md)
