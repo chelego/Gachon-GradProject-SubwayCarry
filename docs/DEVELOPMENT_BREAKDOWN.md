@@ -528,7 +528,7 @@ NPC가 플레이어를 추적하지 않고 탑승, 위치 선택, 좌석 이용,
 
 보조 작업: Save Data, 경제 Test, Delivery Data, Integration
 
-E 분야는 공동 작업이다. 한 명은 전체 Integration, 브랜치 검토, 마일스톤 Build와 작업 의존성을 관리한다.
+E 분야는 공동 작업이다. 한 명은 전체 Integration, 변경 내용 검토, 마일스톤 Build와 작업 의존성을 관리한다.
 
 ## 13. 첫 작업 분배
 
