@@ -1,8 +1,8 @@
 # Gachon GradProject SubwayCarry
 
-Unity project for the 2026-2 Gachon University graduation project.
+SubwayCarry is a Unity game project for the 2026-2 Gachon University graduation project.
 
-This repository is intended for confirmed team members. It contains source code, Unity project files, setup notes, collaboration documents, and project design documents.
+The player carries a fragile cake through crowded subway trains. Each delivery has a route, transport cost, item value, crowd conditions, and financial risk. The run ends when the player completes the final scholarship delivery or goes bankrupt.
 
 ## Project
 
@@ -12,23 +12,29 @@ This repository is intended for confirmed team members. It contains source code,
 | Template | Universal 2D |
 | Unity Editor | `6000.3.7f1` |
 | Language | C# |
-| Editor | VSCode |
-| VCS | Git / GitHub |
+| Code editor | VSCode |
+| Version control | Git / GitHub |
 | Large file storage | Git LFS |
-| Local root | `E:\UnityProjects\graduation-game-project` |
-| Unity project path | `E:\UnityProjects\graduation-game-project\SubwayCarry` |
-| GitHub | `https://github.com/chelego/Gachon-GradProject-SubwayCarry` |
+
+## Documents
+
+All detailed project documents are stored in [`docs/`](docs/README.md).
+
+- [Game Design](docs/GAME_DESIGN.md)
+- [Development Breakdown](docs/DEVELOPMENT_BREAKDOWN.md)
+- [Project Structure](docs/PROJECT_STRUCTURE.md)
+- [Contribution Rules](docs/CONTRIBUTING.md)
 
 ## Repository Layout
 
 ```text
 graduation-game-project/
-├─ SubwayCarry/        Unity project
-├─ docs/               Setup and team documents
-├─ .vscode/            Workspace-level VSCode recommendations
-├─ .gitignore          Unity ignore rules
-├─ .gitattributes      Unity text rules and Git LFS rules
-└─ README.md
+|-- SubwayCarry/        Unity project
+|-- docs/               Project documents
+|-- .vscode/            VSCode recommendations
+|-- .gitignore          Unity ignore rules
+|-- .gitattributes      Text and Git LFS rules
+`-- README.md           Repository entry point
 ```
 
 ## Branches
@@ -37,18 +43,7 @@ graduation-game-project/
 | --- | --- |
 | `main` | Stable baseline |
 | `develop` | Integration branch |
-| `feature/*` | Feature work |
+| `feature/*` | Individual feature work |
+| `fix/*` | Individual bug fixes |
 
-Default development work should start from `develop`.
-
-## Setup
-
-See [docs/SETUP.md](docs/SETUP.md).
-
-## Development
-
-- Project-owned Unity assets: `SubwayCarry/Assets/_Project`
-- Initial scene: `Assets/_Project/Scenes/Bootstrap.unity`
-- C# root namespace: `SubwayCarry`
-- Contribution rules: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Project folders: [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)
+Development work starts from `develop` and returns through a pull request.
