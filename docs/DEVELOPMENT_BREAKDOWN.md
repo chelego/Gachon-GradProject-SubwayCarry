@@ -2,550 +2,226 @@
 
 ## 1. 문서 목적
 
-게임 구현을 큰 개발 분야와 세부 작업으로 나눈다. 팀원은 `GAME_DESIGN.md`와 이 문서를 읽고 주 담당 1개와 보조 담당 1개를 선택한다.
+이 문서는 팀원이 개발 역할을 고르고, 자신이 맡을 작업 범위를 빠르게 확인하기 위한 문서다.
 
-아래 클래스와 함수 이름은 초기 권장안이다. 구현 과정에서 이름이나 내부 구조는 변경할 수 있지만 담당 영역 사이의 입력과 출력은 합의해서 유지한다.
+게임 규칙과 세부 기획은 `GAME_DESIGN.md`를 기준으로 한다. 역할은 주 담당 영역을 뜻하며, 실제 개발 중 서로 연결되는 기능은 함께 조정한다.
 
-## 2. 개발 분야
+## 2. 역할 한눈에 보기
 
-| 분야 | 담당 내용 |
-| --- | --- |
-| A. 핵심 Gameplay와 Physics | Player 조작, 운반 상태, 충돌, 압박, 내구도, 열차 움직임, 균형잡기 |
-| B. 승객 AI와 혼잡도 Simulation | 승객 판단, 이동, 좌석, 승하차, 행동 모듈과 인원 관리 |
-| C. 지하철 World와 Stage | 역, 열차, 문, 환승, Route Data, Scene 전환과 Map 콘텐츠 |
-| D. 배송 System과 UI | 배송 선택, 경제, 정산, 강화, 보험, Save, HUD와 Menu |
-| E. Integration과 Quality | 공용 Data, Test, 성능, Build, 콘텐츠 조립과 통합 |
+| 역할 | 개발 부문 | 주로 만드는 것 |
+| --- | --- | --- |
+| 역할 1 | 플레이어와 운반 Gameplay | 이동, 운반 자세, 상호작용, 충돌, 파손, 균형잡기 |
+| 역할 2 | 승객 AI와 혼잡도 | 승객의 탑승·이동·좌석·하차, 돌발행동, 혼잡도 변화 |
+| 역할 3 | 지하철 맵과 Stage | 역, 열차, 문, 환승, 노선 진행, Scene과 맵 구성 |
+| 역할 4 | 배송 System과 UI | 배송 선택, HUD, 정산, 경제, 강화, 보험, 저장과 게임 진행 |
 
-각 분야는 주 담당자를 정하되 기능 경계를 넘어가는 작업은 Interface를 합의한 뒤 함께 처리한다.
+각자 주 역할 1개를 고르고, 관심 있는 다른 역할의 작업을 보조한다. 공동 Scene이나 기능을 수정할 때는 관련 역할끼리 먼저 구현 방식을 맞춘다.
 
-## 3. 필요한 Scene
+## 3. 역할 1: 플레이어와 운반 Gameplay
+
+### 이 역할을 고르면
+
+플레이어가 객차와 역 안에서 움직이고 케이크를 보호하는 핵심 조작을 만든다. 게임을 직접 플레이했을 때 손맛과 긴장감을 가장 먼저 확인하는 역할이다.
+
+### 주요 개발 작업
+
+- `WASD` 이동과 마우스 방향 전환
+- 좌석, 벽, 손잡이, 봉, 문과의 상호작용
+- 서 있기, 앉기, 기대기, 지지물 잡기, 머리 위 운반
+- 행동 전환 시간과 전환 중 이동 제한
+- 머리 위 운반 스테미너와 이동속도 변화
+- 열차 출발, 정차, 속도 변화에 따른 균형잡기
+- 넘어짐과 주변 물체 충돌
+- 케이크 상자와 케이크의 별도 내구도
+- 충돌 속도에 따른 피해와 물체 사이 압박 피해
+- 내구도에 따른 외형 단계 연결
+- 스테미너, 균형감각, 민첩성 강화 효과 적용
+
+### 다른 역할과 연결되는 부분
+
+- 승객 Collider와 이동은 역할 2와 맞춘다.
+- 열차 움직임, 문, 좌석과 손잡이는 역할 3에서 배치한다.
+- 내구도, 스테미너와 입력 알림은 역할 4의 HUD에 전달한다.
+
+### 1차 완료 기준
+
+임시 객차 한 칸에서 이동과 방향 전환이 가능하고, 케이크를 든 상태로 NPC와 충돌하거나 넘어졌을 때 상자와 케이크가 각각 손상되어야 한다. 머리 위 운반과 균형잡기 한 종류도 플레이할 수 있어야 한다.
+
+## 4. 역할 2: 승객 AI와 혼잡도
+
+### 이 역할을 고르면
+
+지하철 승객들이 각자의 목적에 따라 움직이게 만든다. 승객은 플레이어를 공격하거나 추적하는 적이 아니라, 탑승부터 하차까지 일상적인 행동을 하는 장애물이다.
+
+### 주요 개발 작업
+
+- 승객별 하차역, 성격, 이동속도와 행동 성향 설정
+- 승강장 대기, 탑승, 객차 내 위치 선택, 하차 흐름
+- 좌석, 기대는 위치, 손잡이 주변과 서 있는 위치 선택
+- 빈 좌석 인식과 좌석으로 이동하는 행동
+- 하차역 전에 미리 움직이거나 늦게 움직이는 차이
+- 다른 승객과 플레이어를 피하며 목적지로 이동
+- 스마트폰 보행, 급한 이동, 갑작스러운 정지, 늦은 하차 등 돌발행동
+- 직장인, 학생, 일반 승객, 노인과 중년 승객의 행동 차이
+- 역마다 타고 내리는 승객 수 관리
+- 여유, 보통, 혼잡, 극심한 혼잡 단계 구성
+- 많은 승객이 있을 때 이동 막힘과 성능 문제 조정
+
+처음부터 모든 승객 유형을 따로 만들지 않는다. 공통 승객 흐름을 먼저 만든 뒤 성격과 행동 조합으로 차이를 늘린다.
+
+### 다른 역할과 연결되는 부분
+
+- 플레이어와 물건에 닿는 충돌 범위는 역할 1과 맞춘다.
+- 탑승 위치, 하차 위치, 좌석과 이동 경로는 역할 3에서 제공받는다.
+- 현재 혼잡도와 승객 관련 알림은 역할 4의 UI에 전달한다.
+
+### 1차 완료 기준
+
+승객이 플레이어를 추적하지 않고 열차에 탑승한 뒤 자리를 선택하고, 목적지역에서 하차해야 한다. 정차할 때 실제 승객 수가 바뀌고 혼잡도 단계도 함께 갱신되어야 한다.
+
+## 5. 역할 3: 지하철 맵과 Stage
+
+### 이 역할을 고르면
+
+게임이 진행되는 역, 열차와 환승 구간을 만든다. 실제 수도권 지하철의 특징을 살리되 모든 역을 그대로 재현하지 않고, 필요한 구간을 재사용 가능한 구조로 구성한다.
+
+### 주요 개발 작업
+
+- 가천대역 Hub, 출발역, 환승역과 목적지역 구성
+- 승강장, 환승 통로, 출구와 객차 맵 제작
+- 열차 좌석, 문, 손잡이, 봉과 기대는 위치 배치
+- 객차 사이 이동과 열차 탑승·하차 처리
+- 열차 도착, 문 열림, 문 닫힘과 출발 흐름
+- 다음 역과 문 열림 방향 적용
+- 정해진 노선과 정차역 순서 진행
+- 일반역, 환승역과 목적지역 구분
+- 환승 시 하차, 통로 이동, 다음 열차 대기와 재탑승
+- 잘못된 역의 하차 방지와 필수 역 미하차 실패 처리
+- 배송에 맞는 역, 노선, 열차와 혼잡도 설정 연결
+- 공용 역과 열차 구조를 사용한 콘텐츠 확장
+
+### 필요한 Scene
 
 | Scene | 용도 |
 | --- | --- |
-| `Bootstrap.unity` | 초기화, 공용 Service 등록, Save Load, 첫 Scene 이동 |
+| `Bootstrap.unity` | 게임 시작에 필요한 공용 데이터와 첫 화면 준비 |
 | `MainMenu.unity` | 새 게임, 이어하기, 설정, 나가기 |
-| `GachonHub.unity` | 배송 선택, 학교 서비스, 출발 준비 |
-| `StationGameplay.unity` | 출발역, 환승역과 목적지역을 Data와 Prefab으로 교체해 사용하는 공용 역 Scene |
-| `TrainGameplay.unity` | 노선, 객차, 혼잡도와 Route Data를 불러오는 공용 열차 Scene |
-| `Prototype_Core.unity` | 이동, 파손, NPC와 균형잡기를 독립적으로 시험하는 Scene |
-
-역마다 별도 Scene을 만들기보다 `StationGameplay.unity`에서 Station Prefab과 Data를 바꿔 사용한다. 정산은 `GachonHub.unity` 위에 UI로 표시하거나 필요하면 별도 Scene으로 분리한다.
-
-```text
-Bootstrap
-  -> MainMenu
-  -> GachonHub
-  -> StationGameplay (출발)
-  -> TrainGameplay
-  -> StationGameplay (환승)
-  -> TrainGameplay
-  -> StationGameplay (목적지)
-  -> Settlement UI
-  -> GachonHub
-```
-
-## 4. 공용 Data 정의
-
-권장 `ScriptableObject` 또는 직렬화 Data:
-
-| 이름 | 내용 |
-| --- | --- |
-| `DeliveryDefinition` | 물건, 가치, 수수료, 시간대, 난이도, Route와 개방 조건 |
-| `RouteDefinition` | 승차 구간과 환승 구간의 순서 |
-| `StationDefinition` | 역 정보, 연결 노선, 승하차 수치와 Prefab |
-| `LineDefinition` | 노선 색상, 열차 종류와 승객 가중치 |
-| `PassengerArchetype` | 속도, 좌석 선호도, 행동 가중치와 소지품 |
-| `CrowdProfile` | 역과 시간대에 따른 목표 인원과 승객 구성 |
-| `UpgradeDefinition` | 강화 종류, 단계, 가격과 적용 값 |
-| `UniversityServiceDefinition` | 학교 서비스 가격, 보장 범위와 소모 규칙 |
-| `BalanceEventDefinition` | 입력 순서, 제한시간, 충격과 열차 움직임 종류 |
-
-## 5. 공용 Prefab
-
-- `Player.prefab`
-- `CakePackage.prefab`
-- `CakeBox.prefab`
-- `Cake.prefab`
-- `PassengerBase.prefab`
-- `TrainCar.prefab`
-- `TrainDoor.prefab`
-- `Seat.prefab`
-- `HandleInteraction.prefab`
-- `LeanPoint.prefab`
-- `StationPlatformModule.prefab`
-- `TransferCorridorModule.prefab`
-- `StationExitTrigger.prefab`
-- `PassengerSpawnPoint.prefab`
+| `GachonHub.unity` | 배송 선택과 학교 서비스 이용 |
+| `StationGameplay.unity` | 출발역, 환승역과 목적지역 플레이 |
+| `TrainGameplay.unity` | 객차 이동, 승객, 혼잡도와 운반 Gameplay |
+| `Prototype_Core.unity` | 플레이어, 파손, NPC와 균형잡기 시험 |
 
-## 6. A 분야: 핵심 Gameplay와 Physics
+역마다 Scene을 새로 만들기보다 `StationGameplay.unity`에 역 구조와 데이터를 바꿔 넣는 방식을 우선한다.
 
-### A1. Player 이동
+### 다른 역할과 연결되는 부분
 
-권장 클래스: `PlayerMovementController`
+- 좌석, 손잡이, 문과 열차 움직임은 역할 1이 사용할 수 있게 배치한다.
+- 승객 탑승·하차 지점과 이동 가능한 위치는 역할 2에 제공한다.
+- 현재 역, 노선 진행과 Scene 전환 결과는 역할 4에 전달한다.
 
-- `Move(Vector2 input)`: WASD 이동 적용
-- `UpdateFacing(Vector2 worldPosition)`: 마우스 위치 방향으로 회전
-- `SetMovementEnabled(bool enabled)`: 상태 전환 중 이동 잠금
-- `ApplyAgilityModifier(float value)`: 민첩성 강화 적용
-- 역과 열차 Collider 충돌 처리
+### 1차 완료 기준
 
-### A2. 운반 상태
+가천대역에서 출발해 열차에 탑승하고, 무환승 목적지역에서 내려 출구까지 이동하는 배송 1개가 완주되어야 한다. 이후 같은 구조로 환승 배송 1개를 추가할 수 있어야 한다.
 
-권장 클래스: `CarryStateMachine`, `ICarryState`
+## 6. 역할 4: 배송 System과 UI
 
-권장 상태:
+### 이 역할을 고르면
 
-- `StandingCarryState`
-- `LeaningCarryState`
-- `SeatedCarryState`
-- `SupportHoldCarryState`
-- `OverheadCarryState`
+배송을 고르는 순간부터 정산하고 다음 배송을 준비하는 전체 게임 진행을 만든다. 플레이 중 필요한 정보를 화면에 보여주고, 돈과 성장 상태를 저장한다.
 
-주요 함수:
+### 주요 개발 작업
 
-- `TryChangeState(CarryStateId nextState)`
-- `CanEnterState(CarryStateId nextState)`
-- `BeginTransition(float duration)`
-- `CompleteTransition()`
-- `CancelTransition()`
+- 메인 메뉴와 새 게임·이어하기
+- 수도권 노선도와 배송 목록 화면
+- 잠긴 배송과 수행 가능한 배송 표시
+- 목적지, 물건 가치, 예상 교통비, 배달 수수료와 난이도 표시
+- 배송 수락, 출발 교통비 결제와 Route 시작
+- 케이크·상자 내구도, 스테미너와 상호작용 HUD
+- 균형잡기 `W!`, `A!`, `S!`, `D!` 입력 표시
+- 다음 역, 열리는 문과 배송 진행 정보 표시
+- 배송 성공·실패 판정과 정산 화면
+- 배달 수수료, 배상금, 교통비와 최종 손익 계산
+- 환승역 능력치 강화 구매
+- 가천대역 보험과 학교 서비스 구매
+- 현금, 배송 개방 상태, 강화와 서비스 저장
+- 파산 시 게임 오버와 전체 진행 초기화
 
-### A3. 스테미너
+### 다른 역할과 연결되는 부분
 
-권장 클래스: `StaminaController`
+- 역할 1에서 내구도, 스테미너와 균형잡기 상태를 받는다.
+- 역할 2에서 혼잡도와 필요한 승객 상태를 받는다.
+- 역할 3에서 현재 역, Route 진행과 배송 도착 여부를 받는다.
 
-- `Consume(float amount)`
-- `BeginRecoveryDelay()`
-- `Recover(float deltaTime)`
-- `ApplyStaminaUpgrade(int level)`
-- 0 도달 시 `OverheadCarryState` 강제 해제
+### 1차 완료 기준
 
-### A4. 케이크 충돌과 내구도
+새 게임을 시작해 배송 1개를 선택하고, 플레이 결과에 따라 정산한 뒤 가천대역으로 복귀할 수 있어야 한다. 저장과 이어하기, 강화 또는 학교 서비스 구매, 파산 초기화까지 한 흐름으로 작동해야 한다.
 
-권장 클래스:
+## 7. 공용으로 맞출 내용
 
-- `PackageDamageController`
-- `CakeBoxDurability`
-- `CakeDurability`
-- `PackageCollisionSensor`
+세부 코드 구조와 이름은 담당자가 구현하면서 정한다. 다만 역할 사이에서 함께 사용하는 데이터는 초기에 형태를 맞춰야 한다.
 
-주요 함수:
+- `DeliveryData`: 배송지, 물건 가치, 수수료, 시간대, 난이도와 Route
+- `RouteData`: 정차역과 환승 구간 순서
+- `StationData`: 역, 연결 노선, 문 방향과 승하차 정보
+- `PassengerData`: 승객 유형, 성격과 행동 성향
+- `CrowdData`: 역과 시간대별 승객 수와 구성
+- `UpgradeData`: 강화 종류, 단계, 가격과 효과
+- `ServiceData`: 보험과 교통비 지원의 가격과 적용 범위
+- 배송 진행 중 공유할 현금, 내구도, 현재 역과 진행 상태
 
-- `ApplyImpactDamage(ImpactData impact)`
-- `CalculateImpactDamage(float relativeSpeed)`
-- `TransferOverflowDamage(float damage)`
-- `SetVisualDamageStage(DamageStage stage)`
-- `HandleDestroyed()`
+이 이름들은 설명을 위한 기준이며 실제 구현 이름은 팀에서 정해도 된다.
 
-### A5. 압박 피해
+주요 Prefab은 플레이어, 케이크 상자와 케이크, 공통 승객, 객차, 문, 좌석, 손잡이, 역 모듈과 승하차 지점 정도로 시작한다. 필요한 Prefab은 구현하면서 추가한다.
 
-권장 클래스: `CompressionDetector`
-
-- `EvaluateCompression()`
-- `CalculateAvailableGap(Collider2D left, Collider2D right)`
-- `ApplyCompressionDamage(float depth, float deltaTime)`
-- `DrawCompressionDebugGizmos()`
-- 떨림으로 피해가 반복 적용되지 않도록 Cooldown 또는 누적 방식을 사용
-
-### A6. 열차 움직임과 균형잡기
-
-권장 클래스:
-
-- `TrainMotionController`
-- `BalanceMinigameController`
-- `BalanceInputSequence`
-
-주요 함수:
-
-- `TriggerMotionEvent(TrainMotionType type)`
-- `CanStartBalanceEvent(CarryStateId state)`
-- `StartSequence(BalanceEventDefinition definition)`
-- `SubmitInput(KeyCode input)`
-- `CompleteBalance()`
-- `FailBalance()`
-- `ApplyBalanceUpgrade(int level)`
-
-### A 분야 완료 기준
-
-임시 객차에서 이동, 방향 전환, 모든 운반 상태, 열차 움직임 한 종류, 넘어짐, 상자와 케이크 피해를 확인할 수 있어야 한다.
-
-## 7. B 분야: 승객 AI와 혼잡도 Simulation
-
-### B1. 승객 Runtime Data
-
-권장 클래스: `PassengerAgent`, `PassengerRuntimeData`
-
-Data 항목:
-
-- `PassengerArchetype archetype`
-- `PassengerPersonality personality`
-- `StationId destinationStation`
-- `PassengerGoal currentGoal`
-- `Transform currentTarget`
-- 행동 Cooldown과 소지품
-
-### B2. 공통 상태 흐름
-
-권장 클래스: `PassengerStateMachine`, `IPassengerState`
-
-권장 상태:
-
-- `WaitingToBoardState`
-- `BoardingState`
-- `SelectingPositionState`
-- `MovingToPositionState`
-- `RidingState`
-- `PreparingToExitState`
-- `AlightingState`
-
-주요 함수:
-
-- `ChangeState(PassengerStateId nextState)`
-- `EvaluateNextGoal()`
-- `SelectRidePosition()`
-- `PrepareToExit(StationId station)`
-- `HandleTrainStopped(StationId station)`
-
-AI 내부 구조는 Prototype 이후 팀에서 정한다. 외부에는 이동 목표와 행동 결과만 노출한다.
-
-### B3. 이동과 회피
-
-권장 클래스: `PassengerNavigationController`, `LocalAvoidanceController`
-
-- `SetDestination(Vector2 target)`
-- `UpdatePath()`
-- `CalculateAvoidanceVelocity()`
-- `ResolveDeadlock()`
-- 열차 내부와 역 승하차 경로
-- 개인 공간과 회피 강도
-
-### B4. 좌석
-
-권장 클래스: `SeatManager`, `SeatSlot`
-
-- `TryReserveSeat(PassengerAgent passenger)`
-- `ConfirmOccupancy(PassengerAgent passenger)`
-- `ReleaseSeat()`
-- `FindAvailableSeat()`
-- 빈 좌석 인식 지연과 자리 경쟁
-
-### B5. 행동 모듈
-
-권장 Interface: `IPassengerBehavior`
-
-- `PhoneWalkingBehavior`
-- `HurryBehavior`
-- `EarlyBoardingBehavior`
-- `SuddenStopBehavior`
-- `DoorBlockingBehavior`
-- `LateExitBehavior`
-- `GroupFollowBehavior`
-- `SeatCompetitionBehavior`
-
-공통 함수:
-
-- `CanExecute(PassengerContext context)`
-- `GetWeight(PassengerContext context)`
-- `Execute(PassengerContext context)`
-
-### B6. 혼잡도 관리
-
-권장 클래스: `CrowdManager`
-
-- `InitializeCrowd(CrowdProfile profile)`
-- `SpawnPassengers(int count)`
-- `ProcessStop(StationDefinition station)`
-- `RemoveAlightingPassengers()`
-- `SpawnBoardingPassengers()`
-- `RecalculateCrowdLevel()`
-- Object Pool과 최대 NPC 수 관리
-
-### B 분야 완료 기준
-
-NPC가 플레이어를 추적하지 않고 탑승, 위치 선택, 좌석 이용, 하차 흐름을 수행해야 한다. 정차할 때마다 실제 인원이 바뀌고 혼잡도 단계가 갱신돼야 한다.
-
-## 8. C 분야: 지하철 World와 Stage
-
-### C1. 역 Runtime
-
-권장 클래스: `StationRuntimeController`
-
-- `LoadStation(StationDefinition definition)`
-- `ConfigurePlatform()`
-- `ConfigureTransferRoute()`
-- `ConfigureDestinationExit()`
-- `SetOpeningSide(DoorSide side)`
-- NPC Spawn과 Exit Point 배치
-
-### C2. 열차 Runtime
-
-권장 클래스: `TrainRuntimeController`, `TrainDoorController`
-
-- `LoadTrain(LineDefinition line)`
-- `ArriveAtStation(StationId station)`
-- `OpenDoors(DoorSide side)`
-- `CloseDoors()`
-- `Depart()`
-- 좌석, 손잡이, 봉, 기대는 위치와 객차 연결
-
-### C3. Route 진행
-
-권장 클래스: `RouteController`, `RouteSegmentController`
-
-- `StartRoute(RouteDefinition route)`
-- `AdvanceStop()`
-- `GetNextRequiredStation()`
-- `ValidateExit(StationId station)`
-- `BeginTransfer()`
-- `CompleteTransfer()`
-- `HandleMissedStop()`
-
-### C4. 노선도
-
-권장 클래스: `RailMapController`
-
-- `LoadRailMap()`
-- `HighlightRoute(RouteDefinition route)`
-- `SetRouteLocked(bool locked)`
-- `ShowDeliveryDestination(DeliveryDefinition delivery)`
-- 끊어진 Route Data 검증
-
-### C5. 콘텐츠 제작 순서
-
-1. 가천대역 Hub와 승강장
-2. 무환승 목적지역 1개
-3. 환승역 1개와 목적지역 1개
-4. 공용 중간 승강장 모듈
-5. 노선별 열차 변형
-6. 일정에 따라 배송 6~8개까지 확장
-
-### C 분야 완료 기준
-
-실제 역마다 전체 Scene을 새로 만들지 않고도 무환승 배송과 환승 배송을 각각 한 번 완주할 수 있어야 한다.
-
-## 9. D 분야: 배송 System과 UI
-
-### D1. 게임 진행과 Save
-
-권장 클래스:
-
-- `RunState`
-- `SaveService`
-- `RunResetService`
-
-주요 함수:
-
-- `SaveRun(RunState state)`
-- `LoadRun()`
-- `HasSaveData()`
-- `ResetRun()`
-- 현금, 배송 진행, 강화, 보험, 현재 배송과 Route 구간 저장
-
-### D2. 배송 선택
-
-권장 클래스: `DeliverySelectionController`, `DeliveryService`
-
-- `LoadAvailableDeliveries()`
-- `SelectDelivery(DeliveryId deliveryId)`
-- `PreviewRoute(RouteDefinition route)`
-- `CanStartDelivery(DeliveryDefinition delivery)`
-- `AcceptDelivery(DeliveryDefinition delivery)`
-- 출발 교통비 결제
-
-### D3. 배송 진행
-
-권장 클래스: `DeliveryRuntimeController`
-
-- `StartDelivery()`
-- `HandlePackageDamage(DamageEvent damage)`
-- `HandleMissedStation(StationId station)`
-- `CompleteDelivery()`
-- `FailDelivery(DeliveryFailureReason reason)`
-
-### D4. 경제와 정산
-
-권장 클래스: `SettlementCalculator`, `EconomyService`
-
-- `Calculate(SettlementInput input)`
-- `CalculateCompensation(float itemValue, float durability)`
-- `CalculateTransportCost(RouteDefinition route)`
-- `ApplyInsurance(SettlementResult result)`
-- `ApplySettlement(SettlementResult result)`
-- `CheckBankruptcy()`
-
-### D5. 강화와 학교 서비스
-
-권장 클래스: `UpgradeService`, `UniversityService`
-
-- `PurchaseUpgrade(UpgradeDefinition upgrade)`
-- `ApplyUpgrade(UpgradeType type, int level)`
-- `PurchaseService(UniversityServiceDefinition service)`
-- `ConsumeInsurance()`
-- `ConsumeTransportSupport()`
-
-### D6. HUD와 Menu
-
-권장 클래스:
-
-- `GameplayHudController`
-- `PackageStatusView`
-- `StaminaView`
-- `BalancePromptView`
-- `InteractionPromptView`
-- `StationDisplayView`
-- `SettlementView`
-- `MainMenuController`
-
-주요 함수:
-
-- `SetBoxDurability(float value)`
-- `SetCakeDurability(float value)`
-- `SetStamina(float value)`
-- `ShowBalanceInput(KeyCode input)`
-- `ShowInteraction(string localizationKey)`
-- `ShowSettlement(SettlementResult result)`
-
-### D 분야 완료 기준
-
-새 게임 시작, 배송 선택, 배송 완료, 정산, 강화 또는 서비스 구매, 저장과 이어하기, 파산 초기화가 한 흐름으로 작동해야 한다.
-
-## 10. E 분야: Integration과 Quality
-
-### E1. 공용 기반
-
-권장 클래스:
-
-- `GameBootstrap`
-- `SceneFlowService`
-- `GameEventBus`
-- `GameConfig`
-
-주요 함수:
-
-- `GameBootstrap.Initialize()`
-- `SceneFlowService.LoadSceneAsync(SceneId sceneId)`
-- `SceneFlowService.LoadStationAsync(StationId stationId)`
-- `SceneFlowService.LoadTrainAsync(LineId lineId)`
-- `GameEventBus.Publish<TEvent>(TEvent gameEvent)`
-
-### E2. Data 검증과 개발 도구
-
-- `DeliveryDataValidator.Validate()`
-- `RouteDataValidator.ValidateContinuity()`
-- `PassengerDataValidator.Validate()`
-- `EconomyDataValidator.Validate()`
-- Prototype 상태를 즉시 만드는 Debug Menu
-
-### E3. Test
-
-- `PackageDamageTests`: 상자 보호와 케이크 피해 전달
-- `DeliveryResultTests`: 20% 실패 기준
-- `SettlementCalculatorTests`: 정산 공식
-- `BankruptcyTests`: 전체 진행 초기화
-- `RouteControllerTests`: 역과 환승 진행
-- `PassengerStateMachineTests`: 승객 상태 전환
-- 전체 배송 1회를 확인하는 Play Mode Smoke Test
-
-### E4. 성능
-
-- NPC Update Budget
-- Passenger와 소지품 Object Pool
-- Physics Layer Matrix
-- Collider 수와 Fixed Update 비용 확인
-- 극심한 혼잡 상태 Profiler 측정
-
-### E5. Build
-
-- Windows Build Profile
-- Build Scene 목록
-- Save Data Version
-- 깨끗한 Clone 상태에서 Build 확인
-- 입력, 해상도와 Audio 최종 점검
-
-## 11. 마일스톤
+## 8. 개발 순서
 
 ### 1단계: 핵심 Prototype
 
-- `Prototype_Core.unity`
-- Player 이동과 방향 전환
-- 기본 운반과 머리 위 운반
-- 상자와 케이크 피해
-- 단순 이동 NPC
-- 균형잡기 1종
+- 역할 1: 이동, 기본 운반, 파손과 균형잡기
+- 역할 2: 단순 승객 이동과 충돌
+- 역할 3: 임시 객차 한 칸과 상호작용 위치
+- 역할 4: 내구도, 스테미너와 균형잡기 임시 HUD
 
-목표: 혼잡한 객차에서 케이크를 보호하는 행동이 이해하기 쉽고 재미있는지 확인한다.
+목표는 혼잡한 객차에서 케이크를 보호하는 행동이 재미있는지 확인하는 것이다.
 
-### 2단계: 무환승 배송 완성
+### 2단계: 무환승 배송 1개
 
-- Main Menu와 Gachon Hub
-- 배송 1개 선택
-- 출발역, 열차, 목적지역
-- 정산과 자동 복귀
+- 배송 선택
+- 가천대역 출발
+- 열차 탑승과 객차 플레이
+- 목적지역 하차
+- 정산과 복귀
 
-### 3단계: 승객과 혼잡도
+### 3단계: 승객과 혼잡도 확장
 
 - 공통 승객 흐름
 - 좌석과 위치 선택
-- 승하차
-- 우선 승객 유형 5개
-- 혼잡도 4단계
+- 승하차와 혼잡도 4단계
+- 우선 승객 유형과 돌발행동 추가
 
-### 4단계: 환승과 게임 진행
+### 4단계: 환승과 성장
 
 - 환승역과 두 번째 열차 구간
 - 능력치 강화
-- 학교 서비스
+- 보험과 학교 서비스
 - 저장, 이어하기와 파산
 
 ### 5단계: 콘텐츠 확장과 마무리
 
-- 일정에 따라 배송 6~8개
-- 역, 노선, 승객과 행동 추가
-- 그래픽, Audio, UI, 밸런싱, 최적화와 Build QA
+- 배송, 역, 노선과 승객 종류 추가
+- UI와 연출 보완
+- 밸런스, 성능, 오류와 Build 점검
 
-## 12. 권장 역할
+목표 배송 수는 6~8개지만 일정과 구현 결과에 따라 조정한다. 기능을 연결한 배송 1개를 먼저 완성한 뒤 콘텐츠를 늘린다.
 
-### 역할 1: Gameplay와 Physics
+## 9. 역할 선택 방법
 
-주 담당: A 분야
+팀원은 아래 형식으로 원하는 작업을 고른다.
 
-보조 작업: 열차 상호작용, Gameplay HUD, 파손 Test, Integration
+```text
+주 역할: 역할 2 - 승객 AI와 혼잡도
+관심 있는 세부 작업: 승객 이동, 좌석 선택, 돌발행동
+보조 가능한 역할: 역할 3 - 지하철 맵과 Stage
+```
 
-### 역할 2: 승객 AI와 Simulation
-
-주 담당: B 분야
-
-보조 작업: Crowd Data, 역 Spawn Point, AI Debug Tool, 성능
-
-### 역할 3: World와 Transit
-
-주 담당: C 분야
-
-보조 작업: 열차 상호작용, Route Data, Scene 전환, 콘텐츠 조립
-
-### 역할 4: 배송 System과 UI
-
-주 담당: D 분야
-
-보조 작업: Save Data, 경제 Test, Delivery Data, Integration
-
-E 분야는 공동 작업이다. 한 명은 전체 Integration, 변경 내용 검토, 마일스톤 Build와 작업 의존성을 관리한다.
-
-## 13. 첫 작업 분배
-
-1. `PlayerMovementController`와 `CarryStateMachine`
-2. `PackageDamageController`와 내구도 Debug Tool
-3. `PassengerAgent` 임시 이동과 `CrowdManager` Spawn Test
-4. `Prototype_Core.unity`, 임시 열차 구조, HUD와 Integration
-
-네 작업을 `Prototype_Core.unity`에 합치고 플레이테스트한 뒤 Physics와 NPC 가정을 수정한다.
-
-## 14. 주요 위험
-
-| 위험 | 대응 |
-| --- | --- |
-| 압박 Physics가 불안정함 | 단순 Overlap과 간격 계산, Debug Gizmo 사용 |
-| NPC가 서로 막히거나 성능이 낮음 | 회피 한계, Object Pool, Update Budget과 인원 제한 |
-| Scene과 Prefab 충돌 | 임시 소유자 지정, 큰 공용 Scene보다 Prefab 사용 |
-| 역과 승객 콘텐츠가 지나치게 많음 | 공용 시스템을 먼저 완성하고 콘텐츠 수만 줄임 |
-| 충돌과 균형잡기가 불공정함 | 사전 행동 표시, Test Profile과 플레이테스트로 조정 |
-| 경제 때문에 진행 불가능 상태가 발생함 | 필수 교통비, 배상 한도, 보험과 수수료를 Test Data로 검증 |
+역할을 선택한 뒤에는 해당 역할의 1차 완료 기준을 먼저 목표로 잡고, 세부 기능과 콘텐츠 수는 구현하면서 나눈다.
