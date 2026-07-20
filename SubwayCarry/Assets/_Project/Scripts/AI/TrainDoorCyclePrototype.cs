@@ -12,6 +12,8 @@ namespace SubwayCarry.AI
         [SerializeField, Min(0.5f)] private float travelDuration = 30f;
 
         public int StopNumber { get; private set; }
+        public bool IsTravelling { get; private set; }
+        public float TravelTimeRemaining { get; private set; }
 
         public void Configure(TrainDoorController[] controlledDoors)
         {
@@ -21,6 +23,8 @@ namespace SubwayCarry.AI
         public void StopCycle()
         {
             StopAllCoroutines();
+            IsTravelling = false;
+            TravelTimeRemaining = 0f;
         }
 
         private IEnumerator Start()
@@ -37,8 +41,22 @@ namespace SubwayCarry.AI
 
                 SetDoorsOpen(false);
                 yield return new WaitUntil(AreDoorsClosed);
-                yield return new WaitForSeconds(travelDuration);
+                yield return WaitForTravel();
             }
+        }
+
+        private IEnumerator WaitForTravel()
+        {
+            IsTravelling = true;
+            TravelTimeRemaining = travelDuration;
+
+            while (TravelTimeRemaining > 0f)
+            {
+                TravelTimeRemaining = Mathf.Max(0f, TravelTimeRemaining - Time.deltaTime);
+                yield return null;
+            }
+
+            IsTravelling = false;
         }
 
         private void SetDoorsOpen(bool open)

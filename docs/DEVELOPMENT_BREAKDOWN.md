@@ -98,7 +98,7 @@
 | `StationGameplay.unity` | 출발역, 환승역과 목적지역 플레이 |
 | `TrainGameplay.unity` | 객차 이동, 승객, 혼잡도와 운반 Gameplay |
 | `Prototype_Core.unity` | 플레이어, 파손, NPC와 균형잡기 시험 |
-| `Prototype_AI.unity` | 2칸 객차에서 플레이어 직접 탑승·하차, 문 개폐, 충돌, 승객 좌석 점유와 하차 시험 |
+| `Prototype_AI.unity` | 일반 승객 1명의 탑승, 좌석·손잡이·기대기·입석 선택과 30초 후 하차 시험 |
 
 - `StationGameplay.unity`에 역 구조와 데이터를 교체해 출발역, 환승역과 목적지역 구성
 

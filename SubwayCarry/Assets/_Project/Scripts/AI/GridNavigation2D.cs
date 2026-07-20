@@ -6,9 +6,9 @@ namespace SubwayCarry.AI
     [DisallowMultipleComponent]
     public sealed class GridNavigation2D : MonoBehaviour
     {
-        [SerializeField, Min(1)] private int width = 18;
-        [SerializeField, Min(1)] private int height = 8;
-        [SerializeField, Min(0.1f)] private float cellSize = 1f;
+        [SerializeField, Min(1)] private int width = 72;
+        [SerializeField, Min(1)] private int height = 32;
+        [SerializeField, Min(0.1f)] private float cellSize = 0.25f;
         [SerializeField, Range(0.1f, 1f)] private float obstacleCheckScale = 0.75f;
         [SerializeField] private bool drawGrid = true;
 

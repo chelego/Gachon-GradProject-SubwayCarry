@@ -27,6 +27,7 @@ namespace SubwayCarry.AI
             public Transform RightArrival;
             public readonly List<TrainDoorController> Doors = new List<TrainDoorController>();
             public readonly List<PassengerSeatPrototype> Seats = new List<PassengerSeatPrototype>();
+            public readonly List<PassengerActivityPoint> ActivityPoints = new List<PassengerActivityPoint>();
         }
 
         [MenuItem("SubwayCarry/Prototype/Build Passenger AI Scene")]
@@ -76,25 +77,7 @@ namespace SubwayCarry.AI
             TrainDoorCyclePrototype doorCycle = doorCycleObject.AddComponent<TrainDoorCyclePrototype>();
             doorCycle.Configure(allDoors.ToArray());
 
-            PopulatePermanentPassengers(car1, 1);
-            PopulatePermanentPassengers(car2, 0);
-            CreateBoardingPassenger(
-                "Boarding Passenger A",
-                car1,
-                0,
-                -7.4f,
-                new Vector2(-0.8f, 1.2f),
-                new Color(0.95f, 0.55f, 0.18f),
-                "BoardingPassengerA");
-            CreateBoardingPassenger(
-                "Boarding Passenger B",
-                car1,
-                2,
-                -3.8f,
-                new Vector2(0.8f, 1.2f),
-                new Color(0.75f, 0.55f, 0.95f),
-                "BoardingPassengerB");
-            CreatePlayer(car1, 4, -0.2f, doorCycle);
+            CreateGeneralPassenger("Passenger 1", car1, 0, -7.4f, doorCycle);
 
             cameraController.FocusOn(car1.Center);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -105,7 +88,7 @@ namespace SubwayCarry.AI
                 SceneView.lastActiveSceneView.FrameSelected();
             }
 
-            Debug.Log("[AI Prototype] Passenger seat scene created: " + ScenePath);
+            Debug.Log("[AI Prototype] General passenger scene created: " + ScenePath);
         }
 
         [MenuItem("SubwayCarry/Prototype/Validate A* Pathfinding")]
@@ -174,7 +157,12 @@ namespace SubwayCarry.AI
             CreateEndWall(carRoot.transform, center, -1f, openLeft, wallColor);
             CreateEndWall(carRoot.transform, center, 1f, openRight, wallColor);
             CreateWallMarkings(carRoot.transform, center, openLeft, openRight);
-            CreateDoorsAndSeats(carRoot.transform, center, data.Doors, data.Seats);
+            CreateDoorsAndSeats(
+                carRoot.transform,
+                center,
+                data.Doors,
+                data.Seats,
+                data.ActivityPoints);
 
             GameObject navigationObject = new GameObject("Grid Navigation");
             navigationObject.transform.SetParent(carRoot.transform);
@@ -323,7 +311,8 @@ namespace SubwayCarry.AI
             Transform parent,
             Vector2 center,
             List<TrainDoorController> doors,
-            List<PassengerSeatPrototype> seats)
+            List<PassengerSeatPrototype> seats,
+            List<PassengerActivityPoint> activityPoints)
         {
             float[] doorX = { -7.4f, -3.8f, -0.2f, 3.4f };
             float[] seatX = { -5.6f, -2f, 1.6f };
@@ -335,18 +324,143 @@ namespace SubwayCarry.AI
             {
                 doors.Add(CreateDoor(parent, center + new Vector2(localX, 3.92f), doorColor));
                 doors.Add(CreateDoor(parent, center + new Vector2(localX, -3.92f), doorColor));
+                CreateDoorActivityPoints(parent, center, localX, 1f, activityPoints);
+                CreateDoorActivityPoints(parent, center, localX, -1f, activityPoints);
             }
 
             foreach (float localX in seatX)
             {
-                seats.Add(CreatePassengerSeat(parent, center + new Vector2(localX, 3.3f), seatColor));
-                seats.Add(CreatePassengerSeat(parent, center + new Vector2(localX, -3.3f), seatColor));
+                PassengerSeatPrototype topSeat = CreatePassengerSeat(
+                    parent,
+                    center + new Vector2(localX, 3.3f),
+                    seatColor,
+                    "Seat");
+                PassengerSeatPrototype bottomSeat = CreatePassengerSeat(
+                    parent,
+                    center + new Vector2(localX, -3.3f),
+                    seatColor,
+                    "Seat");
+                seats.Add(topSeat);
+                seats.Add(bottomSeat);
+                CreateHandholdPoints(parent, center, topSeat, activityPoints);
+                CreateHandholdPoints(parent, center, bottomSeat, activityPoints);
             }
 
-            CreateBlock("PrioritySeat", center + new Vector2(5.6f, 3.3f), new Vector2(1.45f, 0.85f),
-                priorityColor, parent, true, "PrioritySeat");
-            CreateBlock("PrioritySeat", center + new Vector2(5.6f, -3.3f), new Vector2(1.45f, 0.85f),
-                priorityColor, parent, true, "PrioritySeat");
+            PassengerSeatPrototype topPrioritySeat = CreatePassengerSeat(
+                parent,
+                center + new Vector2(5.6f, 3.3f),
+                priorityColor,
+                "PrioritySeat");
+            PassengerSeatPrototype bottomPrioritySeat = CreatePassengerSeat(
+                parent,
+                center + new Vector2(5.6f, -3.3f),
+                priorityColor,
+                "PrioritySeat");
+            seats.Add(topPrioritySeat);
+            seats.Add(bottomPrioritySeat);
+            CreateHandholdPoints(parent, center, topPrioritySeat, activityPoints);
+            CreateHandholdPoints(parent, center, bottomPrioritySeat, activityPoints);
+            CreateAisleActivityPoints(parent, center, activityPoints);
+        }
+
+        private static void CreateDoorActivityPoints(
+            Transform parent,
+            Vector2 center,
+            float doorLocalX,
+            float side,
+            List<PassengerActivityPoint> activityPoints)
+        {
+            float y = center.y + side * 3.55f;
+            float[] leanOffsets = { -0.75f, 0.75f };
+
+            foreach (float offset in leanOffsets)
+            {
+                activityPoints.Add(CreateActivityPoint(
+                    "Lean Point",
+                    new Vector2(center.x + doorLocalX + offset, y),
+                    new Vector2(0.26f, 0.08f),
+                    new Color(0.42f, 0.88f, 0.72f),
+                    parent,
+                    PassengerActivityType.Lean,
+                    "LeanPoint"));
+            }
+
+            activityPoints.Add(CreateActivityPoint(
+                "Door Standing Point",
+                new Vector2(center.x + doorLocalX, center.y + side * 2.75f),
+                new Vector2(0.13f, 0.13f),
+                new Color(0.82f, 0.4f, 0.32f),
+                parent,
+                PassengerActivityType.DoorStanding,
+                "DoorStandingPoint"));
+        }
+
+        private static void CreateHandholdPoints(
+            Transform parent,
+            Vector2 center,
+            PassengerSeatPrototype seat,
+            List<PassengerActivityPoint> activityPoints)
+        {
+            float side = seat.transform.position.y >= center.y ? 1f : -1f;
+            float y = center.y + side * 2.35f;
+
+            for (int slot = 0; slot < seat.Capacity; slot++)
+            {
+                Transform sittingPoint = seat.GetSittingPoint(slot);
+                activityPoints.Add(CreateActivityPoint(
+                    "Handhold Point",
+                    new Vector2(sittingPoint.position.x, y),
+                    new Vector2(0.12f, 0.28f),
+                    new Color(0.95f, 0.77f, 0.22f),
+                    parent,
+                    PassengerActivityType.Handhold,
+                    "Handhold"));
+            }
+        }
+
+        private static void CreateAisleActivityPoints(
+            Transform parent,
+            Vector2 center,
+            List<PassengerActivityPoint> activityPoints)
+        {
+            float[] xPositions = { -6.4f, -4.2f, -2f, 0.2f, 2.4f, 4.6f, 6.8f };
+            float[] yPositions = { -0.8f, 0f, 0.8f };
+
+            for (int i = 0; i < xPositions.Length; i++)
+            {
+                float y = yPositions[i % yPositions.Length];
+                activityPoints.Add(CreateActivityPoint(
+                    "Aisle Standing Point",
+                    center + new Vector2(xPositions[i], y),
+                    new Vector2(0.1f, 0.1f),
+                    new Color(0.52f, 0.58f, 0.66f),
+                    parent,
+                    PassengerActivityType.AisleStanding,
+                    "AisleStandingPoint"));
+            }
+        }
+
+        private static PassengerActivityPoint CreateActivityPoint(
+            string name,
+            Vector2 position,
+            Vector2 markerSize,
+            Color color,
+            Transform parent,
+            PassengerActivityType activityType,
+            string materialKey)
+        {
+            GameObject marker = CreateBlock(
+                name,
+                position,
+                markerSize,
+                color,
+                parent,
+                false,
+                materialKey,
+                -0.12f);
+            PassengerActivityPoint point = marker.AddComponent<PassengerActivityPoint>();
+            point.Configure(activityType);
+            return point;
         }
 
         private static TrainDoorController CreateDoor(Transform parent, Vector2 position, Color color)
@@ -369,14 +483,12 @@ namespace SubwayCarry.AI
             return controller;
         }
 
-        private static void CreateBoardingPassenger(
+        private static void CreateGeneralPassenger(
             string name,
             TrainCarBuildData car,
             int doorIndex,
             float doorLocalX,
-            Vector2 standingLocalPosition,
-            Color color,
-            string materialKey)
+            TrainDoorCyclePrototype doorCycle)
         {
             if (doorIndex < 0 || doorIndex >= car.Doors.Count)
             {
@@ -392,54 +504,42 @@ namespace SubwayCarry.AI
                 "Inside Boarding Point",
                 center + new Vector2(doorLocalX, 2.15f),
                 car.Center);
-            Transform standingPoint = CreatePoint(
-                "Standing Point",
-                center + standingLocalPosition,
-                car.Center);
             GameObject passengerObject = CreateBlock(
                 name,
                 (Vector2)outsidePoint.position,
                 new Vector2(0.55f, 0.72f),
-                color,
+                new Color(0.95f, 0.55f, 0.18f),
                 car.Center,
                 false,
-                materialKey,
+                "GeneralPassenger",
                 -0.3f);
             AddDynamicCollision(passengerObject);
-            passengerObject.AddComponent<PassengerBoardingPrototype>().Configure(
-                car.Doors[doorIndex],
-                outsidePoint,
-                insidePoint,
-                standingPoint,
-                car.Seats.ToArray());
-        }
-
-        private static void CreatePlayer(
-            TrainCarBuildData car,
-            int doorIndex,
-            float doorLocalX,
-            TrainDoorCyclePrototype doorCycle)
-        {
-            if (doorIndex < 0 || doorIndex >= car.Doors.Count)
-            {
-                return;
-            }
-
-            Vector2 center = car.Center.position;
-            GameObject player = CreateBlock(
-                "Player",
-                center + new Vector2(doorLocalX, 4.85f),
-                new Vector2(0.58f, 0.76f),
-                new Color(0.25f, 0.9f, 0.42f),
-                car.Center,
-                false,
-                "Player",
-                -0.4f);
-            AddDynamicCollision(player);
-            player.AddComponent<PlayerBoardingCyclePrototype>().Configure(
+            TextMesh label = CreatePassengerLabel(passengerObject.transform);
+            passengerObject.AddComponent<GeneralPassengerPrototype>().Configure(
                 car.Doors[doorIndex],
                 doorCycle,
-                center);
+                car.Navigation,
+                outsidePoint,
+                insidePoint,
+                car.Seats.ToArray(),
+                car.ActivityPoints.ToArray(),
+                label);
+        }
+
+        private static TextMesh CreatePassengerLabel(Transform passenger)
+        {
+            GameObject labelObject = new GameObject("Passenger State Label");
+            labelObject.transform.SetParent(passenger);
+            labelObject.transform.localPosition = new Vector3(0f, -0.55f, -0.2f);
+
+            TextMesh label = labelObject.AddComponent<TextMesh>();
+            label.text = "Passenger 1\nWaiting";
+            label.anchor = TextAnchor.UpperCenter;
+            label.alignment = TextAlignment.Center;
+            label.characterSize = 0.07f;
+            label.fontSize = 42;
+            label.color = Color.white;
+            return label;
         }
 
         private static void AddDynamicCollision(GameObject actor)
@@ -467,10 +567,11 @@ namespace SubwayCarry.AI
         private static PassengerSeatPrototype CreatePassengerSeat(
             Transform parent,
             Vector2 position,
-            Color color)
+            Color color,
+            string materialKey)
         {
             GameObject seatObject = CreateBlock("Seat", position, new Vector2(1.45f, 0.85f),
-                color, parent, true, "Seat");
+                color, parent, true, materialKey);
             Transform leftPoint = CreatePoint(
                 "Sitting Point Left",
                 position + Vector2.left * 0.34f,
@@ -483,37 +584,6 @@ namespace SubwayCarry.AI
             PassengerSeatPrototype seat = seatObject.AddComponent<PassengerSeatPrototype>();
             seat.Configure(new[] { leftPoint, rightPoint });
             return seat;
-        }
-
-        private static void PopulatePermanentPassengers(TrainCarBuildData car, int freeSeatCount)
-        {
-            int remainingFreeSeats = freeSeatCount;
-            int passengerNumber = 1;
-
-            foreach (PassengerSeatPrototype seat in car.Seats)
-            {
-                for (int slot = 0; slot < seat.Capacity; slot++)
-                {
-                    if (remainingFreeSeats > 0)
-                    {
-                        remainingFreeSeats--;
-                        continue;
-                    }
-
-                    Transform sittingPoint = seat.GetSittingPoint(slot);
-                    GameObject passenger = CreateBlock(
-                        "Seated Passenger " + passengerNumber,
-                        (Vector2)sittingPoint.position,
-                        new Vector2(0.32f, 0.46f),
-                        new Color(0.72f, 0.78f, 0.84f),
-                        car.Center,
-                        false,
-                        "SeatedPassenger",
-                        -0.3f);
-                    seat.SetInitialOccupant(slot, passenger);
-                    passengerNumber++;
-                }
-            }
         }
 
         private static void CreateConnector(Transform parent, Vector2 center, float direction)
