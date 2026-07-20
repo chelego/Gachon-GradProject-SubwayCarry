@@ -29,6 +29,13 @@ namespace SubwayCarry.AI
             pathRenderer = lineRenderer;
         }
 
+        public void EnterTrainCar(GridNavigation2D trainCarNavigation)
+        {
+            navigation = trainCarNavigation;
+            targetIndex = (targetIndex + 1) % targets.Length;
+            RebuildPath();
+        }
+
         private void Start()
         {
             RebuildPath();
