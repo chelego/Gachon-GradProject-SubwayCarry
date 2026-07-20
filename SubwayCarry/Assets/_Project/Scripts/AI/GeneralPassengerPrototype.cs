@@ -105,6 +105,7 @@ namespace SubwayCarry.AI
         private Vector2 movementIntent;
         private bool hasPathTarget;
         private bool hasBoardingReservation;
+        private bool reachedBoardingDoorCenter;
         private bool hasExitReservation;
         private bool squeezeThroughPassengers;
         private int avoidanceAdjustmentCount;
@@ -158,7 +159,7 @@ namespace SubwayCarry.AI
                 return;
             }
 
-            SetPosition(boardingDoorway.OutsidePoint.position);
+            SetPosition(boardingDoorway.GetBoardingQueuePosition(gameObject));
             SetState(PassengerState.WaitingOutside, PassengerBehavior.None);
         }
 
@@ -174,15 +175,23 @@ namespace SubwayCarry.AI
             switch (state)
             {
                 case PassengerState.WaitingOutside:
-                    if (boardingDoorway.Door.IsOpen)
+                    Vector2 queuePosition = boardingDoorway.GetBoardingQueuePosition(gameObject);
+                    bool isAtQueueFront = MoveDirectly(queuePosition);
+                    if (isAtQueueFront && boardingDoorway.TryBeginBoarding(gameObject))
                     {
                         boardingStopNumber = doorCycle.StopNumber;
+                        reachedBoardingDoorCenter = false;
                         SetState(PassengerState.Boarding, PassengerBehavior.None);
                     }
                     break;
 
                 case PassengerState.Boarding:
-                    if (MoveDirectly(boardingDoorway.InsidePoint.position))
+                    if (!reachedBoardingDoorCenter)
+                    {
+                        reachedBoardingDoorCenter = MoveDirectly(
+                            boardingDoorway.OutsidePoint.position);
+                    }
+                    else if (MoveDirectly(boardingDoorway.InsidePoint.position))
                     {
                         ReleaseBoardingReservation();
                         SetState(PassengerState.ChoosingBehavior, PassengerBehavior.None);
@@ -293,6 +302,7 @@ namespace SubwayCarry.AI
         private PassengerDoorway ReserveRandomBoardingDoorway()
         {
             var candidates = new List<PassengerDoorway>();
+            int smallestQueue = int.MaxValue;
 
             if (doorways != null)
             {
@@ -300,7 +310,17 @@ namespace SubwayCarry.AI
                 {
                     if (doorway != null && doorway.IsUsable)
                     {
-                        candidates.Add(doorway);
+                        int queueCount = doorway.BoardingReservationCount;
+                        if (queueCount < smallestQueue)
+                        {
+                            candidates.Clear();
+                            smallestQueue = queueCount;
+                        }
+
+                        if (queueCount == smallestQueue)
+                        {
+                            candidates.Add(doorway);
+                        }
                     }
                 }
             }

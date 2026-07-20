@@ -13,9 +13,13 @@ namespace SubwayCarry.AI
         private const string ScenePath = "Assets/_Project/Scenes/Prototype_AI.unity";
         private const string MaterialFolder = "Assets/_Project/Art/PrototypeMaterials";
         private const float CarWidth = 18f;
-        private const float CarHeight = 8f;
+        private const float CarHeight = 6.5f;
         private const float WallThickness = 0.2f;
         private const float ConnectorOpening = 2.2f;
+        private const float SideWallY = 3.35f;
+        private const float SeatY = 2.55f;
+        private const float DoorInsideY = 1.55f;
+        private const float DoorOutsideY = 4.05f;
 
         private sealed class TrainCarBuildData
         {
@@ -153,6 +157,7 @@ namespace SubwayCarry.AI
                 false,
                 "Floor",
                 1f);
+            CreatePlatforms(carRoot.transform, center);
 
             Color wallColor = new Color(0.24f, 0.31f, 0.4f);
             CreateSideWallSegments(carRoot.transform, center, 1f, wallColor);
@@ -203,6 +208,21 @@ namespace SubwayCarry.AI
             return data;
         }
 
+        private static void CreatePlatforms(Transform parent, Vector2 center)
+        {
+            Color platformColor = new Color(0.27f, 0.29f, 0.31f);
+            Color safetyLineColor = new Color(0.95f, 0.73f, 0.12f);
+
+            CreateBlock("Platform Upper", center + new Vector2(0f, 4.95f),
+                new Vector2(18.4f, 3f), platformColor, parent, false, "Platform", 1.2f);
+            CreateBlock("Platform Lower", center + new Vector2(0f, -4.95f),
+                new Vector2(18.4f, 3f), platformColor, parent, false, "Platform", 1.2f);
+            CreateBlock("Platform Safety Line Upper", center + new Vector2(0f, 3.7f),
+                new Vector2(18.2f, 0.12f), safetyLineColor, parent, false, "PlatformSafetyLine", -0.05f);
+            CreateBlock("Platform Safety Line Lower", center + new Vector2(0f, -3.7f),
+                new Vector2(18.2f, 0.12f), safetyLineColor, parent, false, "PlatformSafetyLine", -0.05f);
+        }
+
         private static void CreateEndWall(
             Transform parent,
             Vector2 center,
@@ -214,7 +234,8 @@ namespace SubwayCarry.AI
             if (!open)
             {
                 CreateBlock("Closed End Wall", new Vector2(x, center.y),
-                    new Vector2(WallThickness, 8.2f), wallColor, parent, true, "Wall");
+                    new Vector2(WallThickness, CarHeight + WallThickness),
+                    wallColor, parent, true, "Wall");
                 return;
             }
 
@@ -262,7 +283,7 @@ namespace SubwayCarry.AI
 
             CreateBlock(
                 direction > 0f ? "Top Wall" : "Bottom Wall",
-                center + new Vector2((startX + endX) * 0.5f, direction * 4.1f),
+                center + new Vector2((startX + endX) * 0.5f, direction * SideWallY),
                 new Vector2(width, WallThickness),
                 wallColor,
                 parent,
@@ -313,12 +334,12 @@ namespace SubwayCarry.AI
             {
                 PassengerSeatPrototype topSeat = CreatePassengerSeat(
                     parent,
-                    center + new Vector2(localX, 3.3f),
+                    center + new Vector2(localX, SeatY),
                     seatColor,
                     "Seat");
                 PassengerSeatPrototype bottomSeat = CreatePassengerSeat(
                     parent,
-                    center + new Vector2(localX, -3.3f),
+                    center + new Vector2(localX, -SeatY),
                     seatColor,
                     "Seat");
                 seats.Add(topSeat);
@@ -329,12 +350,12 @@ namespace SubwayCarry.AI
 
             PassengerSeatPrototype topPrioritySeat = CreatePassengerSeat(
                 parent,
-                center + new Vector2(5.6f, 3.3f),
+                center + new Vector2(5.6f, SeatY),
                 priorityColor,
                 "PrioritySeat");
             PassengerSeatPrototype bottomPrioritySeat = CreatePassengerSeat(
                 parent,
-                center + new Vector2(5.6f, -3.3f),
+                center + new Vector2(5.6f, -SeatY),
                 priorityColor,
                 "PrioritySeat");
             seats.Add(topPrioritySeat);
@@ -351,7 +372,7 @@ namespace SubwayCarry.AI
             float side,
             List<PassengerActivityPoint> activityPoints)
         {
-            float y = center.y + side * 3.55f;
+            float y = center.y + side * 2.9f;
             float[] leanOffsets = { -0.75f, 0.75f };
 
             foreach (float offset in leanOffsets)
@@ -368,7 +389,7 @@ namespace SubwayCarry.AI
 
             activityPoints.Add(CreateActivityPoint(
                 "Door Standing Point",
-                new Vector2(center.x + doorLocalX, center.y + side * 2.75f),
+                new Vector2(center.x + doorLocalX, center.y + side * 2.05f),
                 new Vector2(0.13f, 0.13f),
                 new Color(0.82f, 0.4f, 0.32f),
                 parent,
@@ -383,7 +404,7 @@ namespace SubwayCarry.AI
             List<PassengerActivityPoint> activityPoints)
         {
             float side = seat.transform.position.y >= center.y ? 1f : -1f;
-            float y = center.y + side * 2.35f;
+            float y = center.y + side * 1.65f;
 
             for (int slot = 0; slot < seat.Capacity; slot++)
             {
@@ -472,15 +493,15 @@ namespace SubwayCarry.AI
             GridNavigation2D navigation,
             Color color)
         {
-            Vector2 doorPosition = center + new Vector2(localX, side * 4.1f);
+            Vector2 doorPosition = center + new Vector2(localX, side * SideWallY);
             TrainDoorController door = CreateDoor(parent, doorPosition, color);
             Transform insidePoint = CreatePoint(
                 "Passenger Inside Point",
-                center + new Vector2(localX, side * 2.15f),
+                center + new Vector2(localX, side * DoorInsideY),
                 parent);
             Transform outsidePoint = CreatePoint(
                 "Passenger Outside Point",
-                center + new Vector2(localX, side * 4.85f),
+                center + new Vector2(localX, side * DoorOutsideY),
                 parent);
 
             PassengerDoorway doorway = door.gameObject.AddComponent<PassengerDoorway>();
@@ -652,7 +673,7 @@ namespace SubwayCarry.AI
 
             Camera camera = cameraObject.AddComponent<Camera>();
             camera.orthographic = true;
-            camera.orthographicSize = 5.15f;
+            camera.orthographicSize = 5.5f;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.025f, 0.035f, 0.055f);
             return cameraObject.AddComponent<TrainCarCameraController>();
