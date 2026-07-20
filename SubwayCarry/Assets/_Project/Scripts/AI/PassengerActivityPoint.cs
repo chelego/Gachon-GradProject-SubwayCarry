@@ -14,6 +14,7 @@ namespace SubwayCarry.AI
     public sealed class PassengerActivityPoint : MonoBehaviour
     {
         [SerializeField] private PassengerActivityType activityType;
+        [SerializeField, Min(0f)] private float positionFreedomRadius;
 
         private GameObject occupant;
 
@@ -22,6 +23,18 @@ namespace SubwayCarry.AI
         public void Configure(PassengerActivityType type)
         {
             activityType = type;
+            positionFreedomRadius = GetDefaultFreedomRadius(type);
+        }
+
+        public Vector2 GetUsePosition()
+        {
+            if (positionFreedomRadius <= 0f)
+            {
+                return transform.position;
+            }
+
+            return (Vector2)transform.position +
+                   Random.insideUnitCircle * positionFreedomRadius;
         }
 
         public bool IsAvailableFor(GameObject passenger)
@@ -45,6 +58,19 @@ namespace SubwayCarry.AI
             if (occupant == passenger)
             {
                 occupant = null;
+            }
+        }
+
+        private static float GetDefaultFreedomRadius(PassengerActivityType type)
+        {
+            switch (type)
+            {
+                case PassengerActivityType.DoorStanding:
+                    return 0.24f;
+                case PassengerActivityType.AisleStanding:
+                    return 0.34f;
+                default:
+                    return 0f;
             }
         }
     }

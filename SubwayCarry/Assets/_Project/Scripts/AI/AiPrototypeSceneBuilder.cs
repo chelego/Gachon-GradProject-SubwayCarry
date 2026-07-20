@@ -498,12 +498,12 @@ namespace SubwayCarry.AI
             doorRoot.transform.SetParent(parent);
             doorRoot.transform.position = position;
 
-            CreateBlock("Door Opening", position, new Vector2(1.2f, 0.34f),
+            CreateBlock("Door Opening", position, new Vector2(1.2f, WallThickness),
                 new Color(0.025f, 0.035f, 0.05f), doorRoot.transform, false, "DoorOpening", -0.1f);
             GameObject leftPanel = CreateBlock("Left Panel", position + Vector2.left * 0.29f,
-                new Vector2(0.56f, 0.28f), color, doorRoot.transform, false, "Door", -0.2f);
+                new Vector2(0.56f, WallThickness), color, doorRoot.transform, false, "Door", -0.2f);
             GameObject rightPanel = CreateBlock("Right Panel", position + Vector2.right * 0.29f,
-                new Vector2(0.56f, 0.28f), color, doorRoot.transform, false, "Door", -0.2f);
+                new Vector2(0.56f, WallThickness), color, doorRoot.transform, false, "Door", -0.2f);
             AddKinematicCollision(leftPanel);
             AddKinematicCollision(rightPanel);
 
@@ -520,7 +520,7 @@ namespace SubwayCarry.AI
             GridNavigation2D navigation,
             Color color)
         {
-            Vector2 doorPosition = center + new Vector2(localX, side * 3.92f);
+            Vector2 doorPosition = center + new Vector2(localX, side * 4.1f);
             TrainDoorController door = CreateDoor(parent, doorPosition, color);
             Transform insidePoint = CreatePoint(
                 "Passenger Inside Point",
