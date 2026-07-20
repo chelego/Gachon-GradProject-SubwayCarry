@@ -25,6 +25,7 @@ namespace SubwayCarry.AI
             public TrainCarPortal2D RightPortal;
             public Transform LeftArrival;
             public Transform RightArrival;
+            public readonly List<TrainDoorController> Doors = new List<TrainDoorController>();
         }
 
         [MenuItem("SubwayCarry/Prototype/Build AI Pathfinding Scene")]
@@ -65,6 +66,16 @@ namespace SubwayCarry.AI
                 car1.Center,
                 car1.Navigation,
                 cameraController);
+
+            var allDoors = new List<TrainDoorController>();
+            allDoors.AddRange(car1.Doors);
+            allDoors.AddRange(car2.Doors);
+            GameObject doorCycleObject = new GameObject("Door Cycle Prototype");
+            doorCycleObject.transform.SetParent(root.transform);
+            doorCycleObject.AddComponent<TrainDoorCyclePrototype>().Configure(allDoors.ToArray());
+
+            CreateBoardingPassenger("Boarding Passenger Car 1", car1, new Color(0.95f, 0.55f, 0.18f));
+            CreateBoardingPassenger("Boarding Passenger Car 2", car2, new Color(0.75f, 0.55f, 0.95f));
 
             GameObject start = CreateMarker(
                 "Start",
@@ -163,6 +174,11 @@ namespace SubwayCarry.AI
             carRoot.transform.SetParent(parent);
             carRoot.transform.position = center;
 
+            var data = new TrainCarBuildData
+            {
+                Center = carRoot.transform
+            };
+
             CreateBlock(
                 "Floor",
                 center,
@@ -182,12 +198,7 @@ namespace SubwayCarry.AI
             CreateEndWall(carRoot.transform, center, -1f, openLeft, wallColor);
             CreateEndWall(carRoot.transform, center, 1f, openRight, wallColor);
             CreateWallMarkings(carRoot.transform, center, openLeft, openRight);
-            CreateDoorsAndSeats(carRoot.transform, center);
-
-            var data = new TrainCarBuildData
-            {
-                Center = carRoot.transform
-            };
+            CreateDoorsAndSeats(carRoot.transform, center, data.Doors);
 
             GameObject navigationObject = new GameObject("Grid Navigation");
             navigationObject.transform.SetParent(carRoot.transform);
@@ -288,7 +299,10 @@ namespace SubwayCarry.AI
             }
         }
 
-        private static void CreateDoorsAndSeats(Transform parent, Vector2 center)
+        private static void CreateDoorsAndSeats(
+            Transform parent,
+            Vector2 center,
+            List<TrainDoorController> doors)
         {
             float[] doorX = { -7.4f, -3.8f, -0.2f, 3.4f };
             float[] seatX = { -5.6f, -2f, 1.6f };
@@ -298,8 +312,8 @@ namespace SubwayCarry.AI
 
             foreach (float localX in doorX)
             {
-                CreateDoor(parent, center + new Vector2(localX, 3.92f), doorColor);
-                CreateDoor(parent, center + new Vector2(localX, -3.92f), doorColor);
+                doors.Add(CreateDoor(parent, center + new Vector2(localX, 3.92f), doorColor));
+                doors.Add(CreateDoor(parent, center + new Vector2(localX, -3.92f), doorColor));
             }
 
             foreach (float localX in seatX)
@@ -312,12 +326,56 @@ namespace SubwayCarry.AI
             CreateSeat(parent, center + new Vector2(5.6f, -3.3f), priorityColor, "PrioritySeat");
         }
 
-        private static void CreateDoor(Transform parent, Vector2 position, Color color)
+        private static TrainDoorController CreateDoor(Transform parent, Vector2 position, Color color)
         {
-            CreateBlock("Door", position, new Vector2(1.15f, 0.24f),
-                color, parent, false, "Door", -0.1f);
-            CreateBlock("Door Divider", position, new Vector2(0.05f, 0.25f),
-                new Color(0.82f, 0.87f, 0.76f), parent, false, "WallMark", -0.2f);
+            GameObject doorRoot = new GameObject("Door");
+            doorRoot.transform.SetParent(parent);
+            doorRoot.transform.position = position;
+
+            CreateBlock("Door Opening", position, new Vector2(1.2f, 0.34f),
+                new Color(0.025f, 0.035f, 0.05f), doorRoot.transform, false, "DoorOpening", -0.1f);
+            GameObject leftPanel = CreateBlock("Left Panel", position + Vector2.left * 0.29f,
+                new Vector2(0.56f, 0.28f), color, doorRoot.transform, false, "Door", -0.2f);
+            GameObject rightPanel = CreateBlock("Right Panel", position + Vector2.right * 0.29f,
+                new Vector2(0.56f, 0.28f), color, doorRoot.transform, false, "Door", -0.2f);
+
+            TrainDoorController controller = doorRoot.AddComponent<TrainDoorController>();
+            controller.Configure(leftPanel.transform, rightPanel.transform);
+            return controller;
+        }
+
+        private static void CreateBoardingPassenger(
+            string name,
+            TrainCarBuildData car,
+            Color color)
+        {
+            if (car.Doors.Count == 0)
+            {
+                return;
+            }
+
+            Vector2 center = (Vector2)car.Center.position;
+            Transform outsidePoint = CreatePoint(
+                "Outside Waiting Point",
+                center + new Vector2(-7.4f, 4.85f),
+                car.Center);
+            Transform insidePoint = CreatePoint(
+                "Inside Waiting Point",
+                center + new Vector2(-7.4f, 2.15f),
+                car.Center);
+            GameObject passengerObject = CreateBlock(
+                name,
+                (Vector2)outsidePoint.position,
+                new Vector2(0.55f, 0.72f),
+                color,
+                car.Center,
+                false,
+                "BoardingPassenger",
+                -0.3f);
+            passengerObject.AddComponent<PassengerBoardingPrototype>().Configure(
+                car.Doors[0],
+                outsidePoint,
+                insidePoint);
         }
 
         private static void CreateSeat(
@@ -431,12 +489,29 @@ namespace SubwayCarry.AI
                 }
 
                 material = new Material(shader);
+                material.color = color;
                 AssetDatabase.CreateAsset(material, path);
+                return material;
             }
 
-            material.color = color;
-            EditorUtility.SetDirty(material);
+            Color currentColor = material.HasProperty("_BaseColor")
+                ? material.GetColor("_BaseColor")
+                : material.color;
+            if (!ColorsApproximately(currentColor, color))
+            {
+                material.color = color;
+                EditorUtility.SetDirty(material);
+            }
+
             return material;
+        }
+
+        private static bool ColorsApproximately(Color left, Color right)
+        {
+            return Mathf.Abs(left.r - right.r) < 0.0001f &&
+                   Mathf.Abs(left.g - right.g) < 0.0001f &&
+                   Mathf.Abs(left.b - right.b) < 0.0001f &&
+                   Mathf.Abs(left.a - right.a) < 0.0001f;
         }
 
         private static void DeleteUnusedPrototypeMaterials()
