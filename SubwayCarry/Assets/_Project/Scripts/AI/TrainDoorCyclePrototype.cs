@@ -9,7 +9,7 @@ namespace SubwayCarry.AI
         [SerializeField] private TrainDoorController[] doors;
         [SerializeField, Min(0f)] private float initialDelay = 1.5f;
         [SerializeField, Min(0.5f)] private float openDuration = 3f;
-        [SerializeField, Min(0.5f)] private float travelDuration = 5f;
+        [SerializeField, Min(0.5f)] private float travelDuration = 30f;
 
         public int StopNumber { get; private set; }
 

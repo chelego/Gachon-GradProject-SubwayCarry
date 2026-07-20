@@ -26,9 +26,10 @@ namespace SubwayCarry.AI
             public Transform LeftArrival;
             public Transform RightArrival;
             public readonly List<TrainDoorController> Doors = new List<TrainDoorController>();
+            public readonly List<PassengerSeatPrototype> Seats = new List<PassengerSeatPrototype>();
         }
 
-        [MenuItem("SubwayCarry/Prototype/Build AI Pathfinding Scene")]
+        [MenuItem("SubwayCarry/Prototype/Build Passenger AI Scene")]
         public static void Build()
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
@@ -74,60 +75,35 @@ namespace SubwayCarry.AI
             doorCycleObject.transform.SetParent(root.transform);
             doorCycleObject.AddComponent<TrainDoorCyclePrototype>().Configure(allDoors.ToArray());
 
-            CreateBoardingPassenger("Boarding Passenger Car 1", car1, new Color(0.95f, 0.55f, 0.18f));
-            CreateBoardingPassenger("Boarding Passenger Car 2", car2, new Color(0.75f, 0.55f, 0.95f));
-
-            GameObject start = CreateMarker(
-                "Start",
-                new Vector2(-7f, -1.5f),
-                new Color(0.25f, 0.85f, 0.4f),
-                car1.Center);
-            GameObject car2Goal = CreateMarker(
-                "Car 2 Goal",
-                new Vector2(28.5f, 1.5f),
-                new Color(0.95f, 0.35f, 0.3f),
-                car2.Center);
-
-            GameObject agent = CreateBlock(
-                "Passenger Agent",
-                start.transform.position,
-                new Vector2(0.65f, 0.85f),
-                new Color(1f, 0.85f, 0.15f),
-                car1.Center,
-                false,
-                "PassengerAgent",
-                -0.2f);
-            var body = agent.AddComponent<Rigidbody2D>();
-            body.bodyType = RigidbodyType2D.Kinematic;
-            body.gravityScale = 0f;
-            agent.AddComponent<CapsuleCollider2D>();
-
-            var line = agent.AddComponent<LineRenderer>();
-            line.sharedMaterial = GetOrCreateMaterial("Path", new Color(1f, 0.85f, 0.2f));
-            line.widthMultiplier = 0.08f;
-            line.useWorldSpace = true;
-            line.sortingOrder = 10;
-
-            var passenger = agent.AddComponent<PassengerPrototypeAgent>();
-            passenger.Configure(car1.Navigation, new[]
-            {
-                car1.RightPortal.transform,
-                car2Goal.transform,
-                car2.LeftPortal.transform,
-                start.transform
-            }, line);
+            PopulatePermanentPassengers(car1, 1);
+            PopulatePermanentPassengers(car2, 0);
+            CreateBoardingPassenger(
+                "Boarding Passenger A",
+                car1,
+                0,
+                -7.4f,
+                new Vector2(-0.8f, 1.2f),
+                new Color(0.95f, 0.55f, 0.18f),
+                "BoardingPassengerA");
+            CreateBoardingPassenger(
+                "Boarding Passenger B",
+                car1,
+                2,
+                -3.8f,
+                new Vector2(0.8f, 1.2f),
+                new Color(0.75f, 0.55f, 0.95f),
+                "BoardingPassengerB");
 
             cameraController.FocusOn(car1.Center);
             EditorSceneManager.SaveScene(scene, ScenePath);
-            ValidatePathfinder();
-            Selection.activeGameObject = agent;
+            Selection.activeGameObject = car1.Center.gameObject;
 
             if (SceneView.lastActiveSceneView != null)
             {
                 SceneView.lastActiveSceneView.FrameSelected();
             }
 
-            Debug.Log("[AI Prototype] Two-car scene created: " + ScenePath);
+            Debug.Log("[AI Prototype] Passenger seat scene created: " + ScenePath);
         }
 
         [MenuItem("SubwayCarry/Prototype/Validate A* Pathfinding")]
@@ -198,7 +174,7 @@ namespace SubwayCarry.AI
             CreateEndWall(carRoot.transform, center, -1f, openLeft, wallColor);
             CreateEndWall(carRoot.transform, center, 1f, openRight, wallColor);
             CreateWallMarkings(carRoot.transform, center, openLeft, openRight);
-            CreateDoorsAndSeats(carRoot.transform, center, data.Doors);
+            CreateDoorsAndSeats(carRoot.transform, center, data.Doors, data.Seats);
 
             GameObject navigationObject = new GameObject("Grid Navigation");
             navigationObject.transform.SetParent(carRoot.transform);
@@ -302,7 +278,8 @@ namespace SubwayCarry.AI
         private static void CreateDoorsAndSeats(
             Transform parent,
             Vector2 center,
-            List<TrainDoorController> doors)
+            List<TrainDoorController> doors,
+            List<PassengerSeatPrototype> seats)
         {
             float[] doorX = { -7.4f, -3.8f, -0.2f, 3.4f };
             float[] seatX = { -5.6f, -2f, 1.6f };
@@ -318,12 +295,14 @@ namespace SubwayCarry.AI
 
             foreach (float localX in seatX)
             {
-                CreateSeat(parent, center + new Vector2(localX, 3.3f), seatColor, "Seat");
-                CreateSeat(parent, center + new Vector2(localX, -3.3f), seatColor, "Seat");
+                seats.Add(CreatePassengerSeat(parent, center + new Vector2(localX, 3.3f), seatColor));
+                seats.Add(CreatePassengerSeat(parent, center + new Vector2(localX, -3.3f), seatColor));
             }
 
-            CreateSeat(parent, center + new Vector2(5.6f, 3.3f), priorityColor, "PrioritySeat");
-            CreateSeat(parent, center + new Vector2(5.6f, -3.3f), priorityColor, "PrioritySeat");
+            CreateBlock("PrioritySeat", center + new Vector2(5.6f, 3.3f), new Vector2(1.45f, 0.85f),
+                priorityColor, parent, true, "PrioritySeat");
+            CreateBlock("PrioritySeat", center + new Vector2(5.6f, -3.3f), new Vector2(1.45f, 0.85f),
+                priorityColor, parent, true, "PrioritySeat");
         }
 
         private static TrainDoorController CreateDoor(Transform parent, Vector2 position, Color color)
@@ -347,9 +326,13 @@ namespace SubwayCarry.AI
         private static void CreateBoardingPassenger(
             string name,
             TrainCarBuildData car,
-            Color color)
+            int doorIndex,
+            float doorLocalX,
+            Vector2 standingLocalPosition,
+            Color color,
+            string materialKey)
         {
-            if (car.Doors.Count == 0)
+            if (doorIndex < 0 || doorIndex >= car.Doors.Count)
             {
                 return;
             }
@@ -357,11 +340,15 @@ namespace SubwayCarry.AI
             Vector2 center = (Vector2)car.Center.position;
             Transform outsidePoint = CreatePoint(
                 "Outside Waiting Point",
-                center + new Vector2(-7.4f, 4.85f),
+                center + new Vector2(doorLocalX, 4.85f),
                 car.Center);
             Transform insidePoint = CreatePoint(
-                "Inside Waiting Point",
-                center + new Vector2(-7.4f, 2.15f),
+                "Inside Boarding Point",
+                center + new Vector2(doorLocalX, 2.15f),
+                car.Center);
+            Transform standingPoint = CreatePoint(
+                "Standing Point",
+                center + standingLocalPosition,
                 car.Center);
             GameObject passengerObject = CreateBlock(
                 name,
@@ -370,22 +357,66 @@ namespace SubwayCarry.AI
                 color,
                 car.Center,
                 false,
-                "BoardingPassenger",
+                materialKey,
                 -0.3f);
             passengerObject.AddComponent<PassengerBoardingPrototype>().Configure(
-                car.Doors[0],
+                car.Doors[doorIndex],
                 outsidePoint,
-                insidePoint);
+                insidePoint,
+                standingPoint,
+                car.Seats.ToArray());
         }
 
-        private static void CreateSeat(
+        private static PassengerSeatPrototype CreatePassengerSeat(
             Transform parent,
             Vector2 position,
-            Color color,
-            string materialKey)
+            Color color)
         {
-            CreateBlock(materialKey, position, new Vector2(1.45f, 0.85f),
-                color, parent, true, materialKey);
+            GameObject seatObject = CreateBlock("Seat", position, new Vector2(1.45f, 0.85f),
+                color, parent, true, "Seat");
+            Transform leftPoint = CreatePoint(
+                "Sitting Point Left",
+                position + Vector2.left * 0.34f,
+                seatObject.transform);
+            Transform rightPoint = CreatePoint(
+                "Sitting Point Right",
+                position + Vector2.right * 0.34f,
+                seatObject.transform);
+
+            PassengerSeatPrototype seat = seatObject.AddComponent<PassengerSeatPrototype>();
+            seat.Configure(new[] { leftPoint, rightPoint });
+            return seat;
+        }
+
+        private static void PopulatePermanentPassengers(TrainCarBuildData car, int freeSeatCount)
+        {
+            int remainingFreeSeats = freeSeatCount;
+            int passengerNumber = 1;
+
+            foreach (PassengerSeatPrototype seat in car.Seats)
+            {
+                for (int slot = 0; slot < seat.Capacity; slot++)
+                {
+                    if (remainingFreeSeats > 0)
+                    {
+                        remainingFreeSeats--;
+                        continue;
+                    }
+
+                    Transform sittingPoint = seat.GetSittingPoint(slot);
+                    GameObject passenger = CreateBlock(
+                        "Seated Passenger " + passengerNumber,
+                        (Vector2)sittingPoint.position,
+                        new Vector2(0.32f, 0.46f),
+                        new Color(0.72f, 0.78f, 0.84f),
+                        car.Center,
+                        false,
+                        "SeatedPassenger",
+                        -0.3f);
+                    seat.SetInitialOccupant(slot, passenger);
+                    passengerNumber++;
+                }
+            }
         }
 
         private static void CreateConnector(Transform parent, Vector2 center, float direction)
@@ -451,12 +482,6 @@ namespace SubwayCarry.AI
             }
 
             return block;
-        }
-
-        private static GameObject CreateMarker(string name, Vector2 position, Color color, Transform parent)
-        {
-            return CreateBlock(name, position, new Vector2(0.5f, 0.5f),
-                color, parent, false, "Marker", -0.1f);
         }
 
         private static TrainCarCameraController CreateCamera(Transform parent)
@@ -529,7 +554,11 @@ namespace SubwayCarry.AI
                 "WallBottom",
                 "WallLeft",
                 "WallRight",
-                "WallTop"
+                "WallTop",
+                "BoardingPassenger",
+                "Marker",
+                "PassengerAgent",
+                "Path"
             };
 
             foreach (string unusedName in unusedNames)
