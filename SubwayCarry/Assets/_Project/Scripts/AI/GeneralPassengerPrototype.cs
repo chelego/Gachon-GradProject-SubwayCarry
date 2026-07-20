@@ -67,6 +67,10 @@ namespace SubwayCarry.AI
         [SerializeField, Min(0.1f)] private float exitCrowdRadius = 1.2f;
         [SerializeField, Min(0.1f)] private float exitSwitchImprovement = 1.5f;
         [SerializeField, Min(0.1f)] private float exitSwitchCooldown = 1.5f;
+        [SerializeField, Min(0.1f)] private float exitWaitingAcceptanceRadius = 0.4f;
+        [SerializeField, Min(0.1f)] private float waitingPersonalSpaceRadius = 0.9f;
+        [SerializeField, Min(0.1f)] private float waitingSeparationSpeed = 0.8f;
+        [SerializeField, Min(0.1f)] private float maximumWaitingDrift = 0.65f;
         [SerializeField, Min(0.01f)] private float arrivalDistance = 0.08f;
         [SerializeField] private PassengerState state;
         [SerializeField] private PassengerBehavior behavior;
@@ -198,7 +202,8 @@ namespace SubwayCarry.AI
 
                 case PassengerState.PreparingToExit:
                     ReconsiderExitDoorwayIfCrowded();
-                    if (exitDoorway != null && MoveUsingPath(exitWaitingTarget))
+                    if (exitDoorway != null &&
+                        (IsInsideExitWaitingArea() || MoveUsingPath(exitWaitingTarget)))
                     {
                         SetState(PassengerState.WaitingAtExitDoor, PassengerBehavior.Exiting);
                     }
@@ -206,6 +211,12 @@ namespace SubwayCarry.AI
 
                 case PassengerState.WaitingAtExitDoor:
                     ReconsiderExitDoorwayIfCrowded();
+                    if (state != PassengerState.WaitingAtExitDoor)
+                    {
+                        break;
+                    }
+
+                    MaintainPersonalSpaceNearExit();
                     if (exitDoorway != null &&
                         exitDoorway.Door.IsOpen &&
                         doorCycle.StopNumber > boardingStopNumber)
@@ -1040,7 +1051,7 @@ namespace SubwayCarry.AI
                 if (Mathf.Max(leftClearance, rightClearance) <= radius * 0.55f)
                 {
                     blockedPushCount++;
-                    return desiredDirection;
+                    return GetSeparationDirection();
                 }
 
                 if (Mathf.Abs(leftClearance - rightClearance) <= 0.05f)
@@ -1064,7 +1075,7 @@ namespace SubwayCarry.AI
             if (MeasureClearance(avoidedDirection, radius) <= radius * 0.35f)
             {
                 blockedPushCount++;
-                return desiredDirection;
+                return GetSeparationDirection();
             }
 
             avoidanceAdjustmentCount++;
@@ -1140,6 +1151,113 @@ namespace SubwayCarry.AI
             }
 
             return candidate.GetComponentInParent<PlayerBoardingCyclePrototype>() != null;
+        }
+
+        private bool IsInsideExitWaitingArea()
+        {
+            return Vector2.Distance(body.position, exitWaitingTarget) <=
+                   exitWaitingAcceptanceRadius;
+        }
+
+        private void MaintainPersonalSpaceNearExit()
+        {
+            Vector2 separation = CalculateSeparationVector(waitingPersonalSpaceRadius);
+            if (separation.sqrMagnitude <= 0.0001f)
+            {
+                return;
+            }
+
+            Vector2 nextPosition = body.position +
+                                   separation.normalized *
+                                   waitingSeparationSpeed *
+                                   Time.fixedDeltaTime;
+            Vector2 fromWaitingTarget = nextPosition - exitWaitingTarget;
+            if (fromWaitingTarget.magnitude > maximumWaitingDrift)
+            {
+                nextPosition = exitWaitingTarget +
+                               fromWaitingTarget.normalized * maximumWaitingDrift;
+            }
+
+            if (!IsBlockedByNavigationObstacle(nextPosition))
+            {
+                body.MovePosition(nextPosition);
+            }
+        }
+
+        private Vector2 GetSeparationDirection()
+        {
+            Vector2 separation = CalculateSeparationVector(waitingPersonalSpaceRadius);
+            return separation.sqrMagnitude > 0.0001f
+                ? separation.normalized
+                : Vector2.zero;
+        }
+
+        private Vector2 CalculateSeparationVector(float radius)
+        {
+            Collider2D[] overlaps = Physics2D.OverlapCircleAll(body.position, radius);
+            var actors = new HashSet<int>();
+            Vector2 separation = Vector2.zero;
+
+            foreach (Collider2D overlap in overlaps)
+            {
+                Transform actor = GetAvoidableActor(overlap);
+                if (actor == null || !actors.Add(actor.GetInstanceID()))
+                {
+                    continue;
+                }
+
+                Vector2 away = body.position - (Vector2)actor.position;
+                float distance = away.magnitude;
+                if (distance <= 0.001f)
+                {
+                    float side = GetInstanceID() < actor.GetInstanceID() ? -1f : 1f;
+                    away = Vector2.right * side;
+                    distance = 0.001f;
+                }
+
+                float strength = Mathf.Clamp01((radius - distance) / radius);
+                separation += away.normalized * strength;
+            }
+
+            return separation;
+        }
+
+        private Transform GetAvoidableActor(Collider2D candidate)
+        {
+            if (candidate == null ||
+                candidate == bodyCollider ||
+                candidate.isTrigger)
+            {
+                return null;
+            }
+
+            GeneralPassengerPrototype passenger =
+                candidate.GetComponentInParent<GeneralPassengerPrototype>();
+            if (passenger != null && passenger != this)
+            {
+                return passenger.transform;
+            }
+
+            PlayerBoardingCyclePrototype player =
+                candidate.GetComponentInParent<PlayerBoardingCyclePrototype>();
+            return player != null ? player.transform : null;
+        }
+
+        private bool IsBlockedByNavigationObstacle(Vector2 position)
+        {
+            Collider2D[] overlaps = Physics2D.OverlapCircleAll(
+                position,
+                GetAvoidanceRadius());
+
+            foreach (Collider2D overlap in overlaps)
+            {
+                if (overlap.GetComponentInParent<NavigationObstacle>() != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private float GetAvoidanceRadius()

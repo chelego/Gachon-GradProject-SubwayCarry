@@ -80,13 +80,19 @@ namespace SubwayCarry.AI
             }
 
             Vector2 lateral = new Vector2(-exitDirection.y, exitDirection.x);
-            int row = index / 3;
-            int laneIndex = index % 3;
+            if (index == 0)
+            {
+                return insidePoint.position;
+            }
+
+            int queuedIndex = index - 1;
+            int row = queuedIndex / 3 + 1;
+            int laneIndex = queuedIndex % 3;
             float lane = laneIndex == 0 ? 0f : laneIndex == 1 ? -1f : 1f;
 
             return (Vector2)insidePoint.position -
-                   exitDirection * row * 0.48f +
-                   lateral * lane * 0.32f;
+                   exitDirection * row * 0.95f +
+                   lateral * lane * 0.9f;
         }
 
         public void Configure(
