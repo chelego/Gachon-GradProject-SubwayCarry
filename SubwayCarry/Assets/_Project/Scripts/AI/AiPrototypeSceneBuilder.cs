@@ -78,14 +78,9 @@ namespace SubwayCarry.AI
             TrainDoorCyclePrototype doorCycle = doorCycleObject.AddComponent<TrainDoorCyclePrototype>();
             doorCycle.Configure(allDoors.ToArray());
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < 20; i++)
             {
                 CreateGeneralPassenger("Passenger " + (i + 1), car1, doorCycle);
-            }
-
-            for (int i = 5; i < 10; i++)
-            {
-                CreateGeneralPassenger("Passenger " + (i + 1), car2, doorCycle);
             }
 
             cameraController.FocusOn(car1.Center);
