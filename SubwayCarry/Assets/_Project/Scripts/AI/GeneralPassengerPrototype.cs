@@ -71,6 +71,10 @@ namespace SubwayCarry.AI
         [SerializeField, Min(0.1f)] private float waitingPersonalSpaceRadius = 0.9f;
         [SerializeField, Min(0.1f)] private float waitingSeparationSpeed = 0.8f;
         [SerializeField, Min(0.1f)] private float maximumWaitingDrift = 0.65f;
+        [SerializeField, Min(0.1f)] private float blockedActivityTimeout = 1.25f;
+        [SerializeField, Range(0f, 1f)] private float squeezeThroughChance = 0.35f;
+        [SerializeField, Range(0.1f, 0.8f)] private float squeezeSpeedMultiplier = 0.4f;
+        [SerializeField, Min(0.1f)] private float softOverlapRadius = 0.65f;
         [SerializeField, Min(0.01f)] private float arrivalDistance = 0.08f;
         [SerializeField] private PassengerState state;
         [SerializeField] private PassengerBehavior behavior;
@@ -95,12 +99,16 @@ namespace SubwayCarry.AI
         private float exitDoorCommitmentUntil;
         private float avoidanceSide;
         private float avoidanceSideUntil;
+        private float blockedByPassengerSince = -1f;
         private bool hasPathTarget;
         private bool hasBoardingReservation;
         private bool hasExitReservation;
+        private bool squeezeThroughPassengers;
         private int avoidanceAdjustmentCount;
         private int blockedPushCount;
         private int exitDoorSwitchCount;
+        private int abandonedActivityCount;
+        private int squeezeStepCount;
 
         public string CurrentState => state.ToString();
         public string CurrentBehavior => behavior.ToString();
@@ -110,6 +118,8 @@ namespace SubwayCarry.AI
         public int AvoidanceAdjustmentCount => avoidanceAdjustmentCount;
         public int BlockedPushCount => blockedPushCount;
         public int ExitDoorSwitchCount => exitDoorSwitchCount;
+        public int AbandonedActivityCount => abandonedActivityCount;
+        public int SqueezeStepCount => squeezeStepCount;
 
         public void Configure(
             PassengerDoorway initialBoardingDoorway,
@@ -129,6 +139,9 @@ namespace SubwayCarry.AI
         {
             body = GetComponent<Rigidbody2D>();
             bodyCollider = GetComponent<Collider2D>();
+            body.linearDamping = 8f;
+            squeezeThroughPassengers = Random.value < squeezeThroughChance;
+            IgnoreHardPassengerCollisions();
             RefreshMapReferences();
 
             if (boardingDoorway == null || !boardingDoorway.IsUsable)
@@ -144,6 +157,8 @@ namespace SubwayCarry.AI
 
         private void FixedUpdate()
         {
+            StopResidualMotion();
+
             if (boardingDoorway == null || doorCycle == null)
             {
                 return;
@@ -186,6 +201,10 @@ namespace SubwayCarry.AI
                     else if (MoveUsingPath(activityTarget))
                     {
                         FinishActivityMove();
+                    }
+                    else if (ShouldAbandonBlockedActivity())
+                    {
+                        AbandonBlockedActivity();
                     }
                     break;
 
@@ -894,7 +913,11 @@ namespace SubwayCarry.AI
         {
             if (reservedSeat != null)
             {
-                StandUp();
+                if (bodyCollider != null && !bodyCollider.enabled)
+                {
+                    StandUp();
+                }
+
                 reservedSeat.Release(gameObject);
                 reservedSeat = null;
                 reservedSittingPoint = null;
@@ -1017,9 +1040,12 @@ namespace SubwayCarry.AI
 
             float step = Mathf.Min(moveSpeed * Time.fixedDeltaTime, toDestination.magnitude);
             Vector2 desiredDirection = toDestination.normalized;
-            Vector2 movementDirection = toDestination.magnitude <= avoidanceLookAhead * 0.45f
-                ? desiredDirection
-                : GetLocallyAvoidedDirection(desiredDirection);
+            Vector2 movementDirection = GetLocallyAvoidedDirection(desiredDirection);
+            if (movementDirection.sqrMagnitude <= 0.0001f)
+            {
+                return;
+            }
+
             Vector2 nextPosition = body.position + movementDirection * step;
             body.MovePosition(nextPosition);
         }
@@ -1029,6 +1055,7 @@ namespace SubwayCarry.AI
             float radius = GetAvoidanceRadius();
             if (!HasActorAhead(desiredDirection, radius))
             {
+                ResetPassengerBlock();
                 return desiredDirection;
             }
 
@@ -1050,8 +1077,7 @@ namespace SubwayCarry.AI
 
                 if (Mathf.Max(leftClearance, rightClearance) <= radius * 0.55f)
                 {
-                    blockedPushCount++;
-                    return GetSeparationDirection();
+                    return GetBlockedMovementDirection(desiredDirection);
                 }
 
                 if (Mathf.Abs(leftClearance - rightClearance) <= 0.05f)
@@ -1074,12 +1100,66 @@ namespace SubwayCarry.AI
 
             if (MeasureClearance(avoidedDirection, radius) <= radius * 0.35f)
             {
-                blockedPushCount++;
-                return GetSeparationDirection();
+                return GetBlockedMovementDirection(desiredDirection);
             }
 
+            ResetPassengerBlock();
             avoidanceAdjustmentCount++;
             return avoidedDirection;
+        }
+
+        private Vector2 GetBlockedMovementDirection(Vector2 desiredDirection)
+        {
+            blockedPushCount++;
+            if (blockedByPassengerSince < 0f)
+            {
+                blockedByPassengerSince = Time.time;
+            }
+
+            Vector2 separation = CalculateSeparationVector(softOverlapRadius);
+            bool essentialMovement = state != PassengerState.MovingToActivity;
+            bool canSqueeze = essentialMovement || squeezeThroughPassengers;
+            float blockedDuration = Time.time - blockedByPassengerSince;
+
+            if (canSqueeze && blockedDuration >= blockedActivityTimeout * 0.5f)
+            {
+                Vector2 squeezedDirection = desiredDirection;
+                if (separation.sqrMagnitude > 0.0001f)
+                {
+                    squeezedDirection = (desiredDirection +
+                                         separation.normalized * 0.35f).normalized;
+                }
+
+                squeezeStepCount++;
+                return squeezedDirection * squeezeSpeedMultiplier;
+            }
+
+            return separation.sqrMagnitude > 0.0001f
+                ? separation.normalized * 0.2f
+                : Vector2.zero;
+        }
+
+        private bool ShouldAbandonBlockedActivity()
+        {
+            return state == PassengerState.MovingToActivity &&
+                   !squeezeThroughPassengers &&
+                   blockedByPassengerSince >= 0f &&
+                   Time.time - blockedByPassengerSince >= blockedActivityTimeout;
+        }
+
+        private void AbandonBlockedActivity()
+        {
+            abandonedActivityCount++;
+            RecordDecision("Blocked -> Reconsider");
+            ReleaseCurrentActivity();
+            ClearPath();
+            ResetPassengerBlock();
+            SetState(PassengerState.ChoosingBehavior, PassengerBehavior.None);
+        }
+
+        private void ResetPassengerBlock()
+        {
+            blockedByPassengerSince = -1f;
         }
 
         private Vector2 BuildAvoidanceDirection(
@@ -1184,14 +1264,6 @@ namespace SubwayCarry.AI
             }
         }
 
-        private Vector2 GetSeparationDirection()
-        {
-            Vector2 separation = CalculateSeparationVector(waitingPersonalSpaceRadius);
-            return separation.sqrMagnitude > 0.0001f
-                ? separation.normalized
-                : Vector2.zero;
-        }
-
         private Vector2 CalculateSeparationVector(float radius)
         {
             Collider2D[] overlaps = Physics2D.OverlapCircleAll(body.position, radius);
@@ -1241,6 +1313,37 @@ namespace SubwayCarry.AI
             PlayerBoardingCyclePrototype player =
                 candidate.GetComponentInParent<PlayerBoardingCyclePrototype>();
             return player != null ? player.transform : null;
+        }
+
+        private void IgnoreHardPassengerCollisions()
+        {
+            GeneralPassengerPrototype[] passengers =
+                FindObjectsByType<GeneralPassengerPrototype>(FindObjectsSortMode.None);
+
+            foreach (GeneralPassengerPrototype passenger in passengers)
+            {
+                if (passenger == null || passenger == this)
+                {
+                    continue;
+                }
+
+                Collider2D otherCollider = passenger.GetComponent<Collider2D>();
+                if (otherCollider != null)
+                {
+                    Physics2D.IgnoreCollision(bodyCollider, otherCollider, true);
+                }
+            }
+        }
+
+        private void StopResidualMotion()
+        {
+            if (body == null || body.bodyType != RigidbodyType2D.Dynamic)
+            {
+                return;
+            }
+
+            body.linearVelocity = Vector2.zero;
+            body.angularVelocity = 0f;
         }
 
         private bool IsBlockedByNavigationObstacle(Vector2 position)
