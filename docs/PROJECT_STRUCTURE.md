@@ -61,4 +61,4 @@ Root Namespace는 `SubwayCarry`를 사용한다.
 - `PassengerActivityPoint.cs`: 손잡이, 기대기, 문 앞과 통로 대기 위치
 - `GridNavigation2D.cs`: 해당 맵의 이동 가능 영역과 A* 경로
 - `GeneralPassengerPrototype.cs`: `mapRoot` 아래 구성 요소를 자동 탐색해 탑승, 객차 행동과 하차 처리
-- 승객은 `mapRoot` 아래 출입문 중 하나를 하차 문으로 다시 선택하며 탑승한 문으로 고정되지 않음
+- 승객은 하차 준비를 시작한 위치에서 가장 가까운 `mapRoot` 아래 출입문을 하차 문으로 선택

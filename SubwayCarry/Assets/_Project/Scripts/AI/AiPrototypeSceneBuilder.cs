@@ -165,7 +165,6 @@ namespace SubwayCarry.AI
 
             CreateEndWall(carRoot.transform, center, -1f, openLeft, wallColor);
             CreateEndWall(carRoot.transform, center, 1f, openRight, wallColor);
-            CreateWallMarkings(carRoot.transform, center, openLeft, openRight);
             GameObject navigationObject = new GameObject("Grid Navigation");
             navigationObject.transform.SetParent(carRoot.transform);
             navigationObject.transform.position = center;
@@ -274,48 +273,6 @@ namespace SubwayCarry.AI
                 parent,
                 true,
                 "Wall");
-        }
-
-        private static void CreateWallMarkings(
-            Transform parent,
-            Vector2 center,
-            bool openLeft,
-            bool openRight)
-        {
-            Color markColor = new Color(0.65f, 0.72f, 0.78f);
-            for (int i = 0; i < 9; i++)
-            {
-                float x = center.x - 8f + i * 2f;
-                float angle = i % 2 == 0 ? 18f : -18f;
-                CreateBlock("Top Wall Mark", new Vector2(x, center.y + 4.08f),
-                    new Vector2(0.5f, 0.07f), markColor, parent, false, "WallMark", -0.1f, angle);
-                CreateBlock("Bottom Wall Mark", new Vector2(x, center.y - 4.08f),
-                    new Vector2(0.5f, 0.07f), markColor, parent, false, "WallMark", -0.1f, angle);
-            }
-
-            if (!openLeft)
-            {
-                CreateEndWallMarkings(parent, center, -1f, markColor);
-            }
-
-            if (!openRight)
-            {
-                CreateEndWallMarkings(parent, center, 1f, markColor);
-            }
-        }
-
-        private static void CreateEndWallMarkings(
-            Transform parent,
-            Vector2 center,
-            float direction,
-            Color color)
-        {
-            for (int i = 0; i < 6; i++)
-            {
-                float y = center.y - 3f + i * 1.2f;
-                CreateBlock("End Wall Mark", new Vector2(center.x + direction * 9.08f, y),
-                    new Vector2(0.07f, 0.45f), color, parent, false, "WallMark", -0.1f, 18f);
-            }
         }
 
         private static void CreateDoorsAndSeats(
@@ -765,7 +722,8 @@ namespace SubwayCarry.AI
                 "BoardingPassenger",
                 "Marker",
                 "PassengerAgent",
-                "Path"
+                "Path",
+                "WallMark"
             };
 
             foreach (string unusedName in unusedNames)

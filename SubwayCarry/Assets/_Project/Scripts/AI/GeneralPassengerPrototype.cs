@@ -58,15 +58,15 @@ namespace SubwayCarry.AI
         [SerializeField, Min(1f)] private float minimumDecisionInterval = 3.5f;
         [SerializeField, Min(1f)] private float maximumDecisionInterval = 6.5f;
         [SerializeField, Min(1f)] private float exitPreparationLeadTime = 7f;
-        [SerializeField, Range(0f, 1f)] private float differentDoorPreference = 0.75f;
         [SerializeField, Range(0f, 1f)] private float takeNewSeatChance = 0.65f;
         [SerializeField, Min(0.1f)] private float avoidanceLookAhead = 0.8f;
         [SerializeField, Range(0.1f, 0.9f)] private float avoidanceLateralStrength = 0.45f;
         [SerializeField, Min(0.05f)] private float avoidanceSideHoldDuration = 0.35f;
-        [SerializeField, Min(0.1f)] private float exitCrowdCheckInterval = 0.5f;
-        [SerializeField, Min(0.1f)] private float exitCrowdRadius = 1.2f;
-        [SerializeField, Min(0.1f)] private float exitSwitchImprovement = 1.5f;
-        [SerializeField, Min(0.1f)] private float exitSwitchCooldown = 1.5f;
+        [SerializeField, Min(0.1f)] private float movementAnticipationTime = 0.45f;
+        [SerializeField, Min(0.05f)] private float headOnReactionInterval = 0.12f;
+        [SerializeField, Min(0.05f)] private float movementIntentMemory = 0.3f;
+        [SerializeField, Range(0f, 1f)] private float leisurelyPassengerChance = 0.25f;
+        [SerializeField, Range(0f, 1f)] private float hurriedPassengerChance = 0.2f;
         [SerializeField, Min(0.1f)] private float exitWaitingAcceptanceRadius = 0.4f;
         [SerializeField, Min(0.1f)] private float waitingPersonalSpaceRadius = 0.9f;
         [SerializeField, Min(0.1f)] private float waitingSeparationSpeed = 0.8f;
@@ -95,20 +95,24 @@ namespace SubwayCarry.AI
         private int observedAvailableSeatCount;
         private float nextDecisionTime;
         private float nextRepathTime;
-        private float nextExitCrowdCheckTime;
-        private float exitDoorCommitmentUntil;
         private float avoidanceSide;
         private float avoidanceSideUntil;
+        private float nextHeadOnReactionTime;
+        private float movementIntentUntil;
         private float blockedByPassengerSince = -1f;
+        private float personalPaceMultiplier = 1f;
+        private float exitPaceMultiplier = 1f;
+        private Vector2 movementIntent;
         private bool hasPathTarget;
         private bool hasBoardingReservation;
         private bool hasExitReservation;
         private bool squeezeThroughPassengers;
         private int avoidanceAdjustmentCount;
         private int blockedPushCount;
-        private int exitDoorSwitchCount;
         private int abandonedActivityCount;
         private int squeezeStepCount;
+        private int anticipatedAvoidanceCount;
+        private int passingSideCorrectionCount;
 
         public string CurrentState => state.ToString();
         public string CurrentBehavior => behavior.ToString();
@@ -117,9 +121,11 @@ namespace SubwayCarry.AI
         public PassengerDoorway ExitDoorway => exitDoorway;
         public int AvoidanceAdjustmentCount => avoidanceAdjustmentCount;
         public int BlockedPushCount => blockedPushCount;
-        public int ExitDoorSwitchCount => exitDoorSwitchCount;
         public int AbandonedActivityCount => abandonedActivityCount;
         public int SqueezeStepCount => squeezeStepCount;
+        public int AnticipatedAvoidanceCount => anticipatedAvoidanceCount;
+        public int PassingSideCorrectionCount => passingSideCorrectionCount;
+        public float CurrentMoveSpeed => GetCurrentMoveSpeed();
 
         public void Configure(
             PassengerDoorway initialBoardingDoorway,
@@ -141,6 +147,7 @@ namespace SubwayCarry.AI
             bodyCollider = GetComponent<Collider2D>();
             body.linearDamping = 8f;
             squeezeThroughPassengers = Random.value < squeezeThroughChance;
+            AssignMovementPace();
             IgnoreHardPassengerCollisions();
             RefreshMapReferences();
 
@@ -220,7 +227,6 @@ namespace SubwayCarry.AI
                     break;
 
                 case PassengerState.PreparingToExit:
-                    ReconsiderExitDoorwayIfCrowded();
                     if (exitDoorway != null &&
                         (IsInsideExitWaitingArea() || MoveUsingPath(exitWaitingTarget)))
                     {
@@ -229,12 +235,6 @@ namespace SubwayCarry.AI
                     break;
 
                 case PassengerState.WaitingAtExitDoor:
-                    ReconsiderExitDoorwayIfCrowded();
-                    if (state != PassengerState.WaitingAtExitDoor)
-                    {
-                        break;
-                    }
-
                     MaintainPersonalSpaceNearExit();
                     if (exitDoorway != null &&
                         exitDoorway.Door.IsOpen &&
@@ -747,142 +747,37 @@ namespace SubwayCarry.AI
             }
 
             ReserveExitDoorway(exitDoorway);
-            nextExitCrowdCheckTime = Time.time + exitCrowdCheckInterval;
 
             SetState(PassengerState.PreparingToExit, PassengerBehavior.Exiting);
         }
 
         private PassengerDoorway SelectExitDoorway()
         {
-            var candidates = new List<PassengerDoorway>();
+            PassengerDoorway nearest = null;
+            float nearestDistance = float.MaxValue;
 
-            if (doorways != null)
+            if (doorways == null)
             {
-                foreach (PassengerDoorway doorway in doorways)
-                {
-                    if (doorway != null && doorway.IsUsable)
-                    {
-                        candidates.Add(doorway);
-                    }
-                }
+                return boardingDoorway;
             }
 
-            if (candidates.Count > 1 && Random.value < differentDoorPreference)
+            foreach (PassengerDoorway doorway in doorways)
             {
-                candidates.Remove(boardingDoorway);
-            }
-
-            while (candidates.Count > 0)
-            {
-                PassengerDoorway selected = SelectLeastCrowdedExitDoorway(candidates);
-                candidates.Remove(selected);
-                return selected;
-            }
-
-            return boardingDoorway;
-        }
-
-        private PassengerDoorway SelectLeastCrowdedExitDoorway(
-            List<PassengerDoorway> candidates)
-        {
-            PassengerDoorway best = candidates[0];
-            float bestScore = float.MaxValue;
-
-            foreach (PassengerDoorway candidate in candidates)
-            {
-                float score = CalculateExitCrowdScore(candidate) + Random.Range(0f, 0.35f);
-                if (score < bestScore)
-                {
-                    best = candidate;
-                    bestScore = score;
-                }
-            }
-
-            return best;
-        }
-
-        private float CalculateExitCrowdScore(PassengerDoorway doorway)
-        {
-            float distance = Vector2.Distance(body.position, doorway.InsidePoint.position);
-            return doorway.ExitReservationCount * 2.2f +
-                   CountActorsNearDoorway(doorway) * 1.4f +
-                   distance * 0.12f;
-        }
-
-        private int CountActorsNearDoorway(PassengerDoorway doorway)
-        {
-            Collider2D[] overlaps = Physics2D.OverlapCircleAll(
-                doorway.InsidePoint.position,
-                exitCrowdRadius);
-            var actors = new HashSet<int>();
-
-            foreach (Collider2D overlap in overlaps)
-            {
-                GeneralPassengerPrototype passenger =
-                    overlap.GetComponentInParent<GeneralPassengerPrototype>();
-                if (passenger != null && passenger != this)
-                {
-                    actors.Add(passenger.GetInstanceID());
-                    continue;
-                }
-
-                PlayerBoardingCyclePrototype player =
-                    overlap.GetComponentInParent<PlayerBoardingCyclePrototype>();
-                if (player != null)
-                {
-                    actors.Add(player.GetInstanceID());
-                }
-            }
-
-            return actors.Count;
-        }
-
-        private void ReconsiderExitDoorwayIfCrowded()
-        {
-            if (exitDoorway == null ||
-                exitDoorway.Door.IsOpen ||
-                Time.time < nextExitCrowdCheckTime ||
-                Time.time < exitDoorCommitmentUntil)
-            {
-                return;
-            }
-
-            nextExitCrowdCheckTime = Time.time + exitCrowdCheckInterval;
-            PassengerDoorway bestDoorway = exitDoorway;
-            float currentScore = CalculateExitCrowdScore(exitDoorway);
-            float bestScore = currentScore;
-
-            foreach (PassengerDoorway candidate in doorways)
-            {
-                if (candidate == null ||
-                    candidate == exitDoorway ||
-                    !candidate.IsUsable)
+                if (doorway == null || !doorway.IsUsable)
                 {
                     continue;
                 }
 
-                float score = CalculateExitCrowdScore(candidate);
-                if (score < bestScore)
+                float distance = Vector2.SqrMagnitude(
+                    (Vector2)doorway.InsidePoint.position - body.position);
+                if (distance < nearestDistance)
                 {
-                    bestDoorway = candidate;
-                    bestScore = score;
+                    nearest = doorway;
+                    nearestDistance = distance;
                 }
             }
 
-            if (bestDoorway == exitDoorway ||
-                currentScore - bestScore < exitSwitchImprovement)
-            {
-                exitWaitingTarget = exitDoorway.GetExitWaitingPosition(gameObject);
-                return;
-            }
-
-            ReleaseExitReservation();
-            exitDoorway = bestDoorway;
-            ReserveExitDoorway(exitDoorway);
-            ClearPath();
-            exitDoorSwitchCount++;
-            state = PassengerState.PreparingToExit;
-            UpdateLabel();
+            return nearest ?? boardingDoorway;
         }
 
         private void ReserveExitDoorway(PassengerDoorway doorway)
@@ -895,7 +790,6 @@ namespace SubwayCarry.AI
             doorway.TryReserveExit(gameObject);
             hasExitReservation = true;
             exitWaitingTarget = doorway.GetExitWaitingPosition(gameObject);
-            exitDoorCommitmentUntil = Time.time + exitSwitchCooldown;
         }
 
         private void ReleaseExitReservation()
@@ -1038,9 +932,15 @@ namespace SubwayCarry.AI
                 return;
             }
 
-            float step = Mathf.Min(moveSpeed * Time.fixedDeltaTime, toDestination.magnitude);
+            float step = Mathf.Min(
+                GetCurrentMoveSpeed() * Time.fixedDeltaTime,
+                toDestination.magnitude);
             Vector2 desiredDirection = toDestination.normalized;
             Vector2 movementDirection = GetLocallyAvoidedDirection(desiredDirection);
+            RememberMovementIntent(
+                movementDirection.sqrMagnitude > 0.0001f
+                    ? movementDirection
+                    : desiredDirection * 0.15f);
             if (movementDirection.sqrMagnitude <= 0.0001f)
             {
                 return;
@@ -1053,7 +953,9 @@ namespace SubwayCarry.AI
         private Vector2 GetLocallyAvoidedDirection(Vector2 desiredDirection)
         {
             float radius = GetAvoidanceRadius();
-            if (!HasActorAhead(desiredDirection, radius))
+            GeneralPassengerPrototype approachingPassenger =
+                FindApproachingPassenger(desiredDirection, radius);
+            if (!HasActorAhead(desiredDirection, radius) && approachingPassenger == null)
             {
                 ResetPassengerBlock();
                 return desiredDirection;
@@ -1061,8 +963,16 @@ namespace SubwayCarry.AI
 
             Vector2 perpendicular = new Vector2(-desiredDirection.y, desiredDirection.x);
             float selectedSide = avoidanceSide;
+            bool passingConflict = approachingPassenger != null &&
+                                   Time.time >= nextHeadOnReactionTime &&
+                                   IsPassingSideConflict(
+                                       approachingPassenger,
+                                       perpendicular,
+                                       selectedSide);
 
-            if (Time.time >= avoidanceSideUntil || Mathf.Approximately(selectedSide, 0f))
+            if (Time.time >= avoidanceSideUntil ||
+                Mathf.Approximately(selectedSide, 0f) ||
+                passingConflict)
             {
                 Vector2 leftDirection = BuildAvoidanceDirection(
                     desiredDirection,
@@ -1080,7 +990,31 @@ namespace SubwayCarry.AI
                     return GetBlockedMovementDirection(desiredDirection);
                 }
 
-                if (Mathf.Abs(leftClearance - rightClearance) <= 0.05f)
+                if (approachingPassenger != null)
+                {
+                    selectedSide = SelectPassingSide(
+                        approachingPassenger,
+                        desiredDirection,
+                        perpendicular);
+
+                    float selectedClearance = selectedSide > 0f
+                        ? leftClearance
+                        : rightClearance;
+                    float alternateClearance = selectedSide > 0f
+                        ? rightClearance
+                        : leftClearance;
+                    if (alternateClearance > selectedClearance + 0.08f)
+                    {
+                        selectedSide *= -1f;
+                    }
+
+                    anticipatedAvoidanceCount++;
+                    if (passingConflict)
+                    {
+                        passingSideCorrectionCount++;
+                    }
+                }
+                else if (Mathf.Abs(leftClearance - rightClearance) <= 0.05f)
                 {
                     selectedSide = GetInstanceID() % 2 == 0 ? 1f : -1f;
                 }
@@ -1090,7 +1024,11 @@ namespace SubwayCarry.AI
                 }
 
                 avoidanceSide = selectedSide;
-                avoidanceSideUntil = Time.time + avoidanceSideHoldDuration;
+                float sideHoldDuration = approachingPassenger != null
+                    ? headOnReactionInterval
+                    : avoidanceSideHoldDuration;
+                avoidanceSideUntil = Time.time + sideHoldDuration;
+                nextHeadOnReactionTime = Time.time + headOnReactionInterval;
             }
 
             Vector2 avoidedDirection = BuildAvoidanceDirection(
@@ -1106,6 +1044,165 @@ namespace SubwayCarry.AI
             ResetPassengerBlock();
             avoidanceAdjustmentCount++;
             return avoidedDirection;
+        }
+
+        private GeneralPassengerPrototype FindApproachingPassenger(
+            Vector2 desiredDirection,
+            float radius)
+        {
+            float currentSpeed = GetCurrentMoveSpeed();
+            float detectionDistance = avoidanceLookAhead +
+                                      currentSpeed * movementAnticipationTime;
+            RaycastHit2D[] hits = Physics2D.CircleCastAll(
+                body.position,
+                radius,
+                desiredDirection,
+                detectionDistance);
+            GeneralPassengerPrototype nearest = null;
+            float nearestDistance = float.MaxValue;
+
+            foreach (RaycastHit2D hit in hits)
+            {
+                GeneralPassengerPrototype passenger = hit.collider == null
+                    ? null
+                    : hit.collider.GetComponentInParent<GeneralPassengerPrototype>();
+                if (passenger == null || passenger == this)
+                {
+                    continue;
+                }
+
+                Vector2 otherIntent = passenger.GetMovementIntent();
+                if (otherIntent.sqrMagnitude <= 0.0001f)
+                {
+                    continue;
+                }
+
+                Vector2 currentOffset =
+                    (Vector2)passenger.transform.position - body.position;
+                if (Vector2.Dot(currentOffset.normalized, desiredDirection) < 0.2f)
+                {
+                    continue;
+                }
+
+                Vector2 futureSelf = body.position +
+                                     desiredDirection * currentSpeed * movementAnticipationTime;
+                Vector2 futureOther = (Vector2)passenger.transform.position +
+                                      otherIntent * passenger.GetCurrentMoveSpeed() *
+                                      movementAnticipationTime;
+                float currentDistance = currentOffset.magnitude;
+                float futureDistance = Vector2.Distance(futureSelf, futureOther);
+                if (futureDistance >= currentDistance ||
+                    futureDistance > softOverlapRadius + radius)
+                {
+                    continue;
+                }
+
+                if (hit.distance < nearestDistance)
+                {
+                    nearest = passenger;
+                    nearestDistance = hit.distance;
+                }
+            }
+
+            return nearest;
+        }
+
+        private float SelectPassingSide(
+            GeneralPassengerPrototype passenger,
+            Vector2 desiredDirection,
+            Vector2 perpendicular)
+        {
+            Vector2 otherIntent = passenger.GetMovementIntent();
+            float otherLateralMovement = Vector2.Dot(otherIntent, perpendicular);
+            if (Mathf.Abs(otherLateralMovement) > 0.08f)
+            {
+                return -Mathf.Sign(otherLateralMovement);
+            }
+
+            bool headOn = Vector2.Dot(
+                desiredDirection,
+                otherIntent.normalized) < -0.25f;
+            if (headOn)
+            {
+                int pairKey = GetInstanceID() + passenger.GetInstanceID();
+                return pairKey % 2 == 0 ? 1f : -1f;
+            }
+
+            return GetInstanceID() % 2 == 0 ? 1f : -1f;
+        }
+
+        private bool IsPassingSideConflict(
+            GeneralPassengerPrototype passenger,
+            Vector2 perpendicular,
+            float selectedSide)
+        {
+            if (Mathf.Approximately(selectedSide, 0f))
+            {
+                return false;
+            }
+
+            Vector2 selectedWorldDirection = perpendicular * selectedSide;
+            bool movingToSameWorldSide = Vector2.Dot(
+                passenger.GetMovementIntent(),
+                selectedWorldDirection) > 0.08f;
+            return movingToSameWorldSide &&
+                   GetInstanceID() > passenger.GetInstanceID();
+        }
+
+        private void RememberMovementIntent(Vector2 direction)
+        {
+            movementIntent = direction;
+            movementIntentUntil = Time.time + movementIntentMemory;
+        }
+
+        private Vector2 GetMovementIntent()
+        {
+            return Time.time <= movementIntentUntil
+                ? movementIntent
+                : Vector2.zero;
+        }
+
+        private void AssignMovementPace()
+        {
+            float paceRoll = Random.value;
+            if (paceRoll < leisurelyPassengerChance)
+            {
+                personalPaceMultiplier = Random.Range(0.45f, 0.62f);
+            }
+            else if (paceRoll > 1f - hurriedPassengerChance)
+            {
+                personalPaceMultiplier = Random.Range(0.85f, 1f);
+            }
+            else
+            {
+                personalPaceMultiplier = Random.Range(0.63f, 0.82f);
+            }
+
+            float exitRoll = Random.value;
+            if (exitRoll < 0.2f)
+            {
+                exitPaceMultiplier = Random.Range(0.75f, 0.9f);
+            }
+            else if (exitRoll > 0.75f)
+            {
+                exitPaceMultiplier = Random.Range(1.15f, 1.35f);
+            }
+            else
+            {
+                exitPaceMultiplier = Random.Range(0.95f, 1.1f);
+            }
+        }
+
+        private float GetCurrentMoveSpeed()
+        {
+            float speed = moveSpeed * personalPaceMultiplier;
+            if (state == PassengerState.PreparingToExit ||
+                state == PassengerState.Exiting)
+            {
+                speed *= exitPaceMultiplier;
+            }
+
+            return Mathf.Clamp(speed, 0.8f, moveSpeed * 1.25f);
         }
 
         private Vector2 GetBlockedMovementDirection(Vector2 desiredDirection)
