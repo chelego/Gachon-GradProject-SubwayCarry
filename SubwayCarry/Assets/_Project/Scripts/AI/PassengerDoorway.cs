@@ -16,8 +16,8 @@ namespace SubwayCarry.AI
         private readonly List<GameObject> leftBoardingQueue = new List<GameObject>();
         private readonly List<GameObject> rightBoardingQueue = new List<GameObject>();
         private readonly List<GameObject> exitingPassengers = new List<GameObject>();
-        private GameObject activeBoardingPassenger;
-        private int nextBoardingSide = -1;
+        private GameObject activeLeftBoardingPassenger;
+        private GameObject activeRightBoardingPassenger;
         private bool wasDoorOpen;
         private float doorOpenedAt;
 
@@ -64,9 +64,14 @@ namespace SubwayCarry.AI
         {
             leftBoardingQueue.Remove(passenger);
             rightBoardingQueue.Remove(passenger);
-            if (activeBoardingPassenger == passenger)
+            if (activeLeftBoardingPassenger == passenger)
             {
-                activeBoardingPassenger = null;
+                activeLeftBoardingPassenger = null;
+            }
+
+            if (activeRightBoardingPassenger == passenger)
+            {
+                activeRightBoardingPassenger = null;
             }
         }
 
@@ -89,8 +94,18 @@ namespace SubwayCarry.AI
             GetDoorAxes(out Vector2 outsideDirection, out Vector2 lateral);
 
             return (Vector2)outsidePoint.position +
-                   lateral * side * 0.85f +
+                   lateral * side * 0.72f +
                    outsideDirection * index * 0.9f;
+        }
+
+        public Vector2 GetBoardingEntryPosition(GameObject passenger)
+        {
+            return GetBoardingLanePosition(passenger, outsidePoint.position);
+        }
+
+        public Vector2 GetBoardingInsidePosition(GameObject passenger)
+        {
+            return GetBoardingLanePosition(passenger, insidePoint.position);
         }
 
         public bool TryBeginBoarding(GameObject passenger)
@@ -100,33 +115,35 @@ namespace SubwayCarry.AI
             if (door == null ||
                 !door.IsOpen ||
                 Time.time < doorOpenedAt + boardingDelayAfterOpening ||
-                exitingPassengers.Count > 0 ||
-                (activeBoardingPassenger != null && activeBoardingPassenger != passenger))
+                exitingPassengers.Count > 0)
             {
                 return false;
             }
 
-            List<GameObject> preferredQueue = nextBoardingSide < 0
-                ? leftBoardingQueue
-                : rightBoardingQueue;
-            List<GameObject> alternateQueue = nextBoardingSide < 0
-                ? rightBoardingQueue
-                : leftBoardingQueue;
-            int selectedSide = nextBoardingSide;
-
-            if (preferredQueue.Count == 0)
-            {
-                preferredQueue = alternateQueue;
-                selectedSide *= -1;
-            }
-
-            if (preferredQueue.Count == 0 || preferredQueue[0] != passenger)
+            bool isLeft = leftBoardingQueue.Contains(passenger);
+            List<GameObject> queue = isLeft ? leftBoardingQueue : rightBoardingQueue;
+            GameObject activePassenger = isLeft
+                ? activeLeftBoardingPassenger
+                : activeRightBoardingPassenger;
+            if (activePassenger != null && activePassenger != passenger)
             {
                 return false;
             }
 
-            activeBoardingPassenger = passenger;
-            nextBoardingSide = -selectedSide;
+            if (queue.Count == 0 || queue[0] != passenger)
+            {
+                return false;
+            }
+
+            if (isLeft)
+            {
+                activeLeftBoardingPassenger = passenger;
+            }
+            else
+            {
+                activeRightBoardingPassenger = passenger;
+            }
+
             return true;
         }
 
@@ -210,6 +227,13 @@ namespace SubwayCarry.AI
             }
 
             lateral = new Vector2(-outsideDirection.y, outsideDirection.x);
+        }
+
+        private Vector2 GetBoardingLanePosition(GameObject passenger, Vector2 center)
+        {
+            GetDoorAxes(out _, out Vector2 lateral);
+            float side = leftBoardingQueue.Contains(passenger) ? -1f : 1f;
+            return center + lateral * side * 0.43f;
         }
 
         private void RemoveMissingBoardingPassengers()

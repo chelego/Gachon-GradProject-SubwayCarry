@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -14,9 +15,23 @@ namespace SubwayCarry.AI
 
         public List<Vector3> FindWorldPath(Vector3 startWorld, Vector3 goalWorld)
         {
+            return FindWorldPath(startWorld, goalWorld, null);
+        }
+
+        public List<Vector3> FindWorldPath(
+            Vector3 startWorld,
+            Vector3 goalWorld,
+            Predicate<Vector2> dynamicWalkable)
+        {
             Vector2Int start = WorldToCell(startWorld);
             Vector2Int goal = WorldToCell(goalWorld);
-            List<Vector2Int> cells = AStarGrid.FindPath(start, goal, width, height, IsWalkable);
+            List<Vector2Int> cells = AStarGrid.FindPath(
+                start,
+                goal,
+                width,
+                height,
+                cell => IsWalkable(cell) &&
+                        (dynamicWalkable == null || dynamicWalkable(CellToWorld(cell))));
             var worldPath = new List<Vector3>(cells.Count);
 
             foreach (Vector2Int cell in cells)

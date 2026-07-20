@@ -20,6 +20,7 @@ namespace SubwayCarry.AI
         private const float SeatY = 2.55f;
         private const float DoorInsideY = 1.55f;
         private const float DoorOutsideY = 4.05f;
+        private const float DoorWidth = 1.9f;
 
         private sealed class TrainCarBuildData
         {
@@ -254,7 +255,7 @@ namespace SubwayCarry.AI
             Color wallColor)
         {
             float[] doorX = { -7.4f, -3.8f, -0.2f, 3.4f };
-            const float openingHalfWidth = 0.65f;
+            const float openingHalfWidth = DoorWidth * 0.5f + 0.05f;
             float segmentStart = -9.1f;
 
             foreach (float localDoorX in doorX)
@@ -471,12 +472,12 @@ namespace SubwayCarry.AI
             doorRoot.transform.SetParent(parent);
             doorRoot.transform.position = position;
 
-            CreateBlock("Door Opening", position, new Vector2(1.2f, WallThickness),
+            CreateBlock("Door Opening", position, new Vector2(DoorWidth, WallThickness),
                 new Color(0.025f, 0.035f, 0.05f), doorRoot.transform, false, "DoorOpening", -0.1f);
-            GameObject leftPanel = CreateBlock("Left Panel", position + Vector2.left * 0.29f,
-                new Vector2(0.56f, WallThickness), color, doorRoot.transform, false, "Door", -0.2f);
-            GameObject rightPanel = CreateBlock("Right Panel", position + Vector2.right * 0.29f,
-                new Vector2(0.56f, WallThickness), color, doorRoot.transform, false, "Door", -0.2f);
+            GameObject leftPanel = CreateBlock("Left Panel", position + Vector2.left * 0.46f,
+                new Vector2(0.9f, WallThickness), color, doorRoot.transform, false, "Door", -0.2f);
+            GameObject rightPanel = CreateBlock("Right Panel", position + Vector2.right * 0.46f,
+                new Vector2(0.9f, WallThickness), color, doorRoot.transform, false, "Door", -0.2f);
             AddKinematicCollision(leftPanel);
             AddKinematicCollision(rightPanel);
 

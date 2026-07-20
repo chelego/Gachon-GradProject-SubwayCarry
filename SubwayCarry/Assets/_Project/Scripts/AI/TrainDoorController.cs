@@ -7,7 +7,7 @@ namespace SubwayCarry.AI
     {
         [SerializeField] private Transform leftPanel;
         [SerializeField] private Transform rightPanel;
-        [SerializeField, Min(0.1f)] private float slideDistance = 0.55f;
+        [SerializeField, Min(0.1f)] private float slideDistance = 0.9f;
         [SerializeField, Min(0.1f)] private float transitionDuration = 0.6f;
 
         private Vector3 leftClosedPosition;

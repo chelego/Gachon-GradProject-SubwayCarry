@@ -14,6 +14,7 @@ namespace SubwayCarry.AI
             ChoosingBehavior,
             MovingToActivity,
             Observing,
+            Yielding,
             PreparingToExit,
             WaitingAtExitDoor,
             Exiting,
@@ -71,10 +72,13 @@ namespace SubwayCarry.AI
         [SerializeField, Min(0.1f)] private float waitingPersonalSpaceRadius = 0.9f;
         [SerializeField, Min(0.1f)] private float waitingSeparationSpeed = 0.8f;
         [SerializeField, Min(0.1f)] private float maximumWaitingDrift = 0.65f;
-        [SerializeField, Min(0.1f)] private float blockedActivityTimeout = 1.25f;
-        [SerializeField, Range(0f, 1f)] private float squeezeThroughChance = 0.35f;
+        [SerializeField, Min(0.1f)] private float blockedActivityTimeout = 2.2f;
+        [SerializeField, Range(0f, 1f)] private float squeezeThroughChance = 0.25f;
         [SerializeField, Range(0.1f, 0.8f)] private float squeezeSpeedMultiplier = 0.4f;
         [SerializeField, Min(0.1f)] private float softOverlapRadius = 0.65f;
+        [SerializeField, Min(0.1f)] private float stationaryPassengerClearance = 0.68f;
+        [SerializeField, Min(0.1f)] private float courtesyStepDistance = 0.65f;
+        [SerializeField, Min(0.1f)] private float exitIntentCorridorWidth = 0.78f;
         [SerializeField, Min(0.01f)] private float arrivalDistance = 0.08f;
         [SerializeField] private PassengerState state;
         [SerializeField] private PassengerBehavior behavior;
@@ -87,11 +91,13 @@ namespace SubwayCarry.AI
         private Transform reservedSittingPoint;
         private PassengerActivityPoint reservedActivityPoint;
         private PassengerDoorway exitDoorway;
+        private PassengerIntentCoordinator intentCoordinator;
         private Vector2 activityTarget;
         private Vector2 exitWaitingTarget;
         private Vector2 pathTarget;
         private int pathIndex;
         private int boardingStopNumber;
+        private int plannedExitStopNumber;
         private int observedAvailableSeatCount;
         private float nextDecisionTime;
         private float nextRepathTime;
@@ -100,14 +106,27 @@ namespace SubwayCarry.AI
         private float nextHeadOnReactionTime;
         private float movementIntentUntil;
         private float blockedByPassengerSince = -1f;
+        private float courtesy;
+        private float courtesyWaitUntil;
+        private float courtesyWaitCooldownUntil;
+        private float nextCongestionRerouteTime;
+        private float nextIntentBroadcastTime;
+        private float nextSeatIntentBroadcastTime;
+        private float courtesyYieldCanReturnAt;
+        private float courtesyYieldUntil;
         private float personalPaceMultiplier = 1f;
         private float exitPaceMultiplier = 1f;
         private Vector2 movementIntent;
+        private Vector2 courtesyYieldOrigin;
+        private Vector2 courtesyYieldTarget;
+        private GeneralPassengerPrototype courtesyYieldSource;
+        private GeneralPassengerPrototype courtesyWaitPassenger;
         private bool hasPathTarget;
         private bool hasBoardingReservation;
         private bool reachedBoardingDoorCenter;
         private bool hasExitReservation;
         private bool squeezeThroughPassengers;
+        private bool reachedCourtesyYieldTarget;
         private int avoidanceAdjustmentCount;
         private int blockedPushCount;
         private int abandonedActivityCount;
@@ -127,6 +146,9 @@ namespace SubwayCarry.AI
         public int AnticipatedAvoidanceCount => anticipatedAvoidanceCount;
         public int PassingSideCorrectionCount => passingSideCorrectionCount;
         public float CurrentMoveSpeed => GetCurrentMoveSpeed();
+        public float Courtesy => courtesy;
+        public bool IsSeekingSeat => state == PassengerState.MovingToActivity &&
+                                     behavior == PassengerBehavior.Seated;
 
         public void Configure(
             PassengerDoorway initialBoardingDoorway,
@@ -148,9 +170,11 @@ namespace SubwayCarry.AI
             bodyCollider = GetComponent<Collider2D>();
             body.linearDamping = 8f;
             squeezeThroughPassengers = Random.value < squeezeThroughChance;
+            courtesy = Random.Range(0.15f, 0.95f);
             AssignMovementPace();
             IgnoreHardPassengerCollisions();
             RefreshMapReferences();
+            RegisterWithIntentCoordinator();
 
             if (boardingDoorway == null || !boardingDoorway.IsUsable)
             {
@@ -180,6 +204,7 @@ namespace SubwayCarry.AI
                     if (isAtQueueFront && boardingDoorway.TryBeginBoarding(gameObject))
                     {
                         boardingStopNumber = doorCycle.StopNumber;
+                        plannedExitStopNumber = boardingStopNumber + Random.Range(1, 4);
                         reachedBoardingDoorCenter = false;
                         SetState(PassengerState.Boarding, PassengerBehavior.None);
                     }
@@ -189,9 +214,10 @@ namespace SubwayCarry.AI
                     if (!reachedBoardingDoorCenter)
                     {
                         reachedBoardingDoorCenter = MoveDirectly(
-                            boardingDoorway.OutsidePoint.position);
+                            boardingDoorway.GetBoardingEntryPosition(gameObject));
                     }
-                    else if (MoveDirectly(boardingDoorway.InsidePoint.position))
+                    else if (MoveDirectly(
+                                 boardingDoorway.GetBoardingInsidePosition(gameObject)))
                     {
                         ReleaseBoardingReservation();
                         SetState(PassengerState.ChoosingBehavior, PassengerBehavior.None);
@@ -214,13 +240,17 @@ namespace SubwayCarry.AI
                     {
                         BeginExitPreparation();
                     }
-                    else if (MoveUsingPath(activityTarget))
+                    else
                     {
-                        FinishActivityMove();
-                    }
-                    else if (ShouldAbandonBlockedActivity())
-                    {
-                        AbandonBlockedActivity();
+                        BroadcastSeatIntent();
+                        if (MoveUsingPath(activityTarget))
+                        {
+                            FinishActivityMove();
+                        }
+                        else if (ShouldAbandonBlockedActivity())
+                        {
+                            AbandonBlockedActivity();
+                        }
                     }
                     break;
 
@@ -235,7 +265,12 @@ namespace SubwayCarry.AI
                     }
                     break;
 
+                case PassengerState.Yielding:
+                    UpdateCourtesyYield();
+                    break;
+
                 case PassengerState.PreparingToExit:
+                    BroadcastExitIntent();
                     if (exitDoorway != null &&
                         (IsInsideExitWaitingArea() || MoveUsingPath(exitWaitingTarget)))
                     {
@@ -299,6 +334,22 @@ namespace SubwayCarry.AI
             boardingDoorway = ReserveRandomBoardingDoorway();
         }
 
+        private void RegisterWithIntentCoordinator()
+        {
+            if (mapRoot == null)
+            {
+                return;
+            }
+
+            intentCoordinator = mapRoot.GetComponent<PassengerIntentCoordinator>();
+            if (intentCoordinator == null)
+            {
+                intentCoordinator = mapRoot.gameObject.AddComponent<PassengerIntentCoordinator>();
+            }
+
+            intentCoordinator.Register(this);
+        }
+
         private PassengerDoorway ReserveRandomBoardingDoorway()
         {
             var candidates = new List<PassengerDoorway>();
@@ -359,6 +410,7 @@ namespace SubwayCarry.AI
         {
             ReleaseBoardingReservation();
             ReleaseExitReservation();
+            intentCoordinator?.Unregister(this);
         }
 
         private bool ContainsDoorway(PassengerDoorway target)
@@ -769,6 +821,295 @@ namespace SubwayCarry.AI
             ReserveExitDoorway(exitDoorway);
 
             SetState(PassengerState.PreparingToExit, PassengerBehavior.Exiting);
+            BroadcastExitIntent(true);
+        }
+
+        private void BroadcastExitIntent(bool force = false)
+        {
+            if (intentCoordinator == null || exitDoorway == null ||
+                (!force && Time.time < nextIntentBroadcastTime))
+            {
+                return;
+            }
+
+            float aisleY = GetAisleCenterY();
+            Vector2 sourcePosition = body.position;
+            Vector2 destination = exitWaitingTarget;
+            var intent = new PassengerExitIntent(
+                this,
+                exitDoorway,
+                sourcePosition,
+                new Vector2(sourcePosition.x, aisleY),
+                new Vector2(destination.x, aisleY),
+                destination,
+                Time.time + 0.8f);
+            intentCoordinator.PublishExitIntent(intent);
+            nextIntentBroadcastTime = Time.time + 0.35f;
+        }
+
+        public void ReceiveExitIntent(PassengerExitIntent intent)
+        {
+            if (intent.Source == null ||
+                intent.ExpiresAt < Time.time ||
+                state != PassengerState.Observing ||
+                behavior == PassengerBehavior.Seated ||
+                courtesy < 0.28f ||
+                !IsBlockingExitIntent(intent))
+            {
+                return;
+            }
+
+            if (!TryFindCourtesyYieldTarget(intent, out Vector2 yieldTarget))
+            {
+                return;
+            }
+
+            BeginCourtesyYield(intent.Source, yieldTarget);
+        }
+
+        private void BroadcastSeatIntent()
+        {
+            if (!IsSeekingSeat ||
+                intentCoordinator == null ||
+                Time.time < nextSeatIntentBroadcastTime)
+            {
+                return;
+            }
+
+            intentCoordinator.PublishSeatIntent(
+                this,
+                body.position,
+                activityTarget,
+                Time.time + 0.7f);
+            nextSeatIntentBroadcastTime = Time.time + 0.3f;
+        }
+
+        public void ReceiveSeatIntent(
+            GeneralPassengerPrototype source,
+            Vector2 sourcePosition,
+            Vector2 destination,
+            float expiresAt)
+        {
+            if (source == null ||
+                expiresAt < Time.time ||
+                state != PassengerState.Observing ||
+                behavior == PassengerBehavior.Seated ||
+                courtesy < 0.22f ||
+                DistancePointToSegment(body.position, sourcePosition, destination) >
+                exitIntentCorridorWidth)
+            {
+                return;
+            }
+
+            Vector2 direction = (destination - sourcePosition).normalized;
+            Vector2 perpendicular = new Vector2(-direction.y, direction.x);
+            Vector2[] candidates =
+            {
+                body.position + perpendicular * courtesyStepDistance,
+                body.position - perpendicular * courtesyStepDistance,
+                body.position - direction * courtesyStepDistance * 0.65f
+            };
+
+            Vector2 selected = body.position;
+            float bestDistance = DistancePointToSegment(
+                selected,
+                sourcePosition,
+                destination);
+            foreach (Vector2 candidate in candidates)
+            {
+                float routeDistance = DistancePointToSegment(
+                    candidate,
+                    sourcePosition,
+                    destination);
+                if (routeDistance > bestDistance &&
+                    IsCourtesyPositionAvailable(candidate))
+                {
+                    bestDistance = routeDistance;
+                    selected = candidate;
+                }
+            }
+
+            if (selected != body.position)
+            {
+                BeginCourtesyYield(source, selected);
+            }
+        }
+
+        private void BeginCourtesyYield(
+            GeneralPassengerPrototype source,
+            Vector2 yieldTarget)
+        {
+            courtesyYieldSource = source;
+            courtesyYieldOrigin = body.position;
+            courtesyYieldTarget = yieldTarget;
+            courtesyYieldCanReturnAt = Time.time + Random.Range(0.65f, 1f);
+            courtesyYieldUntil = Time.time + Random.Range(1.5f, 2.2f);
+            reachedCourtesyYieldTarget = false;
+            ClearPath();
+            RecordDecision(
+                behavior == PassengerBehavior.Handhold
+                    ? "Release handhold -> Yield"
+                    : "Step back -> Yield");
+            state = PassengerState.Yielding;
+            UpdateLabel();
+        }
+
+        private bool IsBlockingExitIntent(PassengerExitIntent intent)
+        {
+            Vector2 position = body.position;
+            return DistancePointToSegment(position, intent.SourcePosition, intent.AisleEntry) <=
+                   exitIntentCorridorWidth ||
+                   DistancePointToSegment(position, intent.AisleEntry, intent.AisleExit) <=
+                   exitIntentCorridorWidth ||
+                   DistancePointToSegment(position, intent.AisleExit, intent.Destination) <=
+                   exitIntentCorridorWidth;
+        }
+
+        private bool TryFindCourtesyYieldTarget(
+            PassengerExitIntent intent,
+            out Vector2 yieldTarget)
+        {
+            Vector2 position = body.position;
+            Vector2 routeDirection = GetNearestIntentSegmentDirection(position, intent);
+            if (routeDirection.sqrMagnitude <= 0.001f)
+            {
+                routeDirection = (intent.Destination - intent.SourcePosition).normalized;
+            }
+
+            Vector2 perpendicular = new Vector2(-routeDirection.y, routeDirection.x);
+            Vector2[] candidates =
+            {
+                position + perpendicular * courtesyStepDistance,
+                position - perpendicular * courtesyStepDistance,
+                position - routeDirection * courtesyStepDistance * 0.75f
+            };
+
+            float bestScore = float.MinValue;
+            yieldTarget = position;
+            foreach (Vector2 candidate in candidates)
+            {
+                if (!IsCourtesyPositionAvailable(candidate))
+                {
+                    continue;
+                }
+
+                float score = DistanceToExitIntentRoute(candidate, intent);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    yieldTarget = candidate;
+                }
+            }
+
+            return bestScore > float.MinValue;
+        }
+
+        private void UpdateCourtesyYield()
+        {
+            if (ShouldPrepareToExit())
+            {
+                state = PassengerState.Observing;
+                BeginExitPreparation();
+                return;
+            }
+
+            if (!reachedCourtesyYieldTarget)
+            {
+                reachedCourtesyYieldTarget = MoveDirectly(courtesyYieldTarget);
+                return;
+            }
+
+            bool sourcePassed = courtesyYieldSource == null ||
+                                courtesyYieldSource.state == PassengerState.WaitingAtExitDoor ||
+                                courtesyYieldSource.state == PassengerState.Exiting ||
+                                courtesyYieldSource.state == PassengerState.WaitingAfterExit;
+            if (Time.time < courtesyYieldCanReturnAt ||
+                (!sourcePassed && Time.time < courtesyYieldUntil))
+            {
+                RememberMovementIntent(Vector2.zero);
+                return;
+            }
+
+            if (!MoveDirectly(courtesyYieldOrigin))
+            {
+                return;
+            }
+
+            courtesyYieldSource = null;
+            reachedCourtesyYieldTarget = false;
+            ScheduleNextDecision();
+            state = PassengerState.Observing;
+            RecordDecision("Yield complete");
+            UpdateLabel();
+        }
+
+        private bool IsCourtesyPositionAvailable(Vector2 position)
+        {
+            if (IsBlockedByNavigationObstacle(position))
+            {
+                return false;
+            }
+
+            Collider2D[] overlaps = Physics2D.OverlapCircleAll(position, 0.48f);
+            foreach (Collider2D overlap in overlaps)
+            {
+                GeneralPassengerPrototype passenger =
+                    overlap.GetComponentInParent<GeneralPassengerPrototype>();
+                if (passenger != null && passenger != this)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static Vector2 GetNearestIntentSegmentDirection(
+            Vector2 position,
+            PassengerExitIntent intent)
+        {
+            Vector2[] starts = { intent.SourcePosition, intent.AisleEntry, intent.AisleExit };
+            Vector2[] ends = { intent.AisleEntry, intent.AisleExit, intent.Destination };
+            float nearestDistance = float.MaxValue;
+            Vector2 nearestDirection = Vector2.zero;
+
+            for (int i = 0; i < starts.Length; i++)
+            {
+                float distance = DistancePointToSegment(position, starts[i], ends[i]);
+                if (distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                    nearestDirection = (ends[i] - starts[i]).normalized;
+                }
+            }
+
+            return nearestDirection;
+        }
+
+        private static float DistanceToExitIntentRoute(
+            Vector2 position,
+            PassengerExitIntent intent)
+        {
+            return Mathf.Min(
+                DistancePointToSegment(position, intent.SourcePosition, intent.AisleEntry),
+                DistancePointToSegment(position, intent.AisleEntry, intent.AisleExit),
+                DistancePointToSegment(position, intent.AisleExit, intent.Destination));
+        }
+
+        private static float DistancePointToSegment(
+            Vector2 point,
+            Vector2 segmentStart,
+            Vector2 segmentEnd)
+        {
+            Vector2 segment = segmentEnd - segmentStart;
+            if (segment.sqrMagnitude <= 0.0001f)
+            {
+                return Vector2.Distance(point, segmentStart);
+            }
+
+            float t = Mathf.Clamp01(Vector2.Dot(point - segmentStart, segment) /
+                                    segment.sqrMagnitude);
+            return Vector2.Distance(point, segmentStart + segment * t);
         }
 
         private PassengerDoorway SelectExitDoorway()
@@ -869,6 +1210,7 @@ namespace SubwayCarry.AI
         private bool ShouldPrepareToExit()
         {
             return doorCycle.IsTravelling &&
+                   plannedExitStopNumber == doorCycle.StopNumber + 1 &&
                    doorCycle.TravelTimeRemaining <= exitPreparationLeadTime;
         }
 
@@ -877,6 +1219,14 @@ namespace SubwayCarry.AI
             if (Vector2.Distance(body.position, destination) <= arrivalDistance)
             {
                 return true;
+            }
+
+            if ((state == PassengerState.MovingToActivity ||
+                 state == PassengerState.PreparingToExit) &&
+                CanTravelDirectly(destination))
+            {
+                ClearPath();
+                return MoveDirectly(destination);
             }
 
             if (!hasPathTarget ||
@@ -905,37 +1255,243 @@ namespace SubwayCarry.AI
         private void RebuildPath(Vector2 destination)
         {
             path.Clear();
+            List<Vector2> stationaryPassengers = CollectStationaryPassengerPositions(destination);
+            Vector2 start = body.position;
 
-            List<Vector3> shortestPath = null;
-            if (navigationAreas != null)
+            if (ShouldUseAisleRoute(destination, stationaryPassengers))
             {
-                foreach (GridNavigation2D navigation in navigationAreas)
-                {
-                    if (navigation == null)
-                    {
-                        continue;
-                    }
+                float aisleY = GetAisleCenterY() + GetPreferredAisleOffset();
+                Vector2 aisleEntry = new Vector2(start.x, aisleY);
+                float horizontalDirection = Mathf.Sign(destination.x - start.x);
+                float approachLead = Mathf.Abs(destination.x - start.x) > 1.4f ? 1.1f : 0f;
+                Vector2 aisleApproach = new Vector2(
+                    destination.x - horizontalDirection * approachLead,
+                    aisleY);
 
-                    List<Vector3> candidatePath = navigation.FindWorldPath(body.position, destination);
-                    if (candidatePath.Count == 0 ||
-                        (shortestPath != null && candidatePath.Count >= shortestPath.Count))
-                    {
-                        continue;
-                    }
-
-                    shortestPath = candidatePath;
-                }
+                AppendPathSegment(start, aisleEntry, stationaryPassengers);
+                AppendPathSegment(aisleEntry, aisleApproach, stationaryPassengers);
+                AppendPathSegment(aisleApproach, destination, stationaryPassengers);
+            }
+            else
+            {
+                AppendPathSegment(start, destination, stationaryPassengers);
             }
 
-            if (shortestPath != null)
+            while (path.Count > 0 &&
+                   Vector2.Distance(body.position, path[0]) <= arrivalDistance + 0.12f)
             {
-                path.AddRange(shortestPath);
+                path.RemoveAt(0);
             }
 
-            pathIndex = path.Count > 1 ? 1 : 0;
+            pathIndex = 0;
             pathTarget = destination;
             hasPathTarget = true;
             nextRepathTime = Time.time + 1.5f;
+        }
+
+        private void AppendPathSegment(
+            Vector2 start,
+            Vector2 destination,
+            List<Vector2> stationaryPassengers)
+        {
+            if (Vector2.Distance(start, destination) <= 0.1f)
+            {
+                return;
+            }
+
+            List<Vector3> shortestPath = FindShortestPath(
+                start,
+                destination,
+                stationaryPassengers);
+            if (shortestPath == null || shortestPath.Count == 0)
+            {
+                shortestPath = FindShortestPath(start, destination, null);
+            }
+
+            if (shortestPath == null || shortestPath.Count == 0)
+            {
+                if (path.Count == 0 || Vector2.Distance(path[path.Count - 1], destination) > 0.1f)
+                {
+                    path.Add(destination);
+                }
+
+                return;
+            }
+
+            foreach (Vector3 point in shortestPath)
+            {
+                if (path.Count == 0 || Vector2.Distance(path[path.Count - 1], point) > 0.08f)
+                {
+                    path.Add(point);
+                }
+            }
+        }
+
+        private List<Vector3> FindShortestPath(
+            Vector2 start,
+            Vector2 destination,
+            List<Vector2> stationaryPassengers)
+        {
+            List<Vector3> shortestPath = null;
+            if (navigationAreas == null)
+            {
+                return null;
+            }
+
+            foreach (GridNavigation2D navigation in navigationAreas)
+            {
+                if (navigation == null)
+                {
+                    continue;
+                }
+
+                List<Vector3> candidatePath = stationaryPassengers == null
+                    ? navigation.FindWorldPath(start, destination)
+                    : navigation.FindWorldPath(
+                        start,
+                        destination,
+                        point => IsDynamicallyWalkable(
+                            point,
+                            start,
+                            destination,
+                            stationaryPassengers));
+                if (candidatePath.Count == 0 ||
+                    (shortestPath != null && candidatePath.Count >= shortestPath.Count))
+                {
+                    continue;
+                }
+
+                shortestPath = candidatePath;
+            }
+
+            return shortestPath;
+        }
+
+        private List<Vector2> CollectStationaryPassengerPositions(Vector2 destination)
+        {
+            var positions = new List<Vector2>();
+            GeneralPassengerPrototype[] passengers = FindMapComponents<GeneralPassengerPrototype>();
+            foreach (GeneralPassengerPrototype passenger in passengers)
+            {
+                if (passenger == null ||
+                    passenger == this ||
+                    passenger.bodyCollider == null ||
+                    !passenger.bodyCollider.enabled ||
+                    Vector2.Distance(passenger.body.position, destination) <= 0.5f)
+                {
+                    continue;
+                }
+
+                bool stationary = passenger.state == PassengerState.Observing ||
+                                  passenger.state == PassengerState.WaitingAtExitDoor ||
+                                  passenger.state == PassengerState.Yielding ||
+                                  passenger.GetMovementIntent().sqrMagnitude <= 0.01f;
+                if (stationary)
+                {
+                    positions.Add(passenger.body.position);
+                }
+            }
+
+            return positions;
+        }
+
+        private bool IsDynamicallyWalkable(
+            Vector2 point,
+            Vector2 start,
+            Vector2 destination,
+            List<Vector2> stationaryPassengers)
+        {
+            if (Vector2.Distance(point, start) <= stationaryPassengerClearance ||
+                Vector2.Distance(point, destination) <= stationaryPassengerClearance + 0.15f)
+            {
+                return true;
+            }
+
+            foreach (Vector2 passengerPosition in stationaryPassengers)
+            {
+                if (Vector2.Distance(point, passengerPosition) < stationaryPassengerClearance)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private bool ShouldUseAisleRoute(
+            Vector2 destination,
+            List<Vector2> stationaryPassengers)
+        {
+            float aisleY = GetAisleCenterY();
+            bool sideDestination = Mathf.Abs(destination.y - aisleY) > 0.95f;
+            bool meaningfulTravel = Vector2.Distance(body.position, destination) > 1.2f;
+            if (sideDestination && meaningfulTravel)
+            {
+                return true;
+            }
+
+            foreach (Vector2 passengerPosition in stationaryPassengers)
+            {
+                if (DistancePointToSegment(
+                        passengerPosition,
+                        body.position,
+                        destination) < stationaryPassengerClearance)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private float GetAisleCenterY()
+        {
+            return mapRoot != null ? mapRoot.position.y : 0f;
+        }
+
+        private float GetPreferredAisleOffset()
+        {
+            int lane = Mathf.Abs(GetInstanceID()) % 3;
+            return lane == 0 ? -0.42f : lane == 1 ? 0f : 0.42f;
+        }
+
+        private bool CanTravelDirectly(Vector2 destination)
+        {
+            Vector2 direction = destination - body.position;
+            float distance = direction.magnitude;
+            if (distance <= 0.1f)
+            {
+                return true;
+            }
+
+            RaycastHit2D[] hits = Physics2D.CircleCastAll(
+                body.position,
+                GetAvoidanceRadius() * 0.8f,
+                direction.normalized,
+                distance);
+            foreach (RaycastHit2D hit in hits)
+            {
+                if (hit.collider == null ||
+                    hit.collider == bodyCollider ||
+                    hit.collider.isTrigger)
+                {
+                    continue;
+                }
+
+                GeneralPassengerPrototype passenger =
+                    hit.collider.GetComponentInParent<GeneralPassengerPrototype>();
+                if (passenger != null && passenger != this)
+                {
+                    return false;
+                }
+
+                if (hit.collider.GetComponentInParent<NavigationObstacle>() != null)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private bool MoveDirectly(Vector2 destination)
@@ -973,6 +1529,14 @@ namespace SubwayCarry.AI
         private Vector2 GetLocallyAvoidedDirection(Vector2 desiredDirection)
         {
             float radius = GetAvoidanceRadius();
+            GeneralPassengerPrototype passengerAhead =
+                FindPassengerDirectlyAhead(desiredDirection, radius);
+            if (ShouldWaitForPassenger(passengerAhead))
+            {
+                RememberMovementIntent(Vector2.zero);
+                return Vector2.zero;
+            }
+
             GeneralPassengerPrototype approachingPassenger =
                 FindApproachingPassenger(desiredDirection, radius);
             if (!HasActorAhead(desiredDirection, radius) && approachingPassenger == null)
@@ -1064,6 +1628,103 @@ namespace SubwayCarry.AI
             ResetPassengerBlock();
             avoidanceAdjustmentCount++;
             return avoidedDirection;
+        }
+
+        private GeneralPassengerPrototype FindPassengerDirectlyAhead(
+            Vector2 desiredDirection,
+            float radius)
+        {
+            RaycastHit2D[] hits = Physics2D.CircleCastAll(
+                body.position,
+                radius,
+                desiredDirection,
+                avoidanceLookAhead * 0.85f);
+            GeneralPassengerPrototype nearest = null;
+            float nearestDistance = float.MaxValue;
+
+            foreach (RaycastHit2D hit in hits)
+            {
+                GeneralPassengerPrototype passenger = hit.collider == null
+                    ? null
+                    : hit.collider.GetComponentInParent<GeneralPassengerPrototype>();
+                if (passenger == null || passenger == this || hit.distance >= nearestDistance)
+                {
+                    continue;
+                }
+
+                Vector2 offset = passenger.body.position - body.position;
+                if (offset.sqrMagnitude <= 0.001f ||
+                    Vector2.Dot(offset.normalized, desiredDirection) < 0.55f)
+                {
+                    continue;
+                }
+
+                nearest = passenger;
+                nearestDistance = hit.distance;
+            }
+
+            return nearest;
+        }
+
+        private bool ShouldWaitForPassenger(GeneralPassengerPrototype passenger)
+        {
+            if (courtesyWaitPassenger != null && Time.time < courtesyWaitUntil)
+            {
+                return courtesyWaitPassenger == passenger;
+            }
+
+            if (courtesyWaitPassenger != null)
+            {
+                courtesyWaitPassenger = null;
+                courtesyWaitCooldownUntil = Time.time + Random.Range(0.35f, 0.65f);
+            }
+
+            if (passenger == null ||
+                Time.time < courtesyWaitCooldownUntil ||
+                passenger.GetMovementIntent().sqrMagnitude <= 0.01f)
+            {
+                return false;
+            }
+
+            float ownPriority = GetMovementPriority();
+            float otherPriority = passenger.GetMovementPriority();
+            bool shouldYield = ownPriority < otherPriority - 0.05f;
+            if (Mathf.Abs(ownPriority - otherPriority) <= 0.05f)
+            {
+                shouldYield = GetInstanceID() > passenger.GetInstanceID();
+            }
+
+            if (!shouldYield)
+            {
+                return false;
+            }
+
+            courtesyWaitPassenger = passenger;
+            courtesyWaitUntil = Time.time + Mathf.Lerp(0.3f, 0.85f, courtesy);
+            RecordDecision("Wait for " + passenger.name);
+            return true;
+        }
+
+        private float GetMovementPriority()
+        {
+            if (state == PassengerState.Exiting ||
+                state == PassengerState.PreparingToExit ||
+                state == PassengerState.WaitingAtExitDoor)
+            {
+                return 3f;
+            }
+
+            if (state == PassengerState.Boarding)
+            {
+                return 2.6f;
+            }
+
+            if (IsSeekingSeat)
+            {
+                return 2.1f;
+            }
+
+            return 1f + (1f - courtesy) * 0.45f;
         }
 
         private GeneralPassengerPrototype FindApproachingPassenger(
@@ -1237,6 +1898,19 @@ namespace SubwayCarry.AI
             bool essentialMovement = state != PassengerState.MovingToActivity;
             bool canSqueeze = essentialMovement || squeezeThroughPassengers;
             float blockedDuration = Time.time - blockedByPassengerSince;
+
+            if (state == PassengerState.MovingToActivity &&
+                blockedDuration >= 0.45f &&
+                Time.time >= nextCongestionRerouteTime)
+            {
+                hasPathTarget = false;
+                nextRepathTime = 0f;
+                nextCongestionRerouteTime = Time.time + 0.8f;
+                if (courtesy >= 0.45f)
+                {
+                    return Vector2.zero;
+                }
+            }
 
             if (canSqueeze && blockedDuration >= blockedActivityTimeout * 0.5f)
             {
@@ -1533,7 +2207,9 @@ namespace SubwayCarry.AI
                 return;
             }
 
-            string action = behavior == PassengerBehavior.None ? state.ToString() : behavior.ToString();
+            string action = state == PassengerState.Yielding
+                ? "Yielding"
+                : behavior == PassengerBehavior.None ? state.ToString() : behavior.ToString();
             stateLabel.text = gameObject.name + "\n" + action;
         }
     }
