@@ -73,7 +73,8 @@ namespace SubwayCarry.AI
             allDoors.AddRange(car2.Doors);
             GameObject doorCycleObject = new GameObject("Door Cycle Prototype");
             doorCycleObject.transform.SetParent(root.transform);
-            doorCycleObject.AddComponent<TrainDoorCyclePrototype>().Configure(allDoors.ToArray());
+            TrainDoorCyclePrototype doorCycle = doorCycleObject.AddComponent<TrainDoorCyclePrototype>();
+            doorCycle.Configure(allDoors.ToArray());
 
             PopulatePermanentPassengers(car1, 1);
             PopulatePermanentPassengers(car2, 0);
@@ -93,6 +94,7 @@ namespace SubwayCarry.AI
                 new Vector2(0.8f, 1.2f),
                 new Color(0.75f, 0.55f, 0.95f),
                 "BoardingPassengerB");
+            CreatePlayer(car1, 4, -0.2f, doorCycle);
 
             cameraController.FocusOn(car1.Center);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -166,10 +168,8 @@ namespace SubwayCarry.AI
                 1f);
 
             Color wallColor = new Color(0.24f, 0.31f, 0.4f);
-            CreateBlock("Top Wall", center + new Vector2(0f, 4.1f),
-                new Vector2(18.2f, WallThickness), wallColor, carRoot.transform, true, "Wall");
-            CreateBlock("Bottom Wall", center + new Vector2(0f, -4.1f),
-                new Vector2(18.2f, WallThickness), wallColor, carRoot.transform, true, "Wall");
+            CreateSideWallSegments(carRoot.transform, center, 1f, wallColor);
+            CreateSideWallSegments(carRoot.transform, center, -1f, wallColor);
 
             CreateEndWall(carRoot.transform, center, -1f, openLeft, wallColor);
             CreateEndWall(carRoot.transform, center, 1f, openRight, wallColor);
@@ -231,6 +231,50 @@ namespace SubwayCarry.AI
                 new Vector2(WallThickness, segmentHeight), wallColor, parent, true, "Wall");
             CreateBlock("Connector Wall Lower", new Vector2(x, center.y - segmentOffset),
                 new Vector2(WallThickness, segmentHeight), wallColor, parent, true, "Wall");
+        }
+
+        private static void CreateSideWallSegments(
+            Transform parent,
+            Vector2 center,
+            float direction,
+            Color wallColor)
+        {
+            float[] doorX = { -7.4f, -3.8f, -0.2f, 3.4f };
+            const float openingHalfWidth = 0.65f;
+            float segmentStart = -9.1f;
+
+            foreach (float localDoorX in doorX)
+            {
+                float segmentEnd = localDoorX - openingHalfWidth;
+                CreateWallSegment(parent, center, direction, segmentStart, segmentEnd, wallColor);
+                segmentStart = localDoorX + openingHalfWidth;
+            }
+
+            CreateWallSegment(parent, center, direction, segmentStart, 9.1f, wallColor);
+        }
+
+        private static void CreateWallSegment(
+            Transform parent,
+            Vector2 center,
+            float direction,
+            float startX,
+            float endX,
+            Color wallColor)
+        {
+            float width = endX - startX;
+            if (width <= 0f)
+            {
+                return;
+            }
+
+            CreateBlock(
+                direction > 0f ? "Top Wall" : "Bottom Wall",
+                center + new Vector2((startX + endX) * 0.5f, direction * 4.1f),
+                new Vector2(width, WallThickness),
+                wallColor,
+                parent,
+                true,
+                "Wall");
         }
 
         private static void CreateWallMarkings(
@@ -317,6 +361,8 @@ namespace SubwayCarry.AI
                 new Vector2(0.56f, 0.28f), color, doorRoot.transform, false, "Door", -0.2f);
             GameObject rightPanel = CreateBlock("Right Panel", position + Vector2.right * 0.29f,
                 new Vector2(0.56f, 0.28f), color, doorRoot.transform, false, "Door", -0.2f);
+            AddKinematicCollision(leftPanel);
+            AddKinematicCollision(rightPanel);
 
             TrainDoorController controller = doorRoot.AddComponent<TrainDoorController>();
             controller.Configure(leftPanel.transform, rightPanel.transform);
@@ -359,12 +405,63 @@ namespace SubwayCarry.AI
                 false,
                 materialKey,
                 -0.3f);
+            AddDynamicCollision(passengerObject);
             passengerObject.AddComponent<PassengerBoardingPrototype>().Configure(
                 car.Doors[doorIndex],
                 outsidePoint,
                 insidePoint,
                 standingPoint,
                 car.Seats.ToArray());
+        }
+
+        private static void CreatePlayer(
+            TrainCarBuildData car,
+            int doorIndex,
+            float doorLocalX,
+            TrainDoorCyclePrototype doorCycle)
+        {
+            if (doorIndex < 0 || doorIndex >= car.Doors.Count)
+            {
+                return;
+            }
+
+            Vector2 center = car.Center.position;
+            GameObject player = CreateBlock(
+                "Player",
+                center + new Vector2(doorLocalX, 4.85f),
+                new Vector2(0.58f, 0.76f),
+                new Color(0.25f, 0.9f, 0.42f),
+                car.Center,
+                false,
+                "Player",
+                -0.4f);
+            AddDynamicCollision(player);
+            player.AddComponent<PlayerBoardingCyclePrototype>().Configure(
+                car.Doors[doorIndex],
+                doorCycle,
+                center);
+        }
+
+        private static void AddDynamicCollision(GameObject actor)
+        {
+            Rigidbody2D body = actor.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Dynamic;
+            body.gravityScale = 0f;
+            body.freezeRotation = true;
+            body.interpolation = RigidbodyInterpolation2D.Interpolate;
+            body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+
+            CapsuleCollider2D collider = actor.AddComponent<CapsuleCollider2D>();
+            collider.size = new Vector2(0.86f, 0.9f);
+        }
+
+        private static void AddKinematicCollision(GameObject panel)
+        {
+            Rigidbody2D body = panel.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Kinematic;
+            body.interpolation = RigidbodyInterpolation2D.Interpolate;
+
+            panel.AddComponent<BoxCollider2D>();
         }
 
         private static PassengerSeatPrototype CreatePassengerSeat(

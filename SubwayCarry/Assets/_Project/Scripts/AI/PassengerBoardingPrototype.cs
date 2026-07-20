@@ -15,6 +15,7 @@ namespace SubwayCarry.AI
             Seated,
             MovingToStandingPlace,
             Standing,
+            MovingToExitDoor,
             Exiting,
             WaitingForNextBoarding
         }
@@ -29,6 +30,8 @@ namespace SubwayCarry.AI
         [SerializeField] private BoardingState state;
 
         private readonly List<string> stateHistory = new List<string>();
+        private Rigidbody2D body;
+        private Collider2D bodyCollider;
         private PassengerSeatPrototype reservedSeat;
         private Transform reservedSittingPoint;
         private bool nextStopReady;
@@ -52,15 +55,17 @@ namespace SubwayCarry.AI
 
         private void Start()
         {
+            body = GetComponent<Rigidbody2D>();
+            bodyCollider = GetComponent<Collider2D>();
             nextStopReady = false;
             SetState(BoardingState.WaitingOutside);
             if (outsidePoint != null)
             {
-                transform.position = outsidePoint.position;
+                SetPosition(outsidePoint.position);
             }
         }
 
-        private void Update()
+        private void FixedUpdate()
         {
             if (door == null || outsidePoint == null || insidePoint == null || standingPoint == null)
             {
@@ -95,8 +100,9 @@ namespace SubwayCarry.AI
                     break;
 
                 case BoardingState.MovingToSeat:
-                    if (MoveTo(reservedSittingPoint.position))
+                    if (MoveTo(reservedSeat.GetApproachPosition(reservedSittingPoint)))
                     {
+                        SitDown();
                         SetState(BoardingState.Seated);
                     }
                     break;
@@ -111,6 +117,13 @@ namespace SubwayCarry.AI
                 case BoardingState.Seated:
                 case BoardingState.Standing:
                     UpdateRideState();
+                    break;
+
+                case BoardingState.MovingToExitDoor:
+                    if (MoveTo(insidePoint.position))
+                    {
+                        SetState(BoardingState.Exiting);
+                    }
                     break;
 
                 case BoardingState.Exiting:
@@ -163,21 +176,76 @@ namespace SubwayCarry.AI
 
             if (reservedSeat != null)
             {
+                StandUp();
                 reservedSeat.Release(gameObject);
                 reservedSeat = null;
                 reservedSittingPoint = null;
             }
 
-            SetState(BoardingState.Exiting);
+            SetState(BoardingState.MovingToExitDoor);
         }
 
         private bool MoveTo(Vector3 destination)
         {
-            transform.position = Vector3.MoveTowards(
-                transform.position,
+            Vector2 currentPosition = body != null ? body.position : (Vector2)transform.position;
+            Vector2 nextPosition = Vector2.MoveTowards(
+                currentPosition,
                 destination,
-                moveSpeed * Time.deltaTime);
-            return Vector3.Distance(transform.position, destination) <= arrivalDistance;
+                moveSpeed * Time.fixedDeltaTime);
+
+            if (body != null)
+            {
+                body.MovePosition(nextPosition);
+            }
+            else
+            {
+                transform.position = nextPosition;
+            }
+
+            return Vector2.Distance(nextPosition, destination) <= arrivalDistance;
+        }
+
+        private void SitDown()
+        {
+            if (bodyCollider != null)
+            {
+                bodyCollider.enabled = false;
+            }
+
+            if (body != null)
+            {
+                body.bodyType = RigidbodyType2D.Kinematic;
+            }
+
+            SetPosition(reservedSittingPoint.position);
+        }
+
+        private void StandUp()
+        {
+            Vector2 approachPosition = reservedSeat.GetApproachPosition(reservedSittingPoint);
+            SetPosition(approachPosition);
+
+            if (body != null)
+            {
+                body.bodyType = RigidbodyType2D.Dynamic;
+            }
+
+            if (bodyCollider != null)
+            {
+                bodyCollider.enabled = true;
+            }
+        }
+
+        private void SetPosition(Vector3 position)
+        {
+            if (body != null)
+            {
+                body.position = position;
+            }
+            else
+            {
+                transform.position = position;
+            }
         }
 
         private void SetState(BoardingState nextState)

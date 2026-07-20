@@ -34,7 +34,7 @@ Assets/_Project/Scenes/Prototype_Core.unity
 Assets/_Project/Scenes/Prototype_AI.unity
 ```
 
-현재 `Bootstrap.unity`와 승객 AI 시험용 `Prototype_AI.unity`를 사용한다. 나머지 Scene은 해당 마일스톤을 시작할 때 만든다.
+현재 `Bootstrap.unity`와 플레이어 탑승·하차 및 승객 AI 시험용 `Prototype_AI.unity`를 사용한다. 나머지 Scene은 해당 마일스톤을 시작할 때 만든다.
 
 ## Namespace
 

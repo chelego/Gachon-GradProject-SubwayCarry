@@ -30,6 +30,24 @@ namespace SubwayCarry.AI
 
         private void OnTriggerEnter2D(Collider2D other)
         {
+            PlayerBoardingCyclePrototype player = other.GetComponentInParent<PlayerBoardingCyclePrototype>();
+            if (player != null && destination != null && destinationCarCenter != null)
+            {
+                Rigidbody2D body = player.GetComponent<Rigidbody2D>();
+                if (body != null)
+                {
+                    body.position = destination.position;
+                }
+                else
+                {
+                    player.transform.position = destination.position;
+                }
+
+                player.EnterTrainCar(destinationCarCenter.position);
+                cameraController?.FocusOn(destinationCarCenter);
+                return;
+            }
+
             PassengerPrototypeAgent passenger = other.GetComponentInParent<PassengerPrototypeAgent>();
             if (passenger == null || destination == null || destinationNavigation == null)
             {

@@ -28,6 +28,13 @@ namespace SubwayCarry.AI
             return sittingPoints[index];
         }
 
+        public Vector2 GetApproachPosition(Transform sittingPoint)
+        {
+            float carCenterY = transform.parent != null ? transform.parent.position.y : 0f;
+            float aisleDirection = transform.position.y >= carCenterY ? -1f : 1f;
+            return new Vector2(sittingPoint.position.x, transform.position.y + aisleDirection * 0.9f);
+        }
+
         public void SetInitialOccupant(int index, GameObject occupant)
         {
             if (initialOccupants == null || index < 0 || index >= initialOccupants.Length)
