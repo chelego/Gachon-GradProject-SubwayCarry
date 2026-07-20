@@ -98,7 +98,7 @@
 | `StationGameplay.unity` | 출발역, 환승역과 목적지역 플레이 |
 | `TrainGameplay.unity` | 객차 이동, 승객, 혼잡도와 운반 Gameplay |
 | `Prototype_Core.unity` | 플레이어, 파손, NPC와 균형잡기 시험 |
-| `Prototype_AI.unity` | 객차 Graybox에서 A* 이동과 장애물 회피 시험 |
+| `Prototype_AI.unity` | 2칸 객차 Graybox에서 A* 이동, 연결통로와 카메라 전환 시험 |
 
 - `StationGameplay.unity`에 역 구조와 데이터를 교체해 출발역, 환승역과 목적지역 구성
 
