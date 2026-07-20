@@ -47,6 +47,7 @@ namespace SubwayCarry.AI
 
         [SerializeField] private Transform mapRoot;
         [SerializeField] private PassengerDoorway boardingDoorway;
+        [SerializeField] private bool randomizeBoardingDoorway = true;
         [SerializeField] private PassengerDoorway[] doorways;
         [SerializeField] private TrainDoorCyclePrototype doorCycle;
         [SerializeField] private GridNavigation2D[] navigationAreas;
@@ -79,6 +80,8 @@ namespace SubwayCarry.AI
         private float nextDecisionTime;
         private float nextRepathTime;
         private bool hasPathTarget;
+        private bool hasBoardingReservation;
+        private bool hasExitReservation;
 
         public string CurrentState => state.ToString();
         public string CurrentBehavior => behavior.ToString();
@@ -90,11 +93,13 @@ namespace SubwayCarry.AI
             PassengerDoorway initialBoardingDoorway,
             TrainDoorCyclePrototype cycle,
             Transform passengerMapRoot,
+            bool useRandomBoardingDoorway,
             TextMesh label)
         {
             boardingDoorway = initialBoardingDoorway;
             doorCycle = cycle;
             mapRoot = passengerMapRoot;
+            randomizeBoardingDoorway = useRandomBoardingDoorway;
             stateLabel = label;
         }
 
@@ -135,6 +140,7 @@ namespace SubwayCarry.AI
                 case PassengerState.Boarding:
                     if (MoveDirectly(boardingDoorway.InsidePoint.position))
                     {
+                        ReleaseBoardingReservation();
                         SetState(PassengerState.ChoosingBehavior, PassengerBehavior.None);
                     }
                     break;
@@ -191,6 +197,7 @@ namespace SubwayCarry.AI
                 case PassengerState.Exiting:
                     if (exitDoorway != null && MoveDirectly(exitDoorway.OutsidePoint.position))
                     {
+                        ReleaseExitReservation();
                         SetState(PassengerState.WaitingAfterExit, PassengerBehavior.None);
                     }
                     break;
@@ -218,12 +225,70 @@ namespace SubwayCarry.AI
                 }
             }
 
-            if (boardingDoorway == null ||
-                !boardingDoorway.IsUsable ||
-                !ContainsDoorway(boardingDoorway))
+            bool hasConfiguredDoorway = boardingDoorway != null &&
+                                        boardingDoorway.IsUsable &&
+                                        ContainsDoorway(boardingDoorway);
+
+            if (!randomizeBoardingDoorway &&
+                hasConfiguredDoorway &&
+                boardingDoorway.TryReserveBoarding(gameObject))
             {
-                boardingDoorway = FindNearestUsableDoorway(transform.position);
+                hasBoardingReservation = true;
+                return;
             }
+
+            boardingDoorway = ReserveRandomBoardingDoorway();
+        }
+
+        private PassengerDoorway ReserveRandomBoardingDoorway()
+        {
+            var candidates = new List<PassengerDoorway>();
+
+            if (doorways != null)
+            {
+                foreach (PassengerDoorway doorway in doorways)
+                {
+                    if (doorway != null && doorway.IsUsable)
+                    {
+                        candidates.Add(doorway);
+                    }
+                }
+            }
+
+            while (candidates.Count > 0)
+            {
+                int index = Random.Range(0, candidates.Count);
+                PassengerDoorway candidate = candidates[index];
+                candidates.RemoveAt(index);
+
+                if (!candidate.TryReserveBoarding(gameObject))
+                {
+                    continue;
+                }
+
+                hasBoardingReservation = true;
+                return candidate;
+            }
+
+            hasBoardingReservation = false;
+            return FindNearestUsableDoorway(transform.position);
+        }
+
+        private void ReleaseBoardingReservation()
+        {
+            if (!hasBoardingReservation || boardingDoorway == null)
+            {
+                return;
+            }
+
+            boardingDoorway.ReleaseBoarding(gameObject);
+            hasBoardingReservation = false;
+        }
+
+        private void OnDestroy()
+        {
+            ReleaseBoardingReservation();
+            ReleaseExitReservation();
         }
 
         private bool ContainsDoorway(PassengerDoorway target)
@@ -654,11 +719,25 @@ namespace SubwayCarry.AI
                 candidates.Remove(boardingDoorway);
             }
 
-            if (candidates.Count == 0)
+            while (candidates.Count > 0)
             {
-                return boardingDoorway;
+                PassengerDoorway selected = SelectWeightedExitDoorway(candidates);
+                candidates.Remove(selected);
+
+                if (!selected.TryReserveExit(gameObject))
+                {
+                    continue;
+                }
+
+                hasExitReservation = true;
+                return selected;
             }
 
+            return boardingDoorway;
+        }
+
+        private PassengerDoorway SelectWeightedExitDoorway(List<PassengerDoorway> candidates)
+        {
             float totalWeight = 0f;
             var weights = new float[candidates.Count];
             for (int i = 0; i < candidates.Count; i++)
@@ -679,6 +758,17 @@ namespace SubwayCarry.AI
             }
 
             return candidates[candidates.Count - 1];
+        }
+
+        private void ReleaseExitReservation()
+        {
+            if (!hasExitReservation || exitDoorway == null)
+            {
+                return;
+            }
+
+            exitDoorway.ReleaseExit(gameObject);
+            hasExitReservation = false;
         }
 
         private void ReleaseCurrentActivity()
@@ -850,7 +940,7 @@ namespace SubwayCarry.AI
             }
 
             string action = behavior == PassengerBehavior.None ? state.ToString() : behavior.ToString();
-            stateLabel.text = "Passenger 1\n" + action;
+            stateLabel.text = gameObject.name + "\n" + action;
         }
     }
 }

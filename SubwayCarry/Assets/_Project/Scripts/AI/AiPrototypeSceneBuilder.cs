@@ -78,7 +78,15 @@ namespace SubwayCarry.AI
             TrainDoorCyclePrototype doorCycle = doorCycleObject.AddComponent<TrainDoorCyclePrototype>();
             doorCycle.Configure(allDoors.ToArray());
 
-            CreateGeneralPassenger("Passenger 1", car1, 0, doorCycle);
+            for (int i = 0; i < 5; i++)
+            {
+                CreateGeneralPassenger("Passenger " + (i + 1), car1, doorCycle);
+            }
+
+            for (int i = 5; i < 10; i++)
+            {
+                CreateGeneralPassenger("Passenger " + (i + 1), car2, doorCycle);
+            }
 
             cameraController.FocusOn(car1.Center);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -531,18 +539,17 @@ namespace SubwayCarry.AI
         private static void CreateGeneralPassenger(
             string name,
             TrainCarBuildData car,
-            int doorIndex,
             TrainDoorCyclePrototype doorCycle)
         {
-            if (doorIndex < 0 || doorIndex >= car.Doorways.Count)
+            if (car.Doorways.Count == 0)
             {
                 return;
             }
 
-            PassengerDoorway boardingDoorway = car.Doorways[doorIndex];
+            PassengerDoorway previewDoorway = car.Doorways[0];
             GameObject passengerObject = CreateBlock(
                 name,
-                (Vector2)boardingDoorway.OutsidePoint.position,
+                (Vector2)previewDoorway.OutsidePoint.position,
                 new Vector2(0.55f, 0.72f),
                 new Color(0.95f, 0.55f, 0.18f),
                 car.Center,
@@ -552,9 +559,10 @@ namespace SubwayCarry.AI
             AddDynamicCollision(passengerObject);
             TextMesh label = CreatePassengerLabel(passengerObject.transform);
             passengerObject.AddComponent<GeneralPassengerPrototype>().Configure(
-                boardingDoorway,
+                null,
                 doorCycle,
                 car.Center,
+                true,
                 label);
         }
 
@@ -565,7 +573,7 @@ namespace SubwayCarry.AI
             labelObject.transform.localPosition = new Vector3(0f, -0.55f, -0.2f);
 
             TextMesh label = labelObject.AddComponent<TextMesh>();
-            label.text = "Passenger 1\nWaiting";
+            label.text = passenger.name + "\nWaiting";
             label.anchor = TextAnchor.UpperCenter;
             label.alignment = TextAlignment.Center;
             label.characterSize = 0.07f;
