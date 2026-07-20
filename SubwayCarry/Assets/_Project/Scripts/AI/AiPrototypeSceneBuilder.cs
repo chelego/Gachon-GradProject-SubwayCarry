@@ -26,6 +26,7 @@ namespace SubwayCarry.AI
             public Transform LeftArrival;
             public Transform RightArrival;
             public readonly List<TrainDoorController> Doors = new List<TrainDoorController>();
+            public readonly List<PassengerDoorway> Doorways = new List<PassengerDoorway>();
             public readonly List<PassengerSeatPrototype> Seats = new List<PassengerSeatPrototype>();
             public readonly List<PassengerActivityPoint> ActivityPoints = new List<PassengerActivityPoint>();
         }
@@ -77,7 +78,7 @@ namespace SubwayCarry.AI
             TrainDoorCyclePrototype doorCycle = doorCycleObject.AddComponent<TrainDoorCyclePrototype>();
             doorCycle.Configure(allDoors.ToArray());
 
-            CreateGeneralPassenger("Passenger 1", car1, 0, -7.4f, doorCycle);
+            CreateGeneralPassenger("Passenger 1", car1, 0, doorCycle);
 
             cameraController.FocusOn(car1.Center);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -157,17 +158,19 @@ namespace SubwayCarry.AI
             CreateEndWall(carRoot.transform, center, -1f, openLeft, wallColor);
             CreateEndWall(carRoot.transform, center, 1f, openRight, wallColor);
             CreateWallMarkings(carRoot.transform, center, openLeft, openRight);
-            CreateDoorsAndSeats(
-                carRoot.transform,
-                center,
-                data.Doors,
-                data.Seats,
-                data.ActivityPoints);
-
             GameObject navigationObject = new GameObject("Grid Navigation");
             navigationObject.transform.SetParent(carRoot.transform);
             navigationObject.transform.position = center;
             data.Navigation = navigationObject.AddComponent<GridNavigation2D>();
+
+            CreateDoorsAndSeats(
+                carRoot.transform,
+                center,
+                data.Navigation,
+                data.Doors,
+                data.Doorways,
+                data.Seats,
+                data.ActivityPoints);
 
             if (openLeft)
             {
@@ -310,7 +313,9 @@ namespace SubwayCarry.AI
         private static void CreateDoorsAndSeats(
             Transform parent,
             Vector2 center,
+            GridNavigation2D navigation,
             List<TrainDoorController> doors,
+            List<PassengerDoorway> doorways,
             List<PassengerSeatPrototype> seats,
             List<PassengerActivityPoint> activityPoints)
         {
@@ -322,8 +327,24 @@ namespace SubwayCarry.AI
 
             foreach (float localX in doorX)
             {
-                doors.Add(CreateDoor(parent, center + new Vector2(localX, 3.92f), doorColor));
-                doors.Add(CreateDoor(parent, center + new Vector2(localX, -3.92f), doorColor));
+                PassengerDoorway topDoorway = CreateDoorway(
+                    parent,
+                    center,
+                    localX,
+                    1f,
+                    navigation,
+                    doorColor);
+                PassengerDoorway bottomDoorway = CreateDoorway(
+                    parent,
+                    center,
+                    localX,
+                    -1f,
+                    navigation,
+                    doorColor);
+                doorways.Add(topDoorway);
+                doorways.Add(bottomDoorway);
+                doors.Add(topDoorway.Door);
+                doors.Add(bottomDoorway.Door);
                 CreateDoorActivityPoints(parent, center, localX, 1f, activityPoints);
                 CreateDoorActivityPoints(parent, center, localX, -1f, activityPoints);
             }
@@ -483,30 +504,45 @@ namespace SubwayCarry.AI
             return controller;
         }
 
+        private static PassengerDoorway CreateDoorway(
+            Transform parent,
+            Vector2 center,
+            float localX,
+            float side,
+            GridNavigation2D navigation,
+            Color color)
+        {
+            Vector2 doorPosition = center + new Vector2(localX, side * 3.92f);
+            TrainDoorController door = CreateDoor(parent, doorPosition, color);
+            Transform insidePoint = CreatePoint(
+                "Passenger Inside Point",
+                center + new Vector2(localX, side * 2.15f),
+                parent);
+            Transform outsidePoint = CreatePoint(
+                "Passenger Outside Point",
+                center + new Vector2(localX, side * 4.85f),
+                parent);
+
+            PassengerDoorway doorway = door.gameObject.AddComponent<PassengerDoorway>();
+            doorway.Configure(door, insidePoint, outsidePoint, navigation);
+            return doorway;
+        }
+
         private static void CreateGeneralPassenger(
             string name,
             TrainCarBuildData car,
             int doorIndex,
-            float doorLocalX,
             TrainDoorCyclePrototype doorCycle)
         {
-            if (doorIndex < 0 || doorIndex >= car.Doors.Count)
+            if (doorIndex < 0 || doorIndex >= car.Doorways.Count)
             {
                 return;
             }
 
-            Vector2 center = (Vector2)car.Center.position;
-            Transform outsidePoint = CreatePoint(
-                "Outside Waiting Point",
-                center + new Vector2(doorLocalX, 4.85f),
-                car.Center);
-            Transform insidePoint = CreatePoint(
-                "Inside Boarding Point",
-                center + new Vector2(doorLocalX, 2.15f),
-                car.Center);
+            PassengerDoorway boardingDoorway = car.Doorways[doorIndex];
             GameObject passengerObject = CreateBlock(
                 name,
-                (Vector2)outsidePoint.position,
+                (Vector2)boardingDoorway.OutsidePoint.position,
                 new Vector2(0.55f, 0.72f),
                 new Color(0.95f, 0.55f, 0.18f),
                 car.Center,
@@ -516,13 +552,9 @@ namespace SubwayCarry.AI
             AddDynamicCollision(passengerObject);
             TextMesh label = CreatePassengerLabel(passengerObject.transform);
             passengerObject.AddComponent<GeneralPassengerPrototype>().Configure(
-                car.Doors[doorIndex],
+                boardingDoorway,
                 doorCycle,
-                car.Navigation,
-                outsidePoint,
-                insidePoint,
-                car.Seats.ToArray(),
-                car.ActivityPoints.ToArray(),
+                car.Center,
                 label);
         }
 

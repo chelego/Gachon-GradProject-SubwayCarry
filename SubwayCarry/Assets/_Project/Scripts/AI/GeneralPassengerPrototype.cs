@@ -45,11 +45,11 @@ namespace SubwayCarry.AI
             }
         }
 
-        [SerializeField] private TrainDoorController door;
+        [SerializeField] private Transform mapRoot;
+        [SerializeField] private PassengerDoorway boardingDoorway;
+        [SerializeField] private PassengerDoorway[] doorways;
         [SerializeField] private TrainDoorCyclePrototype doorCycle;
-        [SerializeField] private GridNavigation2D navigation;
-        [SerializeField] private Transform outsidePoint;
-        [SerializeField] private Transform insidePoint;
+        [SerializeField] private GridNavigation2D[] navigationAreas;
         [SerializeField] private PassengerSeatPrototype[] seats;
         [SerializeField] private PassengerActivityPoint[] activityPoints;
         [SerializeField] private TextMesh stateLabel;
@@ -57,6 +57,7 @@ namespace SubwayCarry.AI
         [SerializeField, Min(1f)] private float minimumDecisionInterval = 3.5f;
         [SerializeField, Min(1f)] private float maximumDecisionInterval = 6.5f;
         [SerializeField, Min(1f)] private float exitPreparationLeadTime = 7f;
+        [SerializeField, Range(0f, 1f)] private float differentDoorPreference = 0.75f;
         [SerializeField, Min(0.01f)] private float arrivalDistance = 0.08f;
         [SerializeField] private PassengerState state;
         [SerializeField] private PassengerBehavior behavior;
@@ -68,6 +69,7 @@ namespace SubwayCarry.AI
         private PassengerSeatPrototype reservedSeat;
         private Transform reservedSittingPoint;
         private PassengerActivityPoint reservedActivityPoint;
+        private PassengerDoorway exitDoorway;
         private Vector2 activityTarget;
         private Vector2 pathTarget;
         private int pathIndex;
@@ -79,24 +81,18 @@ namespace SubwayCarry.AI
         public string CurrentState => state.ToString();
         public string CurrentBehavior => behavior.ToString();
         public string DecisionHistory => string.Join(" > ", decisionHistory);
+        public PassengerDoorway BoardingDoorway => boardingDoorway;
+        public PassengerDoorway ExitDoorway => exitDoorway;
 
         public void Configure(
-            TrainDoorController boardingDoor,
+            PassengerDoorway initialBoardingDoorway,
             TrainDoorCyclePrototype cycle,
-            GridNavigation2D gridNavigation,
-            Transform outsideWaitingPoint,
-            Transform insideBoardingPoint,
-            PassengerSeatPrototype[] availableSeats,
-            PassengerActivityPoint[] availableActivityPoints,
+            Transform passengerMapRoot,
             TextMesh label)
         {
-            door = boardingDoor;
+            boardingDoorway = initialBoardingDoorway;
             doorCycle = cycle;
-            navigation = gridNavigation;
-            outsidePoint = outsideWaitingPoint;
-            insidePoint = insideBoardingPoint;
-            seats = availableSeats;
-            activityPoints = availableActivityPoints;
+            mapRoot = passengerMapRoot;
             stateLabel = label;
         }
 
@@ -104,13 +100,22 @@ namespace SubwayCarry.AI
         {
             body = GetComponent<Rigidbody2D>();
             bodyCollider = GetComponent<Collider2D>();
-            SetPosition(outsidePoint.position);
+            RefreshMapReferences();
+
+            if (boardingDoorway == null || !boardingDoorway.IsUsable)
+            {
+                enabled = false;
+                Debug.LogError("[Passenger AI] No usable PassengerDoorway was found.", this);
+                return;
+            }
+
+            SetPosition(boardingDoorway.OutsidePoint.position);
             SetState(PassengerState.WaitingOutside, PassengerBehavior.None);
         }
 
         private void FixedUpdate()
         {
-            if (door == null || doorCycle == null || outsidePoint == null || insidePoint == null)
+            if (boardingDoorway == null || doorCycle == null)
             {
                 return;
             }
@@ -118,7 +123,7 @@ namespace SubwayCarry.AI
             switch (state)
             {
                 case PassengerState.WaitingOutside:
-                    if (door.IsOpen)
+                    if (boardingDoorway.Door.IsOpen)
                     {
                         boardingStopNumber = doorCycle.StopNumber;
                         SetState(PassengerState.Boarding, PassengerBehavior.None);
@@ -126,7 +131,7 @@ namespace SubwayCarry.AI
                     break;
 
                 case PassengerState.Boarding:
-                    if (MoveDirectly(insidePoint.position))
+                    if (MoveDirectly(boardingDoorway.InsidePoint.position))
                     {
                         SetState(PassengerState.ChoosingBehavior, PassengerBehavior.None);
                     }
@@ -166,26 +171,130 @@ namespace SubwayCarry.AI
                     break;
 
                 case PassengerState.PreparingToExit:
-                    if (MoveUsingPath(insidePoint.position))
+                    if (exitDoorway != null && MoveUsingPath(exitDoorway.InsidePoint.position))
                     {
                         SetState(PassengerState.WaitingAtExitDoor, PassengerBehavior.Exiting);
                     }
                     break;
 
                 case PassengerState.WaitingAtExitDoor:
-                    if (door.IsOpen && doorCycle.StopNumber > boardingStopNumber)
+                    if (exitDoorway != null &&
+                        exitDoorway.Door.IsOpen &&
+                        doorCycle.StopNumber > boardingStopNumber)
                     {
                         SetState(PassengerState.Exiting, PassengerBehavior.Exiting);
                     }
                     break;
 
                 case PassengerState.Exiting:
-                    if (MoveDirectly(outsidePoint.position))
+                    if (exitDoorway != null && MoveDirectly(exitDoorway.OutsidePoint.position))
                     {
                         SetState(PassengerState.WaitingAfterExit, PassengerBehavior.None);
                     }
                     break;
             }
+        }
+
+        private void RefreshMapReferences()
+        {
+            if (mapRoot == null)
+            {
+                mapRoot = transform.parent;
+            }
+
+            doorways = FindMapComponents<PassengerDoorway>();
+            navigationAreas = FindMapComponents<GridNavigation2D>();
+            seats = FindMapComponents<PassengerSeatPrototype>();
+            activityPoints = FindMapComponents<PassengerActivityPoint>();
+
+            if (doorCycle == null)
+            {
+                TrainDoorCyclePrototype[] cycles = FindSceneComponents<TrainDoorCyclePrototype>();
+                if (cycles.Length > 0)
+                {
+                    doorCycle = cycles[0];
+                }
+            }
+
+            if (boardingDoorway == null ||
+                !boardingDoorway.IsUsable ||
+                !ContainsDoorway(boardingDoorway))
+            {
+                boardingDoorway = FindNearestUsableDoorway(transform.position);
+            }
+        }
+
+        private bool ContainsDoorway(PassengerDoorway target)
+        {
+            if (doorways == null)
+            {
+                return false;
+            }
+
+            foreach (PassengerDoorway doorway in doorways)
+            {
+                if (doorway == target)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private T[] FindMapComponents<T>() where T : Component
+        {
+            if (mapRoot != null)
+            {
+                return mapRoot.GetComponentsInChildren<T>(true);
+            }
+
+            return FindSceneComponents<T>();
+        }
+
+        private T[] FindSceneComponents<T>() where T : Component
+        {
+            T[] found = FindObjectsByType<T>(FindObjectsSortMode.None);
+            var sameScene = new List<T>(found.Length);
+
+            foreach (T component in found)
+            {
+                if (component != null && component.gameObject.scene == gameObject.scene)
+                {
+                    sameScene.Add(component);
+                }
+            }
+
+            return sameScene.ToArray();
+        }
+
+        private PassengerDoorway FindNearestUsableDoorway(Vector2 position)
+        {
+            PassengerDoorway nearest = null;
+            float nearestDistance = float.MaxValue;
+
+            if (doorways == null)
+            {
+                return null;
+            }
+
+            foreach (PassengerDoorway doorway in doorways)
+            {
+                if (doorway == null || !doorway.IsUsable)
+                {
+                    continue;
+                }
+
+                float distance = Vector2.SqrMagnitude(
+                    (Vector2)doorway.OutsidePoint.position - position);
+                if (distance < nearestDistance)
+                {
+                    nearest = doorway;
+                    nearestDistance = distance;
+                }
+            }
+
+            return nearest;
         }
 
         private void ChooseBehavior()
@@ -463,7 +572,61 @@ namespace SubwayCarry.AI
         {
             ReleaseCurrentActivity();
             ClearPath();
+            exitDoorway = SelectExitDoorway();
+
+            if (exitDoorway == null)
+            {
+                exitDoorway = boardingDoorway;
+            }
+
             SetState(PassengerState.PreparingToExit, PassengerBehavior.Exiting);
+        }
+
+        private PassengerDoorway SelectExitDoorway()
+        {
+            var candidates = new List<PassengerDoorway>();
+
+            if (doorways != null)
+            {
+                foreach (PassengerDoorway doorway in doorways)
+                {
+                    if (doorway != null && doorway.IsUsable)
+                    {
+                        candidates.Add(doorway);
+                    }
+                }
+            }
+
+            if (candidates.Count > 1 && Random.value < differentDoorPreference)
+            {
+                candidates.Remove(boardingDoorway);
+            }
+
+            if (candidates.Count == 0)
+            {
+                return boardingDoorway;
+            }
+
+            float totalWeight = 0f;
+            var weights = new float[candidates.Count];
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                float distance = Vector2.Distance(body.position, candidates[i].InsidePoint.position);
+                weights[i] = Random.Range(0.7f, 1.3f) / (1f + distance * 0.15f);
+                totalWeight += weights[i];
+            }
+
+            float roll = Random.Range(0f, totalWeight);
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                roll -= weights[i];
+                if (roll <= 0f)
+                {
+                    return candidates[i];
+                }
+            }
+
+            return candidates[candidates.Count - 1];
         }
 
         private void ReleaseCurrentActivity()
@@ -544,9 +707,31 @@ namespace SubwayCarry.AI
         private void RebuildPath(Vector2 destination)
         {
             path.Clear();
-            if (navigation != null)
+
+            List<Vector3> shortestPath = null;
+            if (navigationAreas != null)
             {
-                path.AddRange(navigation.FindWorldPath(body.position, destination));
+                foreach (GridNavigation2D navigation in navigationAreas)
+                {
+                    if (navigation == null)
+                    {
+                        continue;
+                    }
+
+                    List<Vector3> candidatePath = navigation.FindWorldPath(body.position, destination);
+                    if (candidatePath.Count == 0 ||
+                        (shortestPath != null && candidatePath.Count >= shortestPath.Count))
+                    {
+                        continue;
+                    }
+
+                    shortestPath = candidatePath;
+                }
+            }
+
+            if (shortestPath != null)
+            {
+                path.AddRange(shortestPath);
             }
 
             pathIndex = path.Count > 1 ? 1 : 0;

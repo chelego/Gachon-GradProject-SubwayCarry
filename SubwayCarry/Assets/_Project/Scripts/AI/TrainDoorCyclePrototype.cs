@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SubwayCarry.AI
@@ -29,6 +30,7 @@ namespace SubwayCarry.AI
 
         private IEnumerator Start()
         {
+            EnsureDoors();
             SetDoorsOpen(false);
             yield return new WaitForSeconds(initialDelay);
 
@@ -43,6 +45,28 @@ namespace SubwayCarry.AI
                 yield return new WaitUntil(AreDoorsClosed);
                 yield return WaitForTravel();
             }
+        }
+
+        private void EnsureDoors()
+        {
+            if (doors != null && doors.Length > 0)
+            {
+                return;
+            }
+
+            TrainDoorController[] found = FindObjectsByType<TrainDoorController>(
+                FindObjectsSortMode.None);
+            var sameSceneDoors = new List<TrainDoorController>(found.Length);
+
+            foreach (TrainDoorController door in found)
+            {
+                if (door != null && door.gameObject.scene == gameObject.scene)
+                {
+                    sameSceneDoors.Add(door);
+                }
+            }
+
+            doors = sameSceneDoors.ToArray();
         }
 
         private IEnumerator WaitForTravel()

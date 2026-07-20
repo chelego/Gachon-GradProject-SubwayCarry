@@ -53,3 +53,12 @@ Root Namespace는 `SubwayCarry`를 사용한다.
 - 여러 분야에서 함께 사용하는 Interface와 Service만 `Core`에 둔다.
 - 배송, 노선, 승객, 난이도 수치는 코드에 직접 적지 않고 Data Asset으로 관리한다.
 - Test 전용 Scene과 Data는 이름으로 구분하고 Release 콘텐츠와 분리한다.
+
+## 승객 AI 맵 배치
+
+- `PassengerDoorway.cs`: 문과 객차 안쪽·승강장 바깥쪽 이동 지점 연결
+- `PassengerSeatPrototype.cs`: 좌석과 착석 위치
+- `PassengerActivityPoint.cs`: 손잡이, 기대기, 문 앞과 통로 대기 위치
+- `GridNavigation2D.cs`: 해당 맵의 이동 가능 영역과 A* 경로
+- `GeneralPassengerPrototype.cs`: `mapRoot` 아래 구성 요소를 자동 탐색해 탑승, 객차 행동과 하차 처리
+- 승객은 `mapRoot` 아래 출입문 중 하나를 하차 문으로 다시 선택하며 탑승한 문으로 고정되지 않음
