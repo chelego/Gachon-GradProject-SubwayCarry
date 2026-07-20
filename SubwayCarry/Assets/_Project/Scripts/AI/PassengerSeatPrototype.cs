@@ -11,6 +11,24 @@ namespace SubwayCarry.AI
         private GameObject[] occupants;
 
         public int Capacity => sittingPoints?.Length ?? 0;
+        public int AvailableCount
+        {
+            get
+            {
+                EnsureRuntimeOccupants();
+                int available = 0;
+
+                foreach (GameObject occupant in occupants)
+                {
+                    if (occupant == null)
+                    {
+                        available++;
+                    }
+                }
+
+                return available;
+            }
+        }
 
         public void Configure(Transform[] points)
         {

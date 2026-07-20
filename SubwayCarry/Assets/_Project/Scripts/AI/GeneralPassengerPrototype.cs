@@ -58,6 +58,7 @@ namespace SubwayCarry.AI
         [SerializeField, Min(1f)] private float maximumDecisionInterval = 6.5f;
         [SerializeField, Min(1f)] private float exitPreparationLeadTime = 7f;
         [SerializeField, Range(0f, 1f)] private float differentDoorPreference = 0.75f;
+        [SerializeField, Range(0f, 1f)] private float takeNewSeatChance = 0.65f;
         [SerializeField, Min(0.01f)] private float arrivalDistance = 0.08f;
         [SerializeField] private PassengerState state;
         [SerializeField] private PassengerBehavior behavior;
@@ -74,6 +75,7 @@ namespace SubwayCarry.AI
         private Vector2 pathTarget;
         private int pathIndex;
         private int boardingStopNumber;
+        private int observedAvailableSeatCount;
         private float nextDecisionTime;
         private float nextRepathTime;
         private bool hasPathTarget;
@@ -166,7 +168,7 @@ namespace SubwayCarry.AI
                     }
                     else if (Time.time >= nextDecisionTime)
                     {
-                        state = PassengerState.ChoosingBehavior;
+                        EvaluateReasonedBehaviorChange();
                     }
                     break;
 
@@ -564,8 +566,58 @@ namespace SubwayCarry.AI
                 SitDown();
             }
 
+            observedAvailableSeatCount = CountAvailableSeats();
             ScheduleNextDecision();
             SetState(PassengerState.Observing, behavior);
+        }
+
+        private void EvaluateReasonedBehaviorChange()
+        {
+            int availableSeatCount = CountAvailableSeats();
+            bool newSeatBecameAvailable = availableSeatCount > observedAvailableSeatCount;
+            observedAvailableSeatCount = availableSeatCount;
+
+            if (behavior != PassengerBehavior.Seated &&
+                newSeatBecameAvailable &&
+                Random.value <= takeNewSeatChance &&
+                TryReserveSeat())
+            {
+                if (reservedActivityPoint != null)
+                {
+                    reservedActivityPoint.Release(gameObject);
+                    reservedActivityPoint = null;
+                }
+
+                behavior = PassengerBehavior.Seated;
+                RecordDecision("New seat available -> Seated");
+                ClearPath();
+                state = PassengerState.MovingToActivity;
+                UpdateLabel();
+                return;
+            }
+
+            ScheduleNextDecision();
+            UpdateLabel();
+        }
+
+        private int CountAvailableSeats()
+        {
+            int count = 0;
+
+            if (seats == null)
+            {
+                return count;
+            }
+
+            foreach (PassengerSeatPrototype seat in seats)
+            {
+                if (seat != null)
+                {
+                    count += seat.AvailableCount;
+                }
+            }
+
+            return count;
         }
 
         private void BeginExitPreparation()
