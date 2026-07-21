@@ -10,22 +10,30 @@ namespace SubwayCarry.AI
         [SerializeField] private Transform insidePoint;
         [SerializeField] private Transform outsidePoint;
         [SerializeField] private GridNavigation2D navigation;
+        [SerializeField] private bool serviceEnabled = true;
 
-        [SerializeField, Min(0f)] private float boardingDelayAfterOpening = 0.8f;
+        [SerializeField, Min(0f)] private float boardingDelayAfterOpening;
+        [SerializeField, Min(0.5f)] private float boardingStartDistance = 3.2f;
+        [SerializeField, Min(0.1f)] private float directBoardingLaneHalfWidth = 0.58f;
 
         private readonly List<GameObject> leftBoardingQueue = new List<GameObject>();
         private readonly List<GameObject> rightBoardingQueue = new List<GameObject>();
         private readonly List<GameObject> exitingPassengers = new List<GameObject>();
-        private GameObject activeLeftBoardingPassenger;
-        private GameObject activeRightBoardingPassenger;
+        private readonly HashSet<GameObject> activeBoardingPassengers = new HashSet<GameObject>();
+        private readonly Dictionary<GameObject, int> boardingOrders = new Dictionary<GameObject, int>();
         private bool wasDoorOpen;
+        private bool boardingAdmissionOpen;
         private float doorOpenedAt;
+        private int nextBoardingOrder;
 
         public TrainDoorController Door => door;
         public Transform InsidePoint => insidePoint;
         public Transform OutsidePoint => outsidePoint;
         public GridNavigation2D Navigation => navigation;
-        public bool IsUsable => door != null && insidePoint != null && outsidePoint != null;
+        public bool IsUsable => serviceEnabled &&
+                                door != null &&
+                                insidePoint != null &&
+                                outsidePoint != null;
         public int BoardingReservationCount
         {
             get
@@ -64,15 +72,78 @@ namespace SubwayCarry.AI
         {
             leftBoardingQueue.Remove(passenger);
             rightBoardingQueue.Remove(passenger);
-            if (activeLeftBoardingPassenger == passenger)
+            activeBoardingPassengers.Remove(passenger);
+        }
+
+        public int GetBoardingOrder(GameObject passenger)
+        {
+            return passenger != null && boardingOrders.TryGetValue(passenger, out int order)
+                ? order
+                : int.MaxValue;
+        }
+
+        public void SetBoardingAdmission(bool open)
+        {
+            boardingAdmissionOpen = open;
+        }
+
+        public bool HasActiveBoardingTraffic()
+        {
+            RemoveMissingBoardingPassengers();
+            foreach (GameObject passenger in activeBoardingPassengers)
             {
-                activeLeftBoardingPassenger = null;
+                if (passenger == null)
+                {
+                    continue;
+                }
+
+                float distance = DistancePointToSegment(
+                    passenger.transform.position,
+                    outsidePoint.position,
+                    insidePoint.position);
+                if (distance <= boardingStartDistance)
+                {
+                    return true;
+                }
             }
 
-            if (activeRightBoardingPassenger == passenger)
+            return false;
+        }
+
+        public bool IsInsideActiveBoardingFlow(Vector2 position)
+        {
+            bool hasIncomingPassengers = HasActiveBoardingTraffic() ||
+                                         (boardingAdmissionOpen && BoardingReservationCount > 0);
+            if (!hasIncomingPassengers || insidePoint == null || outsidePoint == null)
             {
-                activeRightBoardingPassenger = null;
+                return false;
             }
+
+            GetDoorAxes(out Vector2 outsideDirection, out _);
+            Vector2 inwardDirection = -outsideDirection;
+            Vector2 flowEnd = (Vector2)insidePoint.position + inwardDirection * 1.8f;
+            return DistancePointToSegment(
+                       position,
+                       outsidePoint.position,
+                       flowEnd) <= 0.95f;
+        }
+
+        public bool IsInsideDirectBoardingLane(Vector2 position)
+        {
+            bool hasIncomingPassengers = HasActiveBoardingTraffic() ||
+                                         (boardingAdmissionOpen && BoardingReservationCount > 0);
+            if (!hasIncomingPassengers || insidePoint == null || outsidePoint == null)
+            {
+                return false;
+            }
+
+            GetDoorAxes(out Vector2 outsideDirection, out _);
+            Vector2 inwardDirection = -outsideDirection;
+            Vector2 flowEnd = (Vector2)insidePoint.position + inwardDirection * 1.8f;
+            return DistancePointToSegment(
+                       position,
+                       outsidePoint.position,
+                       flowEnd) <= directBoardingLaneHalfWidth;
         }
 
         public Vector2 GetBoardingQueuePosition(GameObject passenger)
@@ -94,8 +165,8 @@ namespace SubwayCarry.AI
             GetDoorAxes(out Vector2 outsideDirection, out Vector2 lateral);
 
             return (Vector2)outsidePoint.position +
-                   lateral * side * 0.72f +
-                   outsideDirection * index * 0.9f;
+                   lateral * side * 0.62f +
+                   outsideDirection * index * 0.68f;
         }
 
         public Vector2 GetBoardingEntryPosition(GameObject passenger)
@@ -105,7 +176,78 @@ namespace SubwayCarry.AI
 
         public Vector2 GetBoardingInsidePosition(GameObject passenger)
         {
-            return GetBoardingLanePosition(passenger, insidePoint.position);
+            Vector2 position = GetBoardingLanePosition(passenger, insidePoint.position);
+            GetDoorAxes(out Vector2 outsideDirection, out Vector2 lateral);
+            int passengerHash = passenger != null
+                ? passenger.GetInstanceID() & int.MaxValue
+                : 0;
+            float lateralSpread = (passengerHash % 5 - 2) * 0.1f;
+            float inwardSpread = (passengerHash / 5 % 3) * 0.18f;
+            return position +
+                   lateral * lateralSpread -
+                   outsideDirection * inwardSpread;
+        }
+
+        public Vector2 GetBoardingClearancePosition(GameObject passenger)
+        {
+            GetDoorAxes(out Vector2 outsideDirection, out Vector2 lateral);
+            Vector2 inwardDirection = -outsideDirection;
+            int order = GetBoardingOrder(passenger);
+            if (order == int.MaxValue)
+            {
+                order = 8;
+            }
+
+            float inwardDepth = order <= 3
+                ? 3f
+                : order <= 7
+                    ? 2.1f
+                    : 1.3f;
+            int laneIndex = (order - 1) % 5 - 2;
+            float lateralOffset = laneIndex * 0.52f;
+            Vector2 target = (Vector2)insidePoint.position +
+                             inwardDirection * inwardDepth +
+                             lateral * lateralOffset;
+            if (navigation != null)
+            {
+                Rect bounds = navigation.WorldBounds;
+                target.x = Mathf.Clamp(target.x, bounds.xMin + 1.1f, bounds.xMax - 1.1f);
+                target.y = Mathf.Clamp(target.y, bounds.yMin + 1.2f, bounds.yMax - 1.2f);
+            }
+
+            return target;
+        }
+
+        public bool HasEnteredTrain(Vector2 passengerPosition)
+        {
+            Vector2 outside = outsidePoint.position;
+            Vector2 inside = insidePoint.position;
+            Vector2 crossing = inside - outside;
+            if (crossing.sqrMagnitude <= 0.001f)
+            {
+                return false;
+            }
+
+            float progress = Vector2.Dot(
+                passengerPosition - outside,
+                crossing) / crossing.sqrMagnitude;
+            return progress >= 0.8f;
+        }
+
+        public bool HasLeftTrain(Vector2 passengerPosition)
+        {
+            Vector2 outside = outsidePoint.position;
+            Vector2 inside = insidePoint.position;
+            Vector2 crossing = inside - outside;
+            if (crossing.sqrMagnitude <= 0.001f)
+            {
+                return false;
+            }
+
+            float progress = Vector2.Dot(
+                passengerPosition - outside,
+                crossing) / crossing.sqrMagnitude;
+            return progress <= 0.2f;
         }
 
         public bool TryBeginBoarding(GameObject passenger)
@@ -114,34 +256,26 @@ namespace SubwayCarry.AI
             RemoveMissingExitPassengers();
             if (door == null ||
                 !door.IsOpen ||
+                !boardingAdmissionOpen ||
                 Time.time < doorOpenedAt + boardingDelayAfterOpening ||
-                exitingPassengers.Count > 0)
+                exitingPassengers.Count > 0 ||
+                Vector2.Distance(passenger.transform.position, outsidePoint.position) >
+                boardingStartDistance)
             {
                 return false;
             }
 
-            bool isLeft = leftBoardingQueue.Contains(passenger);
-            List<GameObject> queue = isLeft ? leftBoardingQueue : rightBoardingQueue;
-            GameObject activePassenger = isLeft
-                ? activeLeftBoardingPassenger
-                : activeRightBoardingPassenger;
-            if (activePassenger != null && activePassenger != passenger)
+            bool isQueued = leftBoardingQueue.Contains(passenger) ||
+                            rightBoardingQueue.Contains(passenger);
+            if (!isQueued)
             {
                 return false;
             }
 
-            if (queue.Count == 0 || queue[0] != passenger)
+            activeBoardingPassengers.Add(passenger);
+            if (!boardingOrders.ContainsKey(passenger))
             {
-                return false;
-            }
-
-            if (isLeft)
-            {
-                activeLeftBoardingPassenger = passenger;
-            }
-            else
-            {
-                activeRightBoardingPassenger = passenger;
+                boardingOrders.Add(passenger, ++nextBoardingOrder);
             }
 
             return true;
@@ -192,12 +326,14 @@ namespace SubwayCarry.AI
             TrainDoorController doorController,
             Transform insideWaitingPoint,
             Transform outsideWaitingPoint,
-            GridNavigation2D gridNavigation)
+            GridNavigation2D gridNavigation,
+            bool enableService = true)
         {
             door = doorController;
             insidePoint = insideWaitingPoint;
             outsidePoint = outsideWaitingPoint;
             navigation = gridNavigation;
+            serviceEnabled = enableService;
         }
 
         private void Reset()
@@ -233,18 +369,39 @@ namespace SubwayCarry.AI
         {
             GetDoorAxes(out _, out Vector2 lateral);
             float side = leftBoardingQueue.Contains(passenger) ? -1f : 1f;
-            return center + lateral * side * 0.43f;
+            int passengerHash = passenger != null
+                ? passenger.GetInstanceID() & int.MaxValue
+                : 0;
+            float laneVariation = (passengerHash % 3 - 1) * 0.04f;
+            return center + lateral * (side * 0.4f + laneVariation);
         }
 
         private void RemoveMissingBoardingPassengers()
         {
             leftBoardingQueue.RemoveAll(passenger => passenger == null);
             rightBoardingQueue.RemoveAll(passenger => passenger == null);
+            activeBoardingPassengers.RemoveWhere(passenger => passenger == null);
         }
 
         private void RemoveMissingExitPassengers()
         {
             exitingPassengers.RemoveAll(passenger => passenger == null);
+        }
+
+        private static float DistancePointToSegment(
+            Vector2 point,
+            Vector2 segmentStart,
+            Vector2 segmentEnd)
+        {
+            Vector2 segment = segmentEnd - segmentStart;
+            if (segment.sqrMagnitude <= 0.001f)
+            {
+                return Vector2.Distance(point, segmentStart);
+            }
+
+            float progress = Mathf.Clamp01(
+                Vector2.Dot(point - segmentStart, segment) / segment.sqrMagnitude);
+            return Vector2.Distance(point, segmentStart + segment * progress);
         }
     }
 }

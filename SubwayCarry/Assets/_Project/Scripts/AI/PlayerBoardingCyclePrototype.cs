@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -9,6 +10,7 @@ namespace SubwayCarry.AI
     {
         private enum CycleState
         {
+            StartingOnboard,
             WaitingForBoarding,
             Boarding,
             Riding,
@@ -20,14 +22,20 @@ namespace SubwayCarry.AI
         [SerializeField] private TrainDoorController boardingDoor;
         [SerializeField] private TrainDoorCyclePrototype doorCycle;
         [SerializeField] private Vector2 trainCenter;
-        [SerializeField] private Vector2 trainInteriorHalfExtents = new Vector2(8.8f, 3.75f);
+        [SerializeField] private Vector2 trainInteriorHalfExtents = new Vector2(7.6f, 3.75f);
         [SerializeField, Min(0.1f)] private float moveSpeed = 3f;
+        [SerializeField, Min(0.1f)] private float strongNpcCollisionSpeed = 2.6f;
+        [SerializeField, Min(0f)] private float collisionCountCooldown = 0.5f;
+        [SerializeField] private int strongNpcCollisionCount;
         [SerializeField] private CycleState state;
 
         private Rigidbody2D body;
         private Vector2 moveInput;
+        private bool sawInitialDoorOpen;
+        private readonly Dictionary<int, float> lastStrongCollisionTimes = new Dictionary<int, float>();
 
         public string CurrentState => state.ToString();
+        public int StrongNpcCollisionCount => strongNpcCollisionCount;
 
         public void Configure(
             TrainDoorController targetDoor,
@@ -47,7 +55,9 @@ namespace SubwayCarry.AI
         private void Awake()
         {
             body = GetComponent<Rigidbody2D>();
-            state = CycleState.WaitingForBoarding;
+            state = IsInsideTrain()
+                ? CycleState.StartingOnboard
+                : CycleState.WaitingForBoarding;
         }
 
         private void Update()
@@ -106,6 +116,17 @@ namespace SubwayCarry.AI
 
             switch (state)
             {
+                case CycleState.StartingOnboard:
+                    if (boardingDoor.IsOpen)
+                    {
+                        sawInitialDoorOpen = true;
+                    }
+                    else if (sawInitialDoorOpen && boardingDoor.IsClosed)
+                    {
+                        state = CycleState.Riding;
+                    }
+                    break;
+
                 case CycleState.WaitingForBoarding:
                     if (boardingDoor.IsOpen)
                     {
@@ -165,8 +186,39 @@ namespace SubwayCarry.AI
             doorCycle?.StopCycle();
         }
 
+        private void OnCollisionEnter2D(Collision2D collision)
+        {
+            GeneralPassengerPrototype passenger =
+                collision.collider.GetComponentInParent<GeneralPassengerPrototype>();
+            if (passenger == null || collision.relativeVelocity.magnitude < strongNpcCollisionSpeed)
+            {
+                return;
+            }
+
+            int passengerId = passenger.GetInstanceID();
+            if (lastStrongCollisionTimes.TryGetValue(passengerId, out float lastCollisionTime) &&
+                Time.time - lastCollisionTime < collisionCountCooldown)
+            {
+                return;
+            }
+
+            lastStrongCollisionTimes[passengerId] = Time.time;
+            strongNpcCollisionCount++;
+        }
+
         private void OnGUI()
         {
+            GUIStyle counterStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 22,
+                fontStyle = FontStyle.Bold
+            };
+            counterStyle.normal.textColor = Color.white;
+            GUI.Label(
+                new Rect(18f, 16f, 360f, 40f),
+                "HARD NPC HITS: " + strongNpcCollisionCount,
+                counterStyle);
+
             if (state != CycleState.GameOver && state != CycleState.Completed)
             {
                 return;

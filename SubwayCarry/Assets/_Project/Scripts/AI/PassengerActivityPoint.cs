@@ -42,6 +42,11 @@ namespace SubwayCarry.AI
             return occupant == null || occupant == passenger;
         }
 
+        public bool IsReservedBy(GameObject passenger)
+        {
+            return occupant == passenger;
+        }
+
         public bool TryReserve(GameObject passenger)
         {
             if (!IsAvailableFor(passenger))

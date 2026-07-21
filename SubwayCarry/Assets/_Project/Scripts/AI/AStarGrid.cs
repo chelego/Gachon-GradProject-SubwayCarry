@@ -11,7 +11,11 @@ namespace SubwayCarry.AI
             Vector2Int.up,
             Vector2Int.right,
             Vector2Int.down,
-            Vector2Int.left
+            Vector2Int.left,
+            new Vector2Int(1, 1),
+            new Vector2Int(1, -1),
+            new Vector2Int(-1, -1),
+            new Vector2Int(-1, 1)
         };
 
         public static List<Vector2Int> FindPath(
@@ -43,7 +47,7 @@ namespace SubwayCarry.AI
             var openLookup = new HashSet<Vector2Int> { start };
             var closed = new HashSet<Vector2Int>();
             var cameFrom = new Dictionary<Vector2Int, Vector2Int>();
-            var gScore = new Dictionary<Vector2Int, int> { [start] = 0 };
+            var gScore = new Dictionary<Vector2Int, float> { [start] = 0f };
 
             while (open.Count > 0)
             {
@@ -67,8 +71,17 @@ namespace SubwayCarry.AI
                         continue;
                     }
 
-                    int tentativeScore = gScore[current] + 1;
-                    int knownScore;
+                    bool diagonal = direction.x != 0 && direction.y != 0;
+                    if (diagonal &&
+                        (!isWalkable(current + new Vector2Int(direction.x, 0)) ||
+                         !isWalkable(current + new Vector2Int(0, direction.y))))
+                    {
+                        continue;
+                    }
+
+                    float stepCost = diagonal ? 1.41421356f : 1f;
+                    float tentativeScore = gScore[current] + stepCost;
+                    float knownScore;
                     if (gScore.TryGetValue(neighbor, out knownScore) && tentativeScore >= knownScore)
                     {
                         continue;
@@ -89,20 +102,22 @@ namespace SubwayCarry.AI
 
         private static Vector2Int GetBestNode(
             List<Vector2Int> open,
-            Dictionary<Vector2Int, int> gScore,
+            Dictionary<Vector2Int, float> gScore,
             Vector2Int goal)
         {
             Vector2Int best = open[0];
-            int bestHeuristic = Heuristic(best, goal);
-            int bestScore = gScore[best] + bestHeuristic;
+            float bestHeuristic = Heuristic(best, goal);
+            float bestScore = gScore[best] + bestHeuristic;
 
             for (int i = 1; i < open.Count; i++)
             {
                 Vector2Int candidate = open[i];
-                int heuristic = Heuristic(candidate, goal);
-                int score = gScore[candidate] + heuristic;
+                float heuristic = Heuristic(candidate, goal);
+                float score = gScore[candidate] + heuristic;
 
-                if (score < bestScore || score == bestScore && heuristic < bestHeuristic)
+                if (score < bestScore ||
+                    Mathf.Approximately(score, bestScore) &&
+                    heuristic < bestHeuristic)
                 {
                     best = candidate;
                     bestScore = score;
@@ -129,9 +144,13 @@ namespace SubwayCarry.AI
             return path;
         }
 
-        private static int Heuristic(Vector2Int from, Vector2Int to)
+        private static float Heuristic(Vector2Int from, Vector2Int to)
         {
-            return Mathf.Abs(from.x - to.x) + Mathf.Abs(from.y - to.y);
+            int horizontal = Mathf.Abs(from.x - to.x);
+            int vertical = Mathf.Abs(from.y - to.y);
+            int diagonal = Mathf.Min(horizontal, vertical);
+            int straight = Mathf.Max(horizontal, vertical) - diagonal;
+            return diagonal * 1.41421356f + straight;
         }
 
         private static bool IsInside(Vector2Int cell, int width, int height)
