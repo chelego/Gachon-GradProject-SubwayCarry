@@ -18,7 +18,7 @@ namespace SubwayCarry.AI
             PreparingToExit,
             WaitingAtExitDoor,
             Exiting,
-            WaitingAfterExit
+            LeavingPlatform
         }
 
         private enum PassengerBehavior
@@ -79,6 +79,8 @@ namespace SubwayCarry.AI
         [SerializeField, Min(0.1f)] private float stationaryPassengerClearance = 0.68f;
         [SerializeField, Min(0.1f)] private float courtesyStepDistance = 0.65f;
         [SerializeField, Min(0.1f)] private float exitIntentCorridorWidth = 0.78f;
+        [SerializeField, Min(0.1f)] private float standingPersonalSpaceRadius = 0.62f;
+        [SerializeField, Min(0.1f)] private float standingYieldDetectionRadius = 1.45f;
         [SerializeField, Min(0.01f)] private float arrivalDistance = 0.08f;
         [SerializeField] private PassengerState state;
         [SerializeField] private PassengerBehavior behavior;
@@ -112,6 +114,8 @@ namespace SubwayCarry.AI
         private float nextCongestionRerouteTime;
         private float nextIntentBroadcastTime;
         private float nextSeatIntentBroadcastTime;
+        private float nextStandingYieldCheckTime;
+        private float standingYieldCooldownUntil;
         private float courtesyYieldCanReturnAt;
         private float courtesyYieldUntil;
         private float personalPaceMultiplier = 1f;
@@ -119,6 +123,7 @@ namespace SubwayCarry.AI
         private Vector2 movementIntent;
         private Vector2 courtesyYieldOrigin;
         private Vector2 courtesyYieldTarget;
+        private Vector2 platformExitTarget;
         private GeneralPassengerPrototype courtesyYieldSource;
         private GeneralPassengerPrototype courtesyWaitPassenger;
         private bool hasPathTarget;
@@ -259,6 +264,10 @@ namespace SubwayCarry.AI
                     {
                         BeginExitPreparation();
                     }
+                    else if (TryYieldFromFreeStanding())
+                    {
+                        break;
+                    }
                     else if (Time.time >= nextDecisionTime)
                     {
                         EvaluateReasonedBehaviorChange();
@@ -291,8 +300,16 @@ namespace SubwayCarry.AI
                 case PassengerState.Exiting:
                     if (exitDoorway != null && MoveDirectly(exitDoorway.OutsidePoint.position))
                     {
+                        BeginLeavingPlatform();
                         ReleaseExitReservation();
-                        SetState(PassengerState.WaitingAfterExit, PassengerBehavior.None);
+                        SetState(PassengerState.LeavingPlatform, PassengerBehavior.None);
+                    }
+                    break;
+
+                case PassengerState.LeavingPlatform:
+                    if (MoveWithoutAvoidance(platformExitTarget))
+                    {
+                        Destroy(gameObject);
                     }
                     break;
             }
@@ -503,14 +520,12 @@ namespace SubwayCarry.AI
             ReleaseCurrentActivity();
 
             PassengerBehavior nextBehavior = selected.Behavior;
-            bool reserved = nextBehavior == PassengerBehavior.Seated
-                ? TryReserveSeat()
-                : TryReserveActivityPoint(nextBehavior);
+            bool reserved = TryChooseBehaviorTarget(nextBehavior);
 
             if (!reserved)
             {
                 nextBehavior = PassengerBehavior.AisleStanding;
-                if (!TryReserveActivityPoint(nextBehavior))
+                if (!TryChooseBehaviorTarget(nextBehavior))
                 {
                     SetState(PassengerState.Observing, nextBehavior);
                     ScheduleNextDecision();
@@ -687,6 +702,138 @@ namespace SubwayCarry.AI
             return false;
         }
 
+        private bool TryChooseBehaviorTarget(PassengerBehavior selectedBehavior)
+        {
+            if (selectedBehavior == PassengerBehavior.Seated)
+            {
+                return TryReserveSeat();
+            }
+
+            if (IsFreeStandingBehavior(selectedBehavior))
+            {
+                return TryChooseFreeStandingPosition(selectedBehavior);
+            }
+
+            return TryReserveActivityPoint(selectedBehavior);
+        }
+
+        private bool TryChooseFreeStandingPosition(PassengerBehavior selectedBehavior)
+        {
+            const int maximumAttempts = 28;
+            GridNavigation2D navigation = FindCurrentNavigationArea();
+            if (navigation == null)
+            {
+                return false;
+            }
+
+            for (int attempt = 0; attempt < maximumAttempts; attempt++)
+            {
+                Vector2 candidate = selectedBehavior == PassengerBehavior.DoorStanding
+                    ? GetRandomDoorStandingPosition()
+                    : GetRandomAisleStandingPosition(navigation);
+                if (!navigation.IsWorldWalkable(candidate) ||
+                    !IsStandingPositionAvailable(candidate))
+                {
+                    continue;
+                }
+
+                activityTarget = candidate;
+                behavior = selectedBehavior;
+                return true;
+            }
+
+            return false;
+        }
+
+        private Vector2 GetRandomAisleStandingPosition(GridNavigation2D navigation)
+        {
+            Rect bounds = navigation.WorldBounds;
+            float horizontalMargin = bounds.width * 0.08f;
+            float aisleHalfWidth = Mathf.Min(0.95f, bounds.height * 0.16f);
+            return new Vector2(
+                Random.Range(bounds.xMin + horizontalMargin, bounds.xMax - horizontalMargin),
+                Random.Range(bounds.center.y - aisleHalfWidth, bounds.center.y + aisleHalfWidth));
+        }
+
+        private Vector2 GetRandomDoorStandingPosition()
+        {
+            var candidates = new List<PassengerDoorway>();
+            if (doorways != null)
+            {
+                foreach (PassengerDoorway doorway in doorways)
+                {
+                    if (doorway != null && doorway.IsUsable)
+                    {
+                        candidates.Add(doorway);
+                    }
+                }
+            }
+
+            if (candidates.Count == 0)
+            {
+                return body.position;
+            }
+
+            PassengerDoorway selected = candidates[Random.Range(0, candidates.Count)];
+            Vector2 inside = selected.InsidePoint.position;
+            Vector2 outside = selected.OutsidePoint.position;
+            Vector2 inward = (inside - outside).normalized;
+            Vector2 lateral = new Vector2(-inward.y, inward.x);
+            return inside +
+                   inward * Random.Range(0.15f, 0.85f) +
+                   lateral * Random.Range(-0.72f, 0.72f);
+        }
+
+        private GridNavigation2D FindCurrentNavigationArea()
+        {
+            if (navigationAreas != null)
+            {
+                foreach (GridNavigation2D navigation in navigationAreas)
+                {
+                    if (navigation != null && navigation.ContainsWorldPosition(body.position))
+                    {
+                        return navigation;
+                    }
+                }
+            }
+
+            return boardingDoorway != null ? boardingDoorway.Navigation : null;
+        }
+
+        private bool IsStandingPositionAvailable(Vector2 position)
+        {
+            if (IsBlockedByNavigationObstacle(position))
+            {
+                return false;
+            }
+
+            GeneralPassengerPrototype[] passengers = FindMapComponents<GeneralPassengerPrototype>();
+            foreach (GeneralPassengerPrototype passenger in passengers)
+            {
+                if (passenger == null || passenger == this || passenger.body == null)
+                {
+                    continue;
+                }
+
+                if (Vector2.Distance(position, passenger.body.position) < standingPersonalSpaceRadius)
+                {
+                    return false;
+                }
+
+                bool hasFreeStandingTarget = IsFreeStandingBehavior(passenger.behavior) &&
+                                             (passenger.state == PassengerState.MovingToActivity ||
+                                              passenger.state == PassengerState.Observing ||
+                                              passenger.state == PassengerState.Yielding);
+                if (hasFreeStandingTarget &&
+                    Vector2.Distance(position, passenger.activityTarget) < standingPersonalSpaceRadius)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private PassengerActivityPoint SelectActivityPoint(List<PassengerActivityPoint> candidates)
         {
             float totalWeight = 0f;
@@ -714,6 +861,11 @@ namespace SubwayCarry.AI
 
         private bool HasAvailablePoint(PassengerBehavior candidate)
         {
+            if (IsFreeStandingBehavior(candidate))
+            {
+                return FindCurrentNavigationArea() != null;
+            }
+
             PassengerActivityType pointType = ToActivityType(candidate);
             if (activityPoints == null)
             {
@@ -729,6 +881,12 @@ namespace SubwayCarry.AI
             }
 
             return false;
+        }
+
+        private static bool IsFreeStandingBehavior(PassengerBehavior candidate)
+        {
+            return candidate == PassengerBehavior.DoorStanding ||
+                   candidate == PassengerBehavior.AisleStanding;
         }
 
         private static PassengerActivityType ToActivityType(PassengerBehavior selectedBehavior)
@@ -1022,11 +1180,19 @@ namespace SubwayCarry.AI
             bool sourcePassed = courtesyYieldSource == null ||
                                 courtesyYieldSource.state == PassengerState.WaitingAtExitDoor ||
                                 courtesyYieldSource.state == PassengerState.Exiting ||
-                                courtesyYieldSource.state == PassengerState.WaitingAfterExit;
+                                courtesyYieldSource.state == PassengerState.LeavingPlatform;
             if (Time.time < courtesyYieldCanReturnAt ||
                 (!sourcePassed && Time.time < courtesyYieldUntil))
             {
                 RememberMovementIntent(Vector2.zero);
+                return;
+            }
+
+            if (IsFreeStandingBehavior(behavior))
+            {
+                activityTarget = body.position;
+                CompleteCourtesyYield();
+                standingYieldCooldownUntil = Time.time + Random.Range(1.2f, 2f);
                 return;
             }
 
@@ -1035,12 +1201,146 @@ namespace SubwayCarry.AI
                 return;
             }
 
+            CompleteCourtesyYield();
+        }
+
+        private void CompleteCourtesyYield()
+        {
             courtesyYieldSource = null;
             reachedCourtesyYieldTarget = false;
             ScheduleNextDecision();
             state = PassengerState.Observing;
             RecordDecision("Yield complete");
             UpdateLabel();
+        }
+
+        private bool TryYieldFromFreeStanding()
+        {
+            if (!IsFreeStandingBehavior(behavior) ||
+                Time.time < nextStandingYieldCheckTime ||
+                Time.time < standingYieldCooldownUntil)
+            {
+                return false;
+            }
+
+            nextStandingYieldCheckTime = Time.time + Random.Range(0.18f, 0.3f);
+            GeneralPassengerPrototype nearestMover = null;
+            Vector2 nearestIntent = Vector2.zero;
+            float nearestDistance = float.MaxValue;
+            GeneralPassengerPrototype[] passengers = FindMapComponents<GeneralPassengerPrototype>();
+
+            foreach (GeneralPassengerPrototype passenger in passengers)
+            {
+                if (passenger == null || passenger == this || passenger.body == null)
+                {
+                    continue;
+                }
+
+                Vector2 intent = passenger.GetMovementIntent();
+                float distance = Vector2.Distance(body.position, passenger.body.position);
+                if (intent.sqrMagnitude <= 0.01f ||
+                    distance > standingYieldDetectionRadius ||
+                    DistancePointToSegment(
+                        body.position,
+                        passenger.body.position,
+                        passenger.body.position + intent.normalized * standingYieldDetectionRadius) >
+                    exitIntentCorridorWidth ||
+                    distance >= nearestDistance)
+                {
+                    continue;
+                }
+
+                nearestMover = passenger;
+                nearestIntent = intent.normalized;
+                nearestDistance = distance;
+            }
+
+            if (nearestMover != null &&
+                TryFindFreeStandingYieldTarget(nearestMover.body.position, nearestIntent, out Vector2 moverYieldTarget))
+            {
+                BeginCourtesyYield(nearestMover, moverYieldTarget);
+                return true;
+            }
+
+            return TryYieldFromLocalCrowding(passengers);
+        }
+
+        private bool TryYieldFromLocalCrowding(GeneralPassengerPrototype[] passengers)
+        {
+            Vector2 crowdCenter = Vector2.zero;
+            int nearbyCount = 0;
+            foreach (GeneralPassengerPrototype passenger in passengers)
+            {
+                if (passenger == null || passenger == this || passenger.body == null)
+                {
+                    continue;
+                }
+
+                float distance = Vector2.Distance(body.position, passenger.body.position);
+                if (distance <= standingPersonalSpaceRadius * 1.65f)
+                {
+                    crowdCenter += passenger.body.position;
+                    nearbyCount++;
+                }
+            }
+
+            if (nearbyCount < 3)
+            {
+                return false;
+            }
+
+            crowdCenter /= nearbyCount;
+            Vector2 away = body.position - crowdCenter;
+            if (away.sqrMagnitude <= 0.001f)
+            {
+                away = Random.insideUnitCircle.normalized;
+            }
+
+            Vector2 target = body.position + away.normalized * courtesyStepDistance;
+            if (!IsCourtesyPositionAvailable(target))
+            {
+                return false;
+            }
+
+            BeginCourtesyYield(null, target);
+            return true;
+        }
+
+        private bool TryFindFreeStandingYieldTarget(
+            Vector2 moverPosition,
+            Vector2 moverDirection,
+            out Vector2 yieldTarget)
+        {
+            Vector2 perpendicular = new Vector2(-moverDirection.y, moverDirection.x);
+            Vector2[] candidates =
+            {
+                body.position + perpendicular * courtesyStepDistance,
+                body.position - perpendicular * courtesyStepDistance,
+                body.position - moverDirection * courtesyStepDistance * 0.7f
+            };
+
+            yieldTarget = body.position;
+            float bestScore = float.MinValue;
+            Vector2 routeEnd = moverPosition + moverDirection * standingYieldDetectionRadius;
+            foreach (Vector2 candidate in candidates)
+            {
+                GridNavigation2D navigation = FindCurrentNavigationArea();
+                if (navigation == null ||
+                    !navigation.IsWorldWalkable(candidate) ||
+                    !IsCourtesyPositionAvailable(candidate))
+                {
+                    continue;
+                }
+
+                float score = DistancePointToSegment(candidate, moverPosition, routeEnd);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    yieldTarget = candidate;
+                }
+            }
+
+            return bestScore > float.MinValue;
         }
 
         private bool IsCourtesyPositionAvailable(Vector2 position)
@@ -1498,6 +1798,42 @@ namespace SubwayCarry.AI
         {
             MoveBodyTowards(destination);
             return Vector2.Distance(body.position, destination) <= arrivalDistance;
+        }
+
+        private bool MoveWithoutAvoidance(Vector2 destination)
+        {
+            Vector2 toDestination = destination - body.position;
+            if (toDestination.sqrMagnitude <= arrivalDistance * arrivalDistance)
+            {
+                return true;
+            }
+
+            float step = Mathf.Min(
+                GetCurrentMoveSpeed() * Time.fixedDeltaTime,
+                toDestination.magnitude);
+            Vector2 direction = toDestination.normalized;
+            RememberMovementIntent(direction);
+            body.MovePosition(body.position + direction * step);
+            return Vector2.Distance(body.position, destination) <= arrivalDistance;
+        }
+
+        private void BeginLeavingPlatform()
+        {
+            Vector2 inside = exitDoorway.InsidePoint.position;
+            Vector2 outside = exitDoorway.OutsidePoint.position;
+            Vector2 outward = (outside - inside).normalized;
+            Vector2 lateral = new Vector2(-outward.y, outward.x);
+            platformExitTarget = outside +
+                                 outward * 2.8f +
+                                 lateral * Random.Range(-1.1f, 1.1f);
+
+            if (bodyCollider != null)
+            {
+                bodyCollider.enabled = false;
+            }
+
+            body.bodyType = RigidbodyType2D.Kinematic;
+            ClearPath();
         }
 
         private void MoveBodyTowards(Vector2 destination)

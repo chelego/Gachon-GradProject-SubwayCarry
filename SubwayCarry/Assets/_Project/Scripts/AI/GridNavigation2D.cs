@@ -13,6 +13,20 @@ namespace SubwayCarry.AI
         [SerializeField, Range(0.1f, 1f)] private float obstacleCheckScale = 0.75f;
         [SerializeField] private bool drawGrid = true;
 
+        public Rect WorldBounds => new Rect(
+            GridOrigin,
+            new Vector2(width * cellSize, height * cellSize));
+
+        public bool ContainsWorldPosition(Vector2 worldPosition)
+        {
+            return WorldBounds.Contains(worldPosition);
+        }
+
+        public bool IsWorldWalkable(Vector2 worldPosition)
+        {
+            return IsWalkable(WorldToCell(worldPosition));
+        }
+
         public List<Vector3> FindWorldPath(Vector3 startWorld, Vector3 goalWorld)
         {
             return FindWorldPath(startWorld, goalWorld, null);

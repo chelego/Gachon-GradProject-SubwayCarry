@@ -83,7 +83,7 @@ namespace SubwayCarry.AI
             TrainDoorCyclePrototype doorCycle = doorCycleObject.AddComponent<TrainDoorCyclePrototype>();
             doorCycle.Configure(allDoors.ToArray());
 
-            for (int i = 0; i < 20; i++)
+            for (int i = 0; i < 30; i++)
             {
                 CreateGeneralPassenger("Passenger " + (i + 1), car1, doorCycle);
             }
@@ -178,7 +178,9 @@ namespace SubwayCarry.AI
                 data.Doors,
                 data.Doorways,
                 data.Seats,
-                data.ActivityPoints);
+                data.ActivityPoints,
+                openLeft,
+                openRight);
 
             if (openLeft)
             {
@@ -299,7 +301,9 @@ namespace SubwayCarry.AI
             List<TrainDoorController> doors,
             List<PassengerDoorway> doorways,
             List<PassengerSeatPrototype> seats,
-            List<PassengerActivityPoint> activityPoints)
+            List<PassengerActivityPoint> activityPoints,
+            bool openLeft,
+            bool openRight)
         {
             float[] doorX = { -7.4f, -3.8f, -0.2f, 3.4f };
             float[] seatX = { -5.6f, -2f, 1.6f };
@@ -349,21 +353,23 @@ namespace SubwayCarry.AI
                 CreateHandholdPoints(parent, center, bottomSeat, activityPoints);
             }
 
+            float prioritySeatX = openRight ? 7.6f : openLeft ? -7.6f : 5.6f;
             PassengerSeatPrototype topPrioritySeat = CreatePassengerSeat(
                 parent,
-                center + new Vector2(5.6f, SeatY),
+                center + new Vector2(prioritySeatX, SeatY),
                 priorityColor,
                 "PrioritySeat");
             PassengerSeatPrototype bottomPrioritySeat = CreatePassengerSeat(
                 parent,
-                center + new Vector2(5.6f, -SeatY),
+                center + new Vector2(prioritySeatX, -SeatY),
                 priorityColor,
                 "PrioritySeat");
             seats.Add(topPrioritySeat);
             seats.Add(bottomPrioritySeat);
             CreateHandholdPoints(parent, center, topPrioritySeat, activityPoints);
             CreateHandholdPoints(parent, center, bottomPrioritySeat, activityPoints);
-            CreateAisleActivityPoints(parent, center, activityPoints);
+            CreateEndWallLeanPoints(parent, center, -1f, openLeft, activityPoints);
+            CreateEndWallLeanPoints(parent, center, 1f, openRight, activityPoints);
         }
 
         private static void CreateDoorActivityPoints(
@@ -388,14 +394,6 @@ namespace SubwayCarry.AI
                     "LeanPoint"));
             }
 
-            activityPoints.Add(CreateActivityPoint(
-                "Door Standing Point",
-                new Vector2(center.x + doorLocalX, center.y + side * 2.05f),
-                new Vector2(0.13f, 0.13f),
-                new Color(0.82f, 0.4f, 0.32f),
-                parent,
-                PassengerActivityType.DoorStanding,
-                "DoorStandingPoint"));
         }
 
         private static void CreateHandholdPoints(
@@ -421,25 +419,28 @@ namespace SubwayCarry.AI
             }
         }
 
-        private static void CreateAisleActivityPoints(
+        private static void CreateEndWallLeanPoints(
             Transform parent,
             Vector2 center,
+            float side,
+            bool isConnectorSide,
             List<PassengerActivityPoint> activityPoints)
         {
-            float[] xPositions = { -6.4f, -4.2f, -2f, 0.2f, 2.4f, 4.6f, 6.8f };
-            float[] yPositions = { -0.8f, 0f, 0.8f };
+            float[] yPositions = isConnectorSide
+                ? new[] { -1.55f, 1.55f }
+                : new[] { -2.35f, -1.4f, -0.45f, 0.45f, 1.4f, 2.35f };
+            float x = center.x + side * 8.62f;
 
-            for (int i = 0; i < xPositions.Length; i++)
+            foreach (float localY in yPositions)
             {
-                float y = yPositions[i % yPositions.Length];
                 activityPoints.Add(CreateActivityPoint(
-                    "Aisle Standing Point",
-                    center + new Vector2(xPositions[i], y),
-                    new Vector2(0.1f, 0.1f),
-                    new Color(0.52f, 0.58f, 0.66f),
+                    "End Wall Lean Point",
+                    new Vector2(x, center.y + localY),
+                    new Vector2(0.08f, 0.26f),
+                    new Color(0.42f, 0.88f, 0.72f),
                     parent,
-                    PassengerActivityType.AisleStanding,
-                    "AisleStandingPoint"));
+                    PassengerActivityType.Lean,
+                    "LeanPoint"));
             }
         }
 
