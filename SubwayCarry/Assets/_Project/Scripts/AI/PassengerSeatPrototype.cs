@@ -46,6 +46,26 @@ namespace SubwayCarry.AI
             return sittingPoints[index];
         }
 
+        public bool IsAvailable(Transform sittingPoint)
+        {
+            EnsureRuntimeOccupants();
+
+            if (sittingPoint == null || sittingPoints == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < sittingPoints.Length; i++)
+            {
+                if (sittingPoints[i] == sittingPoint)
+                {
+                    return occupants[i] == null;
+                }
+            }
+
+            return false;
+        }
+
         public Vector2 GetApproachPosition(Transform sittingPoint)
         {
             float carCenterY = transform.parent != null ? transform.parent.position.y : 0f;
@@ -70,6 +90,35 @@ namespace SubwayCarry.AI
             for (int i = 0; i < occupants.Length; i++)
             {
                 if (occupants[i] != null)
+                {
+                    continue;
+                }
+
+                occupants[i] = passenger;
+                sittingPoint = sittingPoints[i];
+                return true;
+            }
+
+            sittingPoint = null;
+            return false;
+        }
+
+        public bool TryReserve(
+            GameObject passenger,
+            Transform preferredPoint,
+            out Transform sittingPoint)
+        {
+            EnsureRuntimeOccupants();
+
+            if (preferredPoint == null || sittingPoints == null)
+            {
+                sittingPoint = null;
+                return false;
+            }
+
+            for (int i = 0; i < sittingPoints.Length; i++)
+            {
+                if (sittingPoints[i] != preferredPoint || occupants[i] != null)
                 {
                     continue;
                 }

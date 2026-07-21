@@ -525,7 +525,7 @@ namespace SubwayCarry.AI
             GameObject passengerObject = CreateBlock(
                 name,
                 (Vector2)previewDoorway.OutsidePoint.position,
-                new Vector2(0.55f, 0.72f),
+                new Vector2(0.62f, 0.62f),
                 new Color(0.95f, 0.55f, 0.18f),
                 car.Center,
                 false,
@@ -566,8 +566,8 @@ namespace SubwayCarry.AI
             body.interpolation = RigidbodyInterpolation2D.Interpolate;
             body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
 
-            CapsuleCollider2D collider = actor.AddComponent<CapsuleCollider2D>();
-            collider.size = new Vector2(0.86f, 0.9f);
+            CircleCollider2D collider = actor.AddComponent<CircleCollider2D>();
+            collider.radius = 0.46f;
         }
 
         private static void AddKinematicCollision(GameObject panel)
