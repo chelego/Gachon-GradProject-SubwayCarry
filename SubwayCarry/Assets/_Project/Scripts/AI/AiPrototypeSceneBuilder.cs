@@ -12,7 +12,7 @@ namespace SubwayCarry.AI
     {
         private const string ScenePath = "Assets/_Project/Scenes/Prototype_AI.unity";
         private const string MaterialFolder = "Assets/_Project/Art/PrototypeMaterials";
-        private const float CarWidth = 15.6f;
+        private const float CarWidth = 24.6f;
         private const float CarHeight = 6.5f;
         private const float WallThickness = 0.2f;
         private const float ConnectorOpening = 2.2f;
@@ -59,7 +59,7 @@ namespace SubwayCarry.AI
                 root.transform);
             TrainCarBuildData car2 = CreateTrainCar(
                 "Train Car 2",
-                new Vector2(19.6f, 0f),
+                new Vector2(26.2f, 0f),
                 true,
                 false,
                 root.transform);
@@ -172,6 +172,10 @@ namespace SubwayCarry.AI
             navigationObject.transform.SetParent(carRoot.transform);
             navigationObject.transform.position = center;
             data.Navigation = navigationObject.AddComponent<GridNavigation2D>();
+            data.Navigation.ConfigureDimensions(
+                Mathf.CeilToInt((CarWidth + 0.4f) / 0.25f),
+                32,
+                0.25f);
 
             CreateDoorsAndSeats(
                 carRoot.transform,
@@ -189,11 +193,11 @@ namespace SubwayCarry.AI
                 CreateConnector(carRoot.transform, center, -1f);
                 data.LeftPortal = CreatePortal(
                     "Left Connector Portal",
-                    center + new Vector2(-7.15f, 0f),
+                    center + new Vector2(-(CarWidth * 0.5f - 0.88f), 0f),
                     carRoot.transform);
                 data.LeftArrival = CreatePoint(
                     "Left Connector Arrival",
-                    center + new Vector2(-6.25f, 0f),
+                    center + new Vector2(-(CarWidth * 0.5f - 1.25f), 0f),
                     carRoot.transform);
             }
 
@@ -202,11 +206,11 @@ namespace SubwayCarry.AI
                 CreateConnector(carRoot.transform, center, 1f);
                 data.RightPortal = CreatePortal(
                     "Right Connector Portal",
-                    center + new Vector2(7.15f, 0f),
+                    center + new Vector2(CarWidth * 0.5f - 0.88f, 0f),
                     carRoot.transform);
                 data.RightArrival = CreatePoint(
                     "Right Connector Arrival",
-                    center + new Vector2(6.25f, 0f),
+                    center + new Vector2(CarWidth * 0.5f - 1.25f, 0f),
                     carRoot.transform);
             }
 
@@ -231,7 +235,8 @@ namespace SubwayCarry.AI
             bool open,
             Color wallColor)
         {
-            float x = center.x + direction * 7.9f;
+            float x = center.x +
+                      direction * (CarWidth * 0.5f + WallThickness * 0.5f);
             if (!open)
             {
                 CreateBlock("Closed End Wall", new Vector2(x, center.y),
@@ -257,7 +262,8 @@ namespace SubwayCarry.AI
         {
             float[] doorX = GetDoorPositions(mirrorLayout);
             const float openingHalfWidth = DoorWidth * 0.5f + 0.05f;
-            float segmentStart = -7.9f;
+            float wallEdge = CarWidth * 0.5f + WallThickness * 0.5f;
+            float segmentStart = -wallEdge;
 
             foreach (float localDoorX in doorX)
             {
@@ -266,7 +272,13 @@ namespace SubwayCarry.AI
                 segmentStart = localDoorX + openingHalfWidth;
             }
 
-            CreateWallSegment(parent, center, direction, segmentStart, 7.9f, wallColor);
+            CreateWallSegment(
+                parent,
+                center,
+                direction,
+                segmentStart,
+                wallEdge,
+                wallColor);
         }
 
         private static void CreateWallSegment(
@@ -306,9 +318,7 @@ namespace SubwayCarry.AI
         {
             bool mirrorLayout = openLeft;
             float[] doorX = GetDoorPositions(mirrorLayout);
-            float[] seatX = mirrorLayout
-                ? new[] { -2.15f, 1.35f, 4.85f }
-                : new[] { -4.85f, -1.35f, 2.15f };
+            float[] seatX = { -5.6f, 0f, 5.6f };
             Color doorColor = new Color(0.16f, 0.58f, 0.58f);
             Color seatColor = new Color(0.1f, 0.45f, 0.62f);
             Color priorityColor = new Color(0.72f, 0.31f, 0.48f);
@@ -335,6 +345,8 @@ namespace SubwayCarry.AI
                 doors.Add(bottomDoorway.Door);
             }
 
+            CreateLeftmostDoorSideWalls(parent, center, doorX[0]);
+
             foreach (float localX in seatX)
             {
                 PassengerSeatPrototype topSeat = CreatePassengerSeat(
@@ -353,7 +365,7 @@ namespace SubwayCarry.AI
                 CreateHandholdPoints(parent, center, bottomSeat, activityPoints);
             }
 
-            float prioritySeatX = mirrorLayout ? -5.65f : 5.65f;
+            float prioritySeatX = mirrorLayout ? -10.85f : 10.85f;
             PassengerSeatPrototype topPrioritySeat = CreatePassengerSeat(
                 parent,
                 center + new Vector2(prioritySeatX, SeatY),
@@ -372,9 +384,29 @@ namespace SubwayCarry.AI
 
         private static float[] GetDoorPositions(bool mirrorLayout)
         {
-            return mirrorLayout
-                ? new[] { -3.9f, -0.4f, 3.1f, 6.6f }
-                : new[] { -6.6f, -3.1f, 0.4f, 3.9f };
+            return new[] { -8.4f, -2.8f, 2.8f, 8.4f };
+        }
+
+        private static void CreateLeftmostDoorSideWalls(
+            Transform parent,
+            Vector2 center,
+            float leftmostDoorX)
+        {
+            float wallX =
+                center.x + leftmostDoorX - DoorWidth * 0.5f - 0.08f;
+            Color wallColor = new Color(0.31f, 0.39f, 0.48f);
+            foreach (float side in new[] { -1f, 1f })
+            {
+                CreateBlock(
+                    "Leftmost Door Side Wall",
+                    new Vector2(wallX, center.y + side * SeatY),
+                    new Vector2(0.12f, 1.35f),
+                    wallColor,
+                    parent,
+                    true,
+                    "SeatDivider",
+                    -0.05f);
+            }
         }
 
         private static void CreateHandholdPoints(
@@ -578,28 +610,93 @@ namespace SubwayCarry.AI
             Color color,
             string materialKey)
         {
-            GameObject seatObject = CreateBlock("Seat", position, new Vector2(1.45f, 0.85f),
+            bool prioritySeat = materialKey == "PrioritySeat";
+            float seatWidth = prioritySeat ? 1.85f : 3.55f;
+            int capacity = prioritySeat ? 3 : 7;
+            GameObject seatObject = CreateBlock("Seat", position, new Vector2(seatWidth, 0.85f),
                 color, parent, true, materialKey);
-            Transform leftPoint = CreatePoint(
-                "Sitting Point Left",
-                position + Vector2.left * 0.34f,
-                seatObject.transform);
-            Transform rightPoint = CreatePoint(
-                "Sitting Point Right",
-                position + Vector2.right * 0.34f,
-                seatObject.transform);
+            CreateSeatSidePartitions(
+                parent,
+                position,
+                prioritySeat,
+                seatWidth);
+            var sittingPoints = new List<Transform>(capacity);
+            float usableHalfWidth = seatWidth * 0.5f - 0.28f;
+            for (int index = 0; index < capacity; index++)
+            {
+                float t = capacity <= 1
+                    ? 0.5f
+                    : index / (float)(capacity - 1);
+                float offsetX = Mathf.Lerp(
+                    -usableHalfWidth,
+                    usableHalfWidth,
+                    t);
+                sittingPoints.Add(CreatePoint(
+                    "Sitting Point " + (index + 1),
+                    position + Vector2.right * offsetX,
+                    seatObject.transform));
+            }
 
             PassengerSeatPrototype seat = seatObject.AddComponent<PassengerSeatPrototype>();
-            seat.Configure(new[] { leftPoint, rightPoint });
+            seat.Configure(sittingPoints.ToArray());
             return seat;
+        }
+
+        private static void CreateSeatSidePartitions(
+            Transform parent,
+            Vector2 seatPosition,
+            bool prioritySeat,
+            float seatWidth)
+        {
+            Color dividerColor = new Color(0.31f, 0.39f, 0.48f);
+            float dividerOffset = seatWidth * 0.5f + 0.06f;
+            float localSeatX = seatPosition.x - parent.position.x;
+            float connectorSide = Mathf.Sign(localSeatX);
+            float seatSide = Mathf.Sign(seatPosition.y - parent.position.y);
+
+            foreach (float side in new[] { -1f, 1f })
+            {
+                bool connectorWall =
+                    prioritySeat &&
+                    Mathf.Approximately(side, connectorSide);
+                Vector2 dividerSize = connectorWall
+                    ? new Vector2(0.12f, 1.45f)
+                    : new Vector2(0.12f, 1.12f);
+                Vector2 dividerPosition =
+                    seatPosition + Vector2.right * side * dividerOffset;
+                if (connectorWall)
+                {
+                    dividerPosition += Vector2.up * seatSide * 0.08f;
+                }
+
+                CreateBlock(
+                    connectorWall
+                        ? "Priority Seat Connector Wall"
+                        : side < 0f
+                            ? "Seat Side Wall Left"
+                            : "Seat Side Wall Right",
+                    dividerPosition,
+                    dividerSize,
+                    dividerColor,
+                    parent,
+                    true,
+                    "SeatDivider",
+                    -0.05f);
+            }
         }
 
         private static void CreateConnector(Transform parent, Vector2 center, float direction)
         {
-            Vector2 connectorCenter = center + new Vector2(direction * 7.45f, 0f);
-            CreateBlock("Connector Floor", connectorCenter, new Vector2(0.9f, 2.1f),
+            Vector2 connectorCenter = center +
+                                      new Vector2(
+                                          direction * (CarWidth * 0.5f - 0.72f),
+                                          0f);
+            CreateBlock("Connector Floor", connectorCenter, new Vector2(0.48f, 2.1f),
                 new Color(0.12f, 0.16f, 0.2f), parent, false, "Connector", 0.5f);
-            CreateBlock("Connector Threshold", center + new Vector2(direction * 6.98f, 0f),
+            CreateBlock(
+                "Connector Threshold",
+                center +
+                new Vector2(direction * (CarWidth * 0.5f - 0.9f), 0f),
                 new Vector2(0.08f, 2f), new Color(0.84f, 0.72f, 0.2f),
                 parent, false, "ConnectorThreshold", -0.1f);
         }
@@ -612,7 +709,7 @@ namespace SubwayCarry.AI
 
             BoxCollider2D trigger = portalObject.AddComponent<BoxCollider2D>();
             trigger.isTrigger = true;
-            trigger.size = new Vector2(0.5f, 1.8f);
+            trigger.size = new Vector2(0.08f, 1.8f);
             return portalObject.AddComponent<TrainCarPortal2D>();
         }
 
@@ -668,7 +765,7 @@ namespace SubwayCarry.AI
 
             Camera camera = cameraObject.AddComponent<Camera>();
             camera.orthographic = true;
-            camera.orthographicSize = 5.5f;
+            camera.orthographicSize = 7.5f;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.025f, 0.035f, 0.055f);
             return cameraObject.AddComponent<TrainCarCameraController>();

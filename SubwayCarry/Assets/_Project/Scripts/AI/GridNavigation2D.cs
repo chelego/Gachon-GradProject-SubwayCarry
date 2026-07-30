@@ -11,11 +11,22 @@ namespace SubwayCarry.AI
         [SerializeField, Min(1)] private int height = 32;
         [SerializeField, Min(0.1f)] private float cellSize = 0.25f;
         [SerializeField, Range(0.1f, 1f)] private float obstacleCheckScale = 0.75f;
+        [SerializeField, Min(0.1f)] private float actorClearanceDiameter = 0.52f;
         [SerializeField] private bool drawGrid = true;
 
         public Rect WorldBounds => new Rect(
             GridOrigin,
             new Vector2(width * cellSize, height * cellSize));
+
+        public void ConfigureDimensions(
+            int columns,
+            int rows,
+            float navigationCellSize)
+        {
+            width = Mathf.Max(1, columns);
+            height = Mathf.Max(1, rows);
+            cellSize = Mathf.Max(0.1f, navigationCellSize);
+        }
 
         public bool ContainsWorldPosition(Vector2 worldPosition)
         {
@@ -44,8 +55,13 @@ namespace SubwayCarry.AI
                 goal,
                 width,
                 height,
-                cell => IsWalkable(cell) &&
-                        (dynamicWalkable == null || dynamicWalkable(CellToWorld(cell))));
+                cell => (cell == start ||
+                         cell == goal ||
+                         IsWalkable(cell)) &&
+                        (cell == start ||
+                         cell == goal ||
+                         dynamicWalkable == null ||
+                         dynamicWalkable(CellToWorld(cell))));
             var worldPath = new List<Vector3>(cells.Count);
 
             foreach (Vector2Int cell in cells)
@@ -86,7 +102,10 @@ namespace SubwayCarry.AI
                 return false;
             }
 
-            Vector2 checkSize = Vector2.one * cellSize * obstacleCheckScale;
+            float clearance = Mathf.Max(
+                cellSize * obstacleCheckScale,
+                actorClearanceDiameter);
+            Vector2 checkSize = Vector2.one * clearance;
             Collider2D[] overlaps = Physics2D.OverlapBoxAll(CellToWorld(cell), checkSize, 0f);
 
             foreach (Collider2D overlap in overlaps)

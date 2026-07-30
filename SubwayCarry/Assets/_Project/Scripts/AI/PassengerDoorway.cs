@@ -14,17 +14,21 @@ namespace SubwayCarry.AI
 
         [SerializeField, Min(0f)] private float boardingDelayAfterOpening;
         [SerializeField, Min(0.5f)] private float boardingStartDistance = 3.2f;
-        [SerializeField, Min(0.1f)] private float directBoardingLaneHalfWidth = 0.58f;
+        [SerializeField, Min(0.1f)] private float directBoardingLaneHalfWidth = 0.72f;
 
         private readonly List<GameObject> leftBoardingQueue = new List<GameObject>();
         private readonly List<GameObject> rightBoardingQueue = new List<GameObject>();
         private readonly List<GameObject> exitingPassengers = new List<GameObject>();
         private readonly HashSet<GameObject> activeBoardingPassengers = new HashSet<GameObject>();
         private readonly Dictionary<GameObject, int> boardingOrders = new Dictionary<GameObject, int>();
+        private readonly Dictionary<GameObject, int> boardingLaneSlots =
+            new Dictionary<GameObject, int>();
         private bool wasDoorOpen;
         private bool boardingAdmissionOpen;
         private float doorOpenedAt;
         private int nextBoardingOrder;
+        private int nextLeftLaneSlot;
+        private int nextRightLaneSlot;
 
         public TrainDoorController Door => door;
         public Transform InsidePoint => insidePoint;
@@ -73,6 +77,8 @@ namespace SubwayCarry.AI
             leftBoardingQueue.Remove(passenger);
             rightBoardingQueue.Remove(passenger);
             activeBoardingPassengers.Remove(passenger);
+            boardingOrders.Remove(passenger);
+            boardingLaneSlots.Remove(passenger);
         }
 
         public int GetBoardingOrder(GameObject passenger)
@@ -176,16 +182,46 @@ namespace SubwayCarry.AI
 
         public Vector2 GetBoardingInsidePosition(GameObject passenger)
         {
-            Vector2 position = GetBoardingLanePosition(passenger, insidePoint.position);
             GetDoorAxes(out Vector2 outsideDirection, out Vector2 lateral);
-            int passengerHash = passenger != null
-                ? passenger.GetInstanceID() & int.MaxValue
-                : 0;
-            float lateralSpread = (passengerHash % 5 - 2) * 0.1f;
-            float inwardSpread = (passengerHash / 5 % 3) * 0.18f;
-            return position +
-                   lateral * lateralSpread -
-                   outsideDirection * inwardSpread;
+            int encodedSlot;
+            if (passenger == null ||
+                !boardingLaneSlots.TryGetValue(passenger, out encodedSlot))
+            {
+                bool usesLeftLane = leftBoardingQueue.Contains(passenger);
+                int queueIndex = usesLeftLane
+                    ? leftBoardingQueue.IndexOf(passenger)
+                    : rightBoardingQueue.IndexOf(passenger);
+                int recoveredSlot = Mathf.Max(0, queueIndex);
+                encodedSlot = usesLeftLane
+                    ? -(recoveredSlot + 1)
+                    : recoveredSlot + 1;
+            }
+
+            float side = Mathf.Sign(encodedSlot);
+            int sideSlot = Mathf.Max(0, Mathf.Abs(encodedSlot) - 1);
+            int depthRow = sideSlot % 3;
+            int lateralBand = sideSlot / 3;
+            float inwardDepth = 1.75f - depthRow * 0.72f;
+            float lateralOffset =
+                side * (0.38f + Mathf.Min(1, lateralBand) * 0.14f);
+            Vector2 target =
+                (Vector2)insidePoint.position -
+                outsideDirection * inwardDepth +
+                lateral * lateralOffset;
+            if (navigation != null)
+            {
+                Rect bounds = navigation.WorldBounds;
+                target.x = Mathf.Clamp(
+                    target.x,
+                    bounds.xMin + 0.7f,
+                    bounds.xMax - 0.7f);
+                target.y = Mathf.Clamp(
+                    target.y,
+                    bounds.yMin + 0.9f,
+                    bounds.yMax - 0.9f);
+            }
+
+            return target;
         }
 
         public Vector2 GetBoardingClearancePosition(GameObject passenger)
@@ -231,7 +267,7 @@ namespace SubwayCarry.AI
             float progress = Vector2.Dot(
                 passengerPosition - outside,
                 crossing) / crossing.sqrMagnitude;
-            return progress >= 0.8f;
+            return progress >= 0.52f;
         }
 
         public bool HasLeftTrain(Vector2 passengerPosition)
@@ -252,6 +288,7 @@ namespace SubwayCarry.AI
 
         public bool TryBeginBoarding(GameObject passenger)
         {
+            RefreshDoorOpenState();
             RemoveMissingBoardingPassengers();
             RemoveMissingExitPassengers();
             if (door == null ||
@@ -276,6 +313,13 @@ namespace SubwayCarry.AI
             if (!boardingOrders.ContainsKey(passenger))
             {
                 boardingOrders.Add(passenger, ++nextBoardingOrder);
+                bool usesLeftLane = leftBoardingQueue.Contains(passenger);
+                int laneSlot = usesLeftLane
+                    ? nextLeftLaneSlot++
+                    : nextRightLaneSlot++;
+                boardingLaneSlots[passenger] = usesLeftLane
+                    ? -(laneSlot + 1)
+                    : laneSlot + 1;
             }
 
             return true;
@@ -307,19 +351,14 @@ namespace SubwayCarry.AI
             }
 
             GetDoorAxes(out Vector2 exitDirection, out Vector2 lateral);
-            if (index == 0)
-            {
-                return insidePoint.position;
-            }
+            Vector2 doorSideBase =
+                (Vector2)insidePoint.position + exitDirection * 1.15f;
+            int row = index / 2;
+            float lane = index % 2 == 0 ? -0.34f : 0.34f;
 
-            int queuedIndex = index - 1;
-            int row = queuedIndex / 3 + 1;
-            int laneIndex = queuedIndex % 3;
-            float lane = laneIndex == 0 ? 0f : laneIndex == 1 ? -1f : 1f;
-
-            return (Vector2)insidePoint.position -
-                   exitDirection * row * 0.95f +
-                   lateral * lane * 0.9f;
+            return doorSideBase -
+                   exitDirection * row * 0.72f +
+                   lateral * lane;
         }
 
         public void Configure(
@@ -344,10 +383,20 @@ namespace SubwayCarry.AI
 
         private void Update()
         {
+            RefreshDoorOpenState();
+        }
+
+        private void RefreshDoorOpenState()
+        {
             bool isDoorOpen = door != null && door.IsOpen;
             if (isDoorOpen && !wasDoorOpen)
             {
                 doorOpenedAt = Time.time;
+                nextBoardingOrder = 0;
+                nextLeftLaneSlot = 0;
+                nextRightLaneSlot = 0;
+                boardingOrders.Clear();
+                boardingLaneSlots.Clear();
             }
 
             wasDoorOpen = isDoorOpen;

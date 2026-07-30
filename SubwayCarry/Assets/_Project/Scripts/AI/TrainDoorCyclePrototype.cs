@@ -33,6 +33,7 @@ namespace SubwayCarry.AI
 
         private IEnumerator Start()
         {
+            Application.runInBackground = true;
             EnsureDoors();
             EnsureDoorways();
             SetDoorsOpen(false);
