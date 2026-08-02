@@ -161,7 +161,7 @@
 
 - `DeliveryData`: 배송지, 물건 가치, 수수료, 시간대, 난이도와 Route
 - `RouteData`: 정차역과 환승 구간 순서
-- `StationData`: 역, 연결 노선, 문 방향과 승하차 정보
+- `StationData`: 역과 승강장, 방향별 문 열림, 시설 배치, 시간대별 출입문 승하차와 승객 구성, 환승 정보
 - `PassengerData`: 승객 유형, 성격과 행동 성향
 - `CrowdData`: 역과 시간대별 승객 수와 구성
 - `UpgradeData`: 강화 종류, 단계, 가격과 효과
