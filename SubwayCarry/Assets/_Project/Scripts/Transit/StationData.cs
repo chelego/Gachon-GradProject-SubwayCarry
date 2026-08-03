@@ -1,16 +1,10 @@
 using System;
 using System.Collections.Generic;
+using SubwayCarry.Core.Contracts;
 using UnityEngine;
 
 namespace SubwayCarry.Transit
 {
-    public enum DoorOpeningSide
-    {
-        Left,
-        Right,
-        Both
-    }
-
     public enum StationFacilityType
     {
         Stairs,
