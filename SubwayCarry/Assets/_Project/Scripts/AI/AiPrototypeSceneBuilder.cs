@@ -13,13 +13,13 @@ namespace SubwayCarry.AI
         private const string ScenePath = "Assets/_Project/Scenes/Prototype_AI.unity";
         private const string MaterialFolder = "Assets/_Project/Art/PrototypeMaterials";
         private const float CarWidth = 24.6f;
-        private const float CarHeight = 6.5f;
+        private const float CarHeight = 4.6f;
         private const float WallThickness = 0.2f;
         private const float ConnectorOpening = 2.2f;
-        private const float SideWallY = 3.35f;
-        private const float SeatY = 2.55f;
-        private const float DoorInsideY = 1.55f;
-        private const float DoorOutsideY = 4.05f;
+        private const float SideWallY = 2.4f;
+        private const float SeatY = 1.55f;
+        private const float DoorInsideY = 0.65f;
+        private const float DoorOutsideY = 3.15f;
         private const float DoorWidth = 1.9f;
 
         private sealed class TrainCarBuildData
@@ -83,7 +83,7 @@ namespace SubwayCarry.AI
             TrainDoorCyclePrototype doorCycle = doorCycleObject.AddComponent<TrainDoorCyclePrototype>();
             doorCycle.Configure(allDoors.ToArray());
 
-            for (int i = 0; i < 40; i++)
+            for (int i = 0; i < 60; i++)
             {
                 CreateGeneralPassenger("Passenger " + (i + 1), car1, doorCycle);
             }
@@ -151,10 +151,21 @@ namespace SubwayCarry.AI
                 Center = carRoot.transform
             };
 
+            float leftWallLocalX = openLeft
+                ? -(CarWidth * 0.5f + WallThickness * 0.5f)
+                : GetClosedLeftWallLocalX();
+            float rightWallLocalX = CarWidth * 0.5f + WallThickness * 0.5f;
+            float floorLeftLocalX = leftWallLocalX + WallThickness * 0.5f;
+            float floorRightLocalX = rightWallLocalX - WallThickness * 0.5f;
+            float floorWidth = floorRightLocalX - floorLeftLocalX;
+            Vector2 floorCenter = center +
+                                  Vector2.right *
+                                  ((floorLeftLocalX + floorRightLocalX) * 0.5f);
+
             CreateBlock(
                 "Floor",
-                center,
-                new Vector2(CarWidth, CarHeight),
+                floorCenter,
+                new Vector2(floorWidth, CarHeight),
                 new Color(0.08f, 0.12f, 0.18f),
                 carRoot.transform,
                 false,
@@ -163,18 +174,42 @@ namespace SubwayCarry.AI
             CreatePlatforms(carRoot.transform, center);
 
             Color wallColor = new Color(0.24f, 0.31f, 0.4f);
-            CreateSideWallSegments(carRoot.transform, center, 1f, openLeft, wallColor);
-            CreateSideWallSegments(carRoot.transform, center, -1f, openLeft, wallColor);
+            CreateSideWallSegments(
+                carRoot.transform,
+                center,
+                1f,
+                openLeft,
+                leftWallLocalX,
+                rightWallLocalX,
+                wallColor);
+            CreateSideWallSegments(
+                carRoot.transform,
+                center,
+                -1f,
+                openLeft,
+                leftWallLocalX,
+                rightWallLocalX,
+                wallColor);
 
-            CreateEndWall(carRoot.transform, center, -1f, openLeft, wallColor);
-            CreateEndWall(carRoot.transform, center, 1f, openRight, wallColor);
+            CreateEndWall(
+                carRoot.transform,
+                center,
+                leftWallLocalX,
+                openLeft,
+                wallColor);
+            CreateEndWall(
+                carRoot.transform,
+                center,
+                rightWallLocalX,
+                openRight,
+                wallColor);
             GameObject navigationObject = new GameObject("Grid Navigation");
             navigationObject.transform.SetParent(carRoot.transform);
-            navigationObject.transform.position = center;
+            navigationObject.transform.position = floorCenter;
             data.Navigation = navigationObject.AddComponent<GridNavigation2D>();
             data.Navigation.ConfigureDimensions(
-                Mathf.CeilToInt((CarWidth + 0.4f) / 0.25f),
-                32,
+                Mathf.CeilToInt((floorWidth + 0.4f) / 0.25f),
+                Mathf.CeilToInt((CarHeight + 0.4f) / 0.25f),
                 0.25f);
 
             CreateDoorsAndSeats(
@@ -222,21 +257,20 @@ namespace SubwayCarry.AI
             Color platformColor = new Color(0.27f, 0.29f, 0.31f);
             Color safetyLineColor = new Color(0.95f, 0.73f, 0.12f);
 
-            CreateBlock("Platform Lower", center + new Vector2(0f, -4.95f),
+            CreateBlock("Platform Lower", center + new Vector2(0f, -4.05f),
                 new Vector2(CarWidth + 0.4f, 3f), platformColor, parent, false, "Platform", 1.2f);
-            CreateBlock("Platform Safety Line Lower", center + new Vector2(0f, -3.7f),
+            CreateBlock("Platform Safety Line Lower", center + new Vector2(0f, -2.8f),
                 new Vector2(CarWidth + 0.2f, 0.12f), safetyLineColor, parent, false, "PlatformSafetyLine", -0.05f);
         }
 
         private static void CreateEndWall(
             Transform parent,
             Vector2 center,
-            float direction,
+            float localWallX,
             bool open,
             Color wallColor)
         {
-            float x = center.x +
-                      direction * (CarWidth * 0.5f + WallThickness * 0.5f);
+            float x = center.x + localWallX;
             if (!open)
             {
                 CreateBlock("Closed End Wall", new Vector2(x, center.y),
@@ -258,12 +292,13 @@ namespace SubwayCarry.AI
             Vector2 center,
             float direction,
             bool mirrorLayout,
+            float leftWallLocalX,
+            float rightWallLocalX,
             Color wallColor)
         {
             float[] doorX = GetDoorPositions(mirrorLayout);
             const float openingHalfWidth = DoorWidth * 0.5f + 0.05f;
-            float wallEdge = CarWidth * 0.5f + WallThickness * 0.5f;
-            float segmentStart = -wallEdge;
+            float segmentStart = leftWallLocalX;
 
             foreach (float localDoorX in doorX)
             {
@@ -277,7 +312,7 @@ namespace SubwayCarry.AI
                 center,
                 direction,
                 segmentStart,
-                wallEdge,
+                rightWallLocalX,
                 wallColor);
         }
 
@@ -345,8 +380,6 @@ namespace SubwayCarry.AI
                 doors.Add(bottomDoorway.Door);
             }
 
-            CreateLeftmostDoorSideWalls(parent, center, doorX[0]);
-
             foreach (float localX in seatX)
             {
                 PassengerSeatPrototype topSeat = CreatePassengerSeat(
@@ -387,26 +420,10 @@ namespace SubwayCarry.AI
             return new[] { -8.4f, -2.8f, 2.8f, 8.4f };
         }
 
-        private static void CreateLeftmostDoorSideWalls(
-            Transform parent,
-            Vector2 center,
-            float leftmostDoorX)
+        private static float GetClosedLeftWallLocalX()
         {
-            float wallX =
-                center.x + leftmostDoorX - DoorWidth * 0.5f - 0.08f;
-            Color wallColor = new Color(0.31f, 0.39f, 0.48f);
-            foreach (float side in new[] { -1f, 1f })
-            {
-                CreateBlock(
-                    "Leftmost Door Side Wall",
-                    new Vector2(wallX, center.y + side * SeatY),
-                    new Vector2(0.12f, 1.35f),
-                    wallColor,
-                    parent,
-                    true,
-                    "SeatDivider",
-                    -0.05f);
-            }
+            float leftmostDoorX = GetDoorPositions(false)[0];
+            return leftmostDoorX - DoorWidth * 0.5f - WallThickness * 0.5f;
         }
 
         private static void CreateHandholdPoints(
@@ -416,7 +433,7 @@ namespace SubwayCarry.AI
             List<PassengerActivityPoint> activityPoints)
         {
             float side = seat.transform.position.y >= center.y ? 1f : -1f;
-            float y = center.y + side * 1.65f;
+            float y = center.y + side * 0.72f;
 
             for (int slot = 0; slot < seat.Capacity; slot++)
             {

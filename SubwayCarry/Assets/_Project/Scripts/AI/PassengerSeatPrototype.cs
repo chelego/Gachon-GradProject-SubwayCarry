@@ -275,6 +275,46 @@ namespace SubwayCarry.AI
             return false;
         }
 
+        public bool TryReserveClosestAvailable(
+            GameObject passenger,
+            Transform preferredPoint,
+            int maximumSlotDistance,
+            out Transform sittingPoint)
+        {
+            EnsureRuntimeOccupants();
+            int preferredIndex = GetSittingPointIndex(preferredPoint);
+            if (preferredIndex < 0)
+            {
+                sittingPoint = null;
+                return false;
+            }
+
+            int allowedDistance = Mathf.Max(0, maximumSlotDistance);
+            for (int distance = 0; distance <= allowedDistance; distance++)
+            {
+                int leftIndex = preferredIndex - distance;
+                if (leftIndex >= 0 && occupants[leftIndex] == null)
+                {
+                    occupants[leftIndex] = passenger;
+                    sittingPoint = sittingPoints[leftIndex];
+                    return true;
+                }
+
+                int rightIndex = preferredIndex + distance;
+                if (distance > 0 &&
+                    rightIndex < occupants.Length &&
+                    occupants[rightIndex] == null)
+                {
+                    occupants[rightIndex] = passenger;
+                    sittingPoint = sittingPoints[rightIndex];
+                    return true;
+                }
+            }
+
+            sittingPoint = null;
+            return false;
+        }
+
         public void Release(GameObject passenger)
         {
             EnsureRuntimeOccupants();

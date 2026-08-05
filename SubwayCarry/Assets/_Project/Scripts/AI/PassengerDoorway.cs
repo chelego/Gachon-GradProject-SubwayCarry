@@ -77,8 +77,6 @@ namespace SubwayCarry.AI
             leftBoardingQueue.Remove(passenger);
             rightBoardingQueue.Remove(passenger);
             activeBoardingPassengers.Remove(passenger);
-            boardingOrders.Remove(passenger);
-            boardingLaneSlots.Remove(passenger);
         }
 
         public int GetBoardingOrder(GameObject passenger)
@@ -150,6 +148,38 @@ namespace SubwayCarry.AI
                        position,
                        outsidePoint.position,
                        flowEnd) <= directBoardingLaneHalfWidth;
+        }
+
+        public bool HasIncomingPassengerBehind(
+            GameObject passenger,
+            Vector2 passengerPosition)
+        {
+            RemoveMissingBoardingPassengers();
+            if (passenger == null || insidePoint == null || outsidePoint == null)
+            {
+                return false;
+            }
+
+            GetDoorAxes(out Vector2 outsideDirection, out Vector2 lateral);
+            foreach (GameObject other in activeBoardingPassengers)
+            {
+                if (other == null || other == passenger)
+                {
+                    continue;
+                }
+
+                Vector2 offset = (Vector2)other.transform.position - passengerPosition;
+                float behindDistance = Vector2.Dot(offset, outsideDirection);
+                float lateralDistance = Mathf.Abs(Vector2.Dot(offset, lateral));
+                if (behindDistance > 0.08f &&
+                    behindDistance <= 2.6f &&
+                    lateralDistance <= 1.05f)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public Vector2 GetBoardingQueuePosition(GameObject passenger)
@@ -224,6 +254,60 @@ namespace SubwayCarry.AI
             return target;
         }
 
+        public Vector2 GetBoardingIngressPosition(
+            GameObject passenger,
+            Vector2 finalDestination)
+        {
+            GetDoorAxes(out Vector2 outsideDirection, out Vector2 lateral);
+            Vector2 inwardDirection = -outsideDirection;
+            int order = GetBoardingOrder(passenger);
+            if (order == int.MaxValue)
+            {
+                order = 8;
+            }
+
+            float requiredDepth = order <= 4
+                ? 2.35f
+                : order <= 10
+                    ? 2.05f
+                    : 1.8f;
+            Vector2 inside = insidePoint.position;
+            Vector2 towardDestination = finalDestination - inside;
+            float destinationDepth = Vector2.Dot(towardDestination, inwardDirection);
+            float destinationSide = Vector2.Dot(towardDestination, lateral);
+            Vector2 target;
+            if (destinationDepth >= requiredDepth)
+            {
+                float progress = requiredDepth / Mathf.Max(0.01f, destinationDepth);
+                target = inside + towardDestination * progress;
+            }
+            else
+            {
+                target = inside +
+                         inwardDirection * requiredDepth +
+                         lateral * Mathf.Clamp(destinationSide * 0.45f, -1.2f, 1.2f);
+            }
+
+            if (navigation != null)
+            {
+                Rect bounds = navigation.WorldBounds;
+                target.x = Mathf.Clamp(target.x, bounds.xMin + 0.75f, bounds.xMax - 0.75f);
+                target.y = Mathf.Clamp(target.y, bounds.yMin + 0.85f, bounds.yMax - 0.85f);
+            }
+
+            return target;
+        }
+
+        public bool IsDestinationOnBoardingSide(Vector2 destination)
+        {
+            GetDoorAxes(out Vector2 outsideDirection, out _);
+            Vector2 inwardDirection = -outsideDirection;
+            float inwardDepth = Vector2.Dot(
+                destination - (Vector2)insidePoint.position,
+                inwardDirection);
+            return inwardDepth <= 0.45f;
+        }
+
         public Vector2 GetBoardingClearancePosition(GameObject passenger)
         {
             GetDoorAxes(out Vector2 outsideDirection, out Vector2 lateral);
@@ -237,8 +321,8 @@ namespace SubwayCarry.AI
             float inwardDepth = order <= 3
                 ? 3f
                 : order <= 7
-                    ? 2.1f
-                    : 1.3f;
+                    ? 2.5f
+                    : 2.1f;
             int laneIndex = (order - 1) % 5 - 2;
             float lateralOffset = laneIndex * 0.52f;
             Vector2 target = (Vector2)insidePoint.position +

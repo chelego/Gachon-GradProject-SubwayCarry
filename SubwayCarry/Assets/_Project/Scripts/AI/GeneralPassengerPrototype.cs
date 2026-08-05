@@ -65,7 +65,7 @@ namespace SubwayCarry.AI
         [SerializeField, Min(0.5f)] private float peripheralVisionDistance = 3.2f;
         [SerializeField, Min(0.05f)] private float openDoorVisionInterval = 0.28f;
         [SerializeField, Min(0.1f)] private float closedDoorVisionInterval = 0.85f;
-        [SerializeField, Min(0.1f)] private float moveSpeed = 2.2f;
+        [SerializeField, Min(0.1f)] private float moveSpeed = 1.8f;
         [SerializeField, Min(1f)] private float minimumDecisionInterval = 6f;
         [SerializeField, Min(1f)] private float maximumDecisionInterval = 10f;
         [SerializeField, Min(1f)] private float exitPreparationLeadTime = 7f;
@@ -228,6 +228,7 @@ namespace SubwayCarry.AI
         private bool hasBoardingReservation;
         private bool reachedBoardingDoorCenter;
         private bool reachedBoardingInside;
+        private bool clearingBoardingDoor;
         private bool boardingCollisionBypassActive;
         private bool hasBoardingActivityPlan;
         private bool initialPlacement;
@@ -601,6 +602,7 @@ namespace SubwayCarry.AI
             StopResidualMotion();
             UpdateBodySqueezeRotation();
             UpdateObstructionPressure();
+            clearingBoardingDoor = false;
 
             if (boardingDoorway == null || doorCycle == null)
             {
@@ -647,12 +649,30 @@ namespace SubwayCarry.AI
                             break;
                         }
 
-                        reachedBoardingInside = MoveWithoutAvoidance(
-                            boardingDoorway.GetBoardingInsidePosition(gameObject));
-                        bool crossedDoor = boardingDoorway.HasEnteredTrain(body.position);
-                        if (crossedDoor && hasBoardingActivityPlan)
+                        bool canPeelOffToOpeningSideSeat =
+                            hasBoardingActivityPlan &&
+                            behavior == PassengerBehavior.Seated &&
+                            boardingDoorway.HasEnteredTrain(body.position) &&
+                            boardingDoorway.IsDestinationOnBoardingSide(activityTarget);
+                        if (canPeelOffToOpeningSideSeat)
                         {
                             BeginPreplannedActivityAfterDoorCrossing();
+                            ContinueActivityMovement();
+                            break;
+                        }
+
+                        Vector2 ingressTarget = hasBoardingActivityPlan
+                            ? boardingDoorway.GetBoardingIngressPosition(
+                                gameObject,
+                                activityTarget)
+                            : boardingDoorway.GetBoardingInsidePosition(gameObject);
+                        reachedBoardingInside = MoveWithoutAvoidance(
+                            ingressTarget,
+                            1.08f);
+                        if (reachedBoardingInside && hasBoardingActivityPlan)
+                        {
+                            BeginPreplannedActivityAfterDoorCrossing();
+                            ContinueActivityMovement();
                         }
                         else if (reachedBoardingInside)
                         {
@@ -686,6 +706,10 @@ namespace SubwayCarry.AI
                     {
                         BeginExitPreparation();
                     }
+                    else if (TryClearBoardingDoorForFollowingPassengers())
+                    {
+                        break;
+                    }
                     else if (!initialPlacement && TryBeginCrowdEscape())
                     {
                         break;
@@ -700,18 +724,7 @@ namespace SubwayCarry.AI
                     }
                     else
                     {
-                        if (HasActivityMoveStalled())
-                        {
-                            AbandonBlockedActivity();
-                        }
-                        else if (MoveUsingPath(activityTarget))
-                        {
-                            FinishActivityMove();
-                        }
-                        else if (!initialPlacement && ShouldAbandonBlockedActivity())
-                        {
-                            AbandonBlockedActivity();
-                        }
+                        ContinueActivityMovement();
                     }
                     break;
 
@@ -719,6 +732,10 @@ namespace SubwayCarry.AI
                     if (ShouldPrepareToExit())
                     {
                         BeginExitPreparation();
+                    }
+                    else if (TryClearBoardingDoorForFollowingPassengers())
+                    {
+                        break;
                     }
                     else if (TryLeaveActiveBoardingFlow())
                     {
@@ -1359,7 +1376,6 @@ namespace SubwayCarry.AI
 
         private void BeginPreplannedActivityAfterDoorCrossing()
         {
-            SetBoardingCollisionBypass(false);
             ReleaseBoardingReservation();
             reachedBoardingInside = true;
             hasBoardingActivityPlan = false;
@@ -1369,6 +1385,58 @@ namespace SubwayCarry.AI
             state = PassengerState.MovingToActivity;
             RecordDecision("Door crossed -> " + behavior);
             UpdateLabel();
+        }
+
+        private void ContinueActivityMovement()
+        {
+            if (initialPlacement)
+            {
+                SetBoardingCollisionBypass(true);
+                if (TryFinishInitialSeatMoveNearApproach())
+                {
+                    return;
+                }
+
+                if (MoveUsingPath(activityTarget, true))
+                {
+                    FinishActivityMove();
+                }
+            }
+            else if (HasActivityMoveStalled())
+            {
+                AbandonBlockedActivity();
+            }
+            else if (MoveUsingPath(activityTarget))
+            {
+                FinishActivityMove();
+            }
+            else if (!initialPlacement && ShouldAbandonBlockedActivity())
+            {
+                AbandonBlockedActivity();
+            }
+        }
+
+        private bool TryFinishInitialSeatMoveNearApproach()
+        {
+            if (behavior != PassengerBehavior.Seated ||
+                plannedSeat == null ||
+                plannedSittingPoint == null)
+            {
+                return false;
+            }
+
+            float crowdPressure =
+                CalculateSeatApproachCrowdPressure(activityTarget);
+            float sitDistance = crowdPressure >= seatApproachCrowdLimit * 0.5f
+                ? 1.05f
+                : 0.58f;
+            if (Vector2.Distance(body.position, activityTarget) > sitDistance)
+            {
+                return false;
+            }
+
+            FinishActivityMove();
+            return true;
         }
 
         private void SetBoardingCollisionBypass(bool active)
@@ -1522,6 +1590,11 @@ namespace SubwayCarry.AI
         private bool TryChooseInitialStandingBehavior()
         {
             bool earlyStandingPassenger = boardingOrder <= 7;
+            if (TryChooseBoardingPerimeterStandingPosition())
+            {
+                return true;
+            }
+
             if (TryChooseOppositeClosedDoorLeanPosition())
             {
                 return true;
@@ -1548,6 +1621,90 @@ namespace SubwayCarry.AI
             }
 
             return TryReserveActivityPoint(PassengerBehavior.Handhold);
+        }
+
+        private bool TryChooseBoardingPerimeterStandingPosition()
+        {
+            if (!initialPlacement || boardingDoorway == null)
+            {
+                return false;
+            }
+
+            GridNavigation2D navigation = boardingDoorway.Navigation;
+            if (navigation == null)
+            {
+                navigation = FindCurrentNavigationArea();
+            }
+
+            if (navigation == null)
+            {
+                return false;
+            }
+
+            Rect bounds = navigation.WorldBounds;
+            float bodyMargin = Mathf.Max(0.72f, GetBodyRadius() + 0.2f);
+            float perimeterOffset = Mathf.Clamp(
+                bounds.height * 0.18f,
+                0.72f,
+                0.9f);
+            float horizontalMargin = Mathf.Max(0.75f, bounds.width * 0.04f);
+            int placementTier = GetBoardingPlacementTier();
+            Vector2 inside = boardingDoorway.InsidePoint.position;
+            float openingSide = Mathf.Sign(inside.y - bounds.center.y);
+            if (Mathf.Approximately(openingSide, 0f))
+            {
+                openingSide = -1f;
+            }
+
+            Vector2 selectedPosition = body.position;
+            float bestScore = float.MaxValue;
+            bool found = false;
+
+            for (int attempt = 0; attempt < 48; attempt++)
+            {
+                bool useOpeningSide = Random.value < 0.48f;
+                float side = useOpeningSide ? openingSide : -openingSide;
+                Vector2 candidate = new Vector2(
+                    Random.Range(
+                        bounds.xMin + horizontalMargin,
+                        bounds.xMax - horizontalMargin),
+                    bounds.center.y +
+                    side * perimeterOffset +
+                    Random.Range(-0.08f, 0.08f));
+                candidate.x = Mathf.Clamp(candidate.x,
+                    bounds.xMin + bodyMargin,
+                    bounds.xMax - bodyMargin);
+
+                if (!navigation.IsWorldWalkable(candidate) ||
+                    !IsStandingPositionAvailable(candidate) ||
+                    IsInsideDirectBoardingLane(candidate) ||
+                    IsRecentlyAbandonedTarget(candidate, 0.85f))
+                {
+                    continue;
+                }
+
+                float score = CalculateCrowdScore(candidate) * 4f -
+                              Vector2.Distance(inside, candidate) *
+                              (placementTier == 0 ? 0.18f : 0.06f) +
+                              Random.Range(0f, 0.12f);
+                if (score >= bestScore)
+                {
+                    continue;
+                }
+
+                bestScore = score;
+                selectedPosition = candidate;
+                found = true;
+            }
+
+            if (!found)
+            {
+                return false;
+            }
+
+            behavior = PassengerBehavior.AisleStanding;
+            activityTarget = selectedPosition;
+            return true;
         }
 
         private bool HasActivityMoveStalled()
@@ -1711,6 +1868,40 @@ namespace SubwayCarry.AI
             return true;
         }
 
+        private bool TryClearBoardingDoorForFollowingPassengers()
+        {
+            if (boardingDoorway == null ||
+                behavior == PassengerBehavior.Seated ||
+                behavior == PassengerBehavior.Exiting ||
+                !boardingDoorway.HasEnteredTrain(body.position) ||
+                !boardingDoorway.IsInsideActiveBoardingFlow(body.position) ||
+                !boardingDoorway.HasIncomingPassengerBehind(
+                    gameObject,
+                    body.position))
+            {
+                return false;
+            }
+
+            Vector2 clearanceTarget =
+                boardingDoorway.GetBoardingClearancePosition(gameObject);
+            clearingBoardingDoor = true;
+            if (state == PassengerState.Observing)
+            {
+                ReleaseCurrentActivity();
+                behavior = PassengerBehavior.AisleStanding;
+                activityTarget = clearanceTarget;
+                ClearPath();
+                ResetPassengerBlock();
+                ResetActivityProgressTracking();
+                state = PassengerState.MovingToActivity;
+                RecordDecision("Following passenger -> Clear doorway");
+                UpdateLabel();
+            }
+
+            MoveWithoutAvoidance(clearanceTarget, 1.15f);
+            return true;
+        }
+
         private bool TryLeaveActiveBoardingFlow()
         {
             if (!IsInsideActiveBoardingFlow(body.position) ||
@@ -1822,6 +2013,11 @@ namespace SubwayCarry.AI
 
         private Vector2 GetRandomOpenStandingPosition(GridNavigation2D navigation)
         {
+            if (!CanUseAisleStandingPosition())
+            {
+                return GetRandomBoardingPerimeterPosition(navigation);
+            }
+
             Rect bounds = navigation.WorldBounds;
             float horizontalMargin = bounds.width * 0.07f;
             float openAreaHalfWidth = Mathf.Min(2.75f, bounds.height * 0.34f);
@@ -2984,9 +3180,18 @@ namespace SubwayCarry.AI
 
             for (int attempt = 0; attempt < maximumAttempts; attempt++)
             {
-                Vector2 candidate = selectedBehavior == PassengerBehavior.DoorStanding
-                    ? GetRandomDoorStandingPosition()
-                    : GetRandomAisleStandingPosition(navigation);
+                Vector2 candidate;
+                if (!CanUseAisleStandingPosition())
+                {
+                    candidate = GetRandomBoardingPerimeterPosition(navigation);
+                    selectedBehavior = PassengerBehavior.AisleStanding;
+                }
+                else
+                {
+                    candidate = selectedBehavior == PassengerBehavior.DoorStanding
+                        ? GetRandomDoorStandingPosition()
+                        : GetRandomAisleStandingPosition(navigation);
+                }
                 if (!navigation.IsWorldWalkable(candidate) ||
                     !IsStandingPositionAvailable(candidate) ||
                     (initialPlacement &&
@@ -3151,12 +3356,41 @@ namespace SubwayCarry.AI
 
         private Vector2 GetRandomAisleStandingPosition(GridNavigation2D navigation)
         {
+            if (!CanUseAisleStandingPosition())
+            {
+                return GetRandomBoardingPerimeterPosition(navigation);
+            }
+
             Rect bounds = navigation.WorldBounds;
             float horizontalMargin = bounds.width * 0.08f;
             float aisleHalfWidth = Mathf.Min(0.95f, bounds.height * 0.16f);
             return new Vector2(
                 Random.Range(bounds.xMin + horizontalMargin, bounds.xMax - horizontalMargin),
                 Random.Range(bounds.center.y - aisleHalfWidth, bounds.center.y + aisleHalfWidth));
+        }
+
+        private bool CanUseAisleStandingPosition()
+        {
+            return doorCycle != null && doorCycle.IsTravelling;
+        }
+
+        private Vector2 GetRandomBoardingPerimeterPosition(
+            GridNavigation2D navigation)
+        {
+            Rect bounds = navigation.WorldBounds;
+            float horizontalMargin = Mathf.Max(0.75f, bounds.width * 0.04f);
+            float perimeterOffset = Mathf.Clamp(
+                bounds.height * 0.18f,
+                0.72f,
+                0.9f);
+            float side = Random.value < 0.5f ? -1f : 1f;
+            return new Vector2(
+                Random.Range(
+                    bounds.xMin + horizontalMargin,
+                    bounds.xMax - horizontalMargin),
+                bounds.center.y +
+                side * perimeterOffset +
+                Random.Range(-0.08f, 0.08f));
         }
 
         private Vector2 GetRandomDoorStandingPosition()
@@ -3455,6 +3689,7 @@ namespace SubwayCarry.AI
         {
             ResetActivityProgressTracking();
             initialPlacement = false;
+            SetBoardingCollisionBypass(false);
             if (behavior == PassengerBehavior.Seated)
             {
                 if (!TryClaimPlannedSeat())
@@ -3484,9 +3719,10 @@ namespace SubwayCarry.AI
 
             PassengerSeatPrototype seatToClaim = plannedSeat;
             Transform pointToClaim = plannedSittingPoint;
-            if (!seatToClaim.TryReserve(
+            if (!seatToClaim.TryReserveClosestAvailable(
                     gameObject,
                     pointToClaim,
+                    2,
                     out Transform claimedPoint))
             {
                 return false;
@@ -4754,7 +4990,9 @@ namespace SubwayCarry.AI
                 ? null
                 : CollectStationaryPassengerPositions(destination);
 
-            if (!ignorePassengerAvoidance && ShouldUseAisleRoute(destination))
+            if (!ignorePassengerAvoidance &&
+                !initialPlacement &&
+                ShouldUseAisleRoute(destination))
             {
                 float aisleY = GetAisleCenterY() + GetPreferredAisleOffset();
                 float horizontalDirection = Mathf.Sign(destination.x - start.x);
@@ -5038,7 +5276,9 @@ namespace SubwayCarry.AI
             return Vector2.Distance(body.position, destination) <= arrivalDistance;
         }
 
-        private bool MoveWithoutAvoidance(Vector2 destination)
+        private bool MoveWithoutAvoidance(
+            Vector2 destination,
+            float speedMultiplier = 1f)
         {
             Vector2 toDestination = destination - body.position;
             if (toDestination.sqrMagnitude <= arrivalDistance * arrivalDistance)
@@ -5047,7 +5287,8 @@ namespace SubwayCarry.AI
             }
 
             float step = Mathf.Min(
-                GetCurrentMoveSpeed() * Time.fixedDeltaTime,
+                GetCurrentMoveSpeed() * Mathf.Max(0.1f, speedMultiplier) *
+                Time.fixedDeltaTime,
                 toDestination.magnitude);
             Vector2 direction = toDestination.normalized;
             if (Time.time >= headLookHoldUntil)
@@ -5061,10 +5302,14 @@ namespace SubwayCarry.AI
             RememberMovementIntent(direction);
             Vector2 proposedPosition =
                 body.position + direction * step;
-            Vector2 nextPosition = KeepMinimumBodySeparation(
-                proposedPosition,
-                direction);
-            if (state == PassengerState.Boarding &&
+            Vector2 nextPosition = initialPlacement
+                ? proposedPosition
+                : KeepMinimumBodySeparation(
+                    proposedPosition,
+                    direction);
+            if ((state == PassengerState.Boarding ||
+                 clearingBoardingDoor ||
+                 initialPlacement) &&
                 Vector2.Distance(nextPosition, body.position) <
                 step * 0.25f)
             {
@@ -5186,6 +5431,7 @@ namespace SubwayCarry.AI
             if (body == null ||
                 bodyCollider == null ||
                 !bodyCollider.enabled ||
+                boardingCollisionBypassActive ||
                 body.bodyType != RigidbodyType2D.Dynamic)
             {
                 return;
@@ -5814,15 +6060,16 @@ namespace SubwayCarry.AI
 
         private float GetCurrentMoveSpeed()
         {
-            float speed = moveSpeed * personalPaceMultiplier;
+            float baseMoveSpeed = Mathf.Min(moveSpeed, 1.8f);
+            float speed = baseMoveSpeed * personalPaceMultiplier;
             if (initialPlacement && boardingOrder <= 7)
             {
-                speed = Mathf.Max(speed, moveSpeed * 0.95f) * 1.15f;
+                speed = Mathf.Max(speed, baseMoveSpeed * 0.82f);
             }
 
             if (IsSeekingSeat)
             {
-                speed *= 1.12f;
+                speed *= 1.05f;
             }
 
             if (state == PassengerState.PreparingToExit ||
@@ -5831,7 +6078,7 @@ namespace SubwayCarry.AI
                 speed *= exitPaceMultiplier;
             }
 
-            return Mathf.Clamp(speed, 0.8f, moveSpeed * 1.25f);
+            return Mathf.Clamp(speed, 0.75f, baseMoveSpeed * 1.1f);
         }
 
         private Vector2 GetBlockedMovementDirection(Vector2 desiredDirection)
