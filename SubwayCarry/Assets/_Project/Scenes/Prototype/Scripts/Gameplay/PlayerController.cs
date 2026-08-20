@@ -119,11 +119,11 @@ namespace SubwayCarry.Gameplay
             Vector2 direction = FacingDirection.sqrMagnitude > 0.0001f
                 ? FacingDirection.normalized
                 : Vector2.down;
-            facingIndicator.localPosition = new Vector3(
+            facingIndicator.position = transform.position + new Vector3(
                 direction.x * facingIndicatorDistance,
                 direction.y * facingIndicatorDistance,
                 -0.28f);
-            facingIndicator.localRotation = Quaternion.Euler(
+            facingIndicator.rotation = Quaternion.Euler(
                 0f,
                 0f,
                 Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);

@@ -136,11 +136,24 @@ namespace SubwayCarry.Prototype.Editor
                 case 1:
                     InvokePrivate(flow, "SelectFirstDelivery");
                     RequireStage(flow, PrototypeFlowStage.DeliverySelected);
+                    GameObject departureBlocker =
+                        GameObject.Find("Departure Long Fare Gate Blocker");
+                    if (departureBlocker == null || !departureBlocker.activeSelf)
+                    {
+                        throw new InvalidOperationException(
+                            "Departure fare gate was not physically locked before card tap.");
+                    }
+
                     if (!flow.TryPerform(
                             PrototypeInteractionAction.TapDepartureGate))
                     {
                         throw new InvalidOperationException(
                             "Departure gate rejected the selected delivery.");
+                    }
+                    if (departureBlocker.activeSelf)
+                    {
+                        throw new InvalidOperationException(
+                            "Departure fare gate blocker stayed active after card tap.");
                     }
 
                     RequireStage(flow, PrototypeFlowStage.DepartureConcourse);
@@ -256,11 +269,24 @@ namespace SubwayCarry.Prototype.Editor
                         return;
                     }
 
+                    GameObject destinationBlocker =
+                        GameObject.Find("Destination Long Fare Gate Blocker");
+                    if (destinationBlocker == null || !destinationBlocker.activeSelf)
+                    {
+                        throw new InvalidOperationException(
+                            "Destination fare gate was not physically locked before card tap.");
+                    }
+
                     if (!flow.TryPerform(
                             PrototypeInteractionAction.CompleteAtDestinationGate))
                     {
                         throw new InvalidOperationException(
                             "Destination gate did not accept the transit card.");
+                    }
+                    if (destinationBlocker.activeSelf)
+                    {
+                        throw new InvalidOperationException(
+                            "Destination fare gate blocker stayed active after card tap.");
                     }
 
                     RequireStage(flow, PrototypeFlowStage.DestinationConcourse);

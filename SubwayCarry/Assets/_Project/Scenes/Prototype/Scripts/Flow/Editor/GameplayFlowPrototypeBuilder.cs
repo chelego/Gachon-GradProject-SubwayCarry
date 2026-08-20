@@ -1352,6 +1352,15 @@ namespace SubwayCarry.Prototype.Editor
             {
                 errors.Add("player is missing");
             }
+            else
+            {
+                SerializedObject serializedPlayer = new SerializedObject(player);
+                if (serializedPlayer.FindProperty("facingCamera")?.objectReferenceValue == null ||
+                    serializedPlayer.FindProperty("facingIndicator")?.objectReferenceValue == null)
+                {
+                    errors.Add("player mouse-facing camera or indicator is not wired");
+                }
+            }
             if (delivery == null)
             {
                 errors.Add("delivery service is missing");
@@ -1452,6 +1461,37 @@ namespace SubwayCarry.Prototype.Editor
                      !blocker.activeSelf))
                 {
                     errors.Add("fare gate blocker must start active with a collider: " + blockerName);
+                }
+            }
+
+            foreach (string gateName in new[]
+                     {
+                         "Departure Long Fare Gate",
+                         "Destination Long Fare Gate"
+                     })
+            {
+                GameObject gate = FindSceneObject(scene, gateName);
+                if (gate != null &&
+                    gate.GetComponentsInChildren<Collider2D>(true).Length < 10)
+                {
+                    errors.Add("long fare gate does not fully block alternate lanes: " + gateName);
+                }
+            }
+
+            if (flow != null)
+            {
+                SerializedObject serializedFlow = new SerializedObject(flow);
+                foreach (string propertyName in new[]
+                         {
+                             "departureGateBlocker",
+                             "destinationGateBlocker",
+                             "departureTrainArrival"
+                         })
+                {
+                    if (serializedFlow.FindProperty(propertyName)?.objectReferenceValue == null)
+                    {
+                        errors.Add("flow reference is not wired: " + propertyName);
+                    }
                 }
             }
 
