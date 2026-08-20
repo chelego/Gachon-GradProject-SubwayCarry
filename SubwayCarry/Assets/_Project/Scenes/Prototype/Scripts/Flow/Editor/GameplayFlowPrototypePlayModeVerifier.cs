@@ -72,9 +72,9 @@ namespace SubwayCarry.Prototype.Editor
             {
                 Debug.Log(
                     "[Gameplay Flow Prototype] Play Mode cycle passed: " +
-                    "tutorial -> selection -> departure concourse -> platform -> " +
-                    "boarding -> ride -> destination platform -> concourse -> " +
-                    "settlement -> return.");
+                    "tutorial -> locked departure gate -> escalator -> platform -> " +
+                    "train arrival -> boarding -> ride -> destination platform -> " +
+                    "escalator -> locked exit gate -> settlement -> return.");
                 EditorApplication.Exit(0);
             }
             else
@@ -107,7 +107,9 @@ namespace SubwayCarry.Prototype.Editor
                 UnityEngine.Object.FindFirstObjectByType<PrototypeGameFlowController>();
             EconomyService economy =
                 UnityEngine.Object.FindFirstObjectByType<EconomyService>();
-            if (flow == null || economy == null)
+            PrototypeTrainArrival trainArrival =
+                UnityEngine.Object.FindFirstObjectByType<PrototypeTrainArrival>();
+            if (flow == null || economy == null || trainArrival == null)
             {
                 if (Elapsed < 5f)
                 {
@@ -115,7 +117,7 @@ namespace SubwayCarry.Prototype.Editor
                 }
 
                 throw new InvalidOperationException(
-                    "Flow controller or economy service did not start.");
+                    "Flow controller, economy service, or train arrival did not start.");
             }
 
             switch (phase)
@@ -142,18 +144,26 @@ namespace SubwayCarry.Prototype.Editor
                     }
 
                     RequireStage(flow, PrototypeFlowStage.DepartureConcourse);
+                    SetPrivateField(flow, "platformTrainWaitDuration", 0.05f);
                     SetPrivateField(flow, "boardingOpenGraceDuration", 0.05f);
                     SetPrivateField(flow, "rideDuration", 0.15f);
+                    SetPrivateField(trainArrival, "arrivalDuration", 0.1f);
                     NextPhase();
                     break;
 
                 case 2:
+                    flow.NotifyEnteredDepartureEscalator();
+                    RequireStage(flow, PrototypeFlowStage.DepartureEscalator);
+                    NextPhase();
+                    break;
+
+                case 3:
                     if (GetPrivateField<bool>(flow, "transitioning"))
                     {
                         if (Elapsed > 5f)
                         {
                             throw new TimeoutException(
-                                "The departure concourse fade did not finish.");
+                                "The departure escalator fade did not finish.");
                         }
 
                         return;
@@ -164,13 +174,14 @@ namespace SubwayCarry.Prototype.Editor
                     NextPhase();
                     break;
 
-                case 3:
-                    if (GetPrivateField<bool>(flow, "transitioning"))
+                case 4:
+                    if (GetPrivateField<bool>(flow, "transitioning") ||
+                        !GetPrivateField<bool>(flow, "departureTrainReady"))
                     {
-                        if (Elapsed > 5f)
+                        if (Elapsed > 6f)
                         {
                             throw new TimeoutException(
-                                "The departure platform fade did not finish.");
+                                "The departure train did not arrive and open its doors.");
                         }
 
                         return;
@@ -181,7 +192,7 @@ namespace SubwayCarry.Prototype.Editor
                     NextPhase();
                     break;
 
-                case 4:
+                case 5:
                     if (flow.CurrentStage == PrototypeFlowStage.TrainRide)
                     {
                         NextPhase();
@@ -196,7 +207,7 @@ namespace SubwayCarry.Prototype.Editor
 
                     break;
 
-                case 5:
+                case 6:
                     if (flow.CurrentStage != PrototypeFlowStage.DestinationPlatform ||
                         GetPrivateField<bool>(flow, "transitioning"))
                     {
@@ -210,12 +221,29 @@ namespace SubwayCarry.Prototype.Editor
                     }
 
                     flow.NotifyLeftTrainAtDestination();
+                    flow.NotifyEnteredDestinationEscalator();
+                    RequireStage(flow, PrototypeFlowStage.DestinationEscalator);
+                    NextPhase();
+                    break;
+
+                case 7:
+                    if (GetPrivateField<bool>(flow, "transitioning"))
+                    {
+                        if (Elapsed > 5f)
+                        {
+                            throw new TimeoutException(
+                                "The destination escalator fade did not finish.");
+                        }
+
+                        return;
+                    }
+
                     flow.NotifyEnteredDestinationConcourse();
                     RequireStage(flow, PrototypeFlowStage.DestinationConcourse);
                     NextPhase();
                     break;
 
-                case 6:
+                case 8:
                     if (!flow.CanPerform(
                             PrototypeInteractionAction.CompleteAtDestinationGate))
                     {
@@ -232,9 +260,11 @@ namespace SubwayCarry.Prototype.Editor
                             PrototypeInteractionAction.CompleteAtDestinationGate))
                     {
                         throw new InvalidOperationException(
-                            "Destination gate did not complete the delivery.");
+                            "Destination gate did not accept the transit card.");
                     }
 
+                    RequireStage(flow, PrototypeFlowStage.DestinationConcourse);
+                    flow.NotifyExitedDestinationGate();
                     RequireStage(flow, PrototypeFlowStage.Settlement);
                     int cash = economy.CurrentEconomyState.CurrentCash;
                     if (cash != 16500)
@@ -247,7 +277,7 @@ namespace SubwayCarry.Prototype.Editor
                     NextPhase();
                     break;
 
-                case 7:
+                case 9:
                     if (flow.CurrentStage == PrototypeFlowStage.GachonHub)
                     {
                         Succeed();

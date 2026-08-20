@@ -6,19 +6,24 @@ namespace SubwayCarry.Prototype
         GachonHub,
         DeliverySelected,
         DepartureConcourse,
+        DepartureEscalator,
         DeparturePlatform,
         TrainBoarding,
         TrainRide,
         DestinationPlatform,
+        DestinationEscalator,
         DestinationConcourse,
         Settlement
     }
 
     public enum PrototypeAreaAction
     {
+        EnterDepartureEscalator,
         EnterDeparturePlatform,
         BoardTrain,
         LeaveTrainAtDestination,
-        EnterDestinationConcourse
+        EnterDestinationEscalator,
+        EnterDestinationConcourse,
+        CompleteDeliveryAtDestinationExit
     }
 }

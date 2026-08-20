@@ -16,8 +16,8 @@ namespace SubwayCarry.Prototype
         {
             "방학 동안 다음 학기 학비를 마련해야 한다.\n가천대학교 배달 앱에서 첫 배송을 시작해보자.",
             "WASD로 이동하고 마우스 방향을 바라본다.\n가까운 시설은 E키로 상호작용한다.",
-            "개찰구 앞 배송 단말기에서 목적지를 선택한 뒤\n교통카드를 찍고 역 대합실을 지나 승강장으로 이동한다.",
-            "열차에서 내린 뒤 계단, 에스컬레이터 또는 엘리베이터로\n대합실에 올라가 목적지역 개찰구까지 이동해보자."
+            "배송을 선택한 뒤 긴 개찰구에서 E키로 교통카드를 찍는다.\n카드를 찍기 전에는 개찰구 통로를 지나갈 수 없다.",
+            "잘린 에스컬레이터 입구와 전용 통로를 지나 승강장으로 간다.\n열차가 들어와 정차하고 문이 열리면 직접 탑승한다."
         };
 
         [Header("Player")]
@@ -33,13 +33,18 @@ namespace SubwayCarry.Prototype
 
         [Header("Flow Points")]
         [SerializeField] private Transform hubSpawn;
-        [SerializeField] private Transform departureConcourseSpawn;
+        [SerializeField] private Transform departureEscalatorSpawn;
         [SerializeField] private Transform departurePlatformSpawn;
         [SerializeField] private Transform travelTrainSpawn;
         [SerializeField] private Transform destinationTrainSpawn;
+        [SerializeField] private Transform destinationEscalatorSpawn;
         [SerializeField] private Transform destinationConcourseSpawn;
         [SerializeField] private TrainDoorController[] departureDoors;
         [SerializeField] private TrainDoorController[] destinationDoors;
+        [SerializeField] private GameObject departureGateBlocker;
+        [SerializeField] private GameObject destinationGateBlocker;
+        [SerializeField] private PrototypeTrainArrival departureTrainArrival;
+        [SerializeField, Min(0f)] private float platformTrainWaitDuration = 1.5f;
         [SerializeField, Min(0f)] private float boardingOpenGraceDuration = 6f;
         [SerializeField, Min(1f)] private float rideDuration = 8f;
 
@@ -49,6 +54,8 @@ namespace SubwayCarry.Prototype
         private bool hasSettlement;
         private bool mapOpen;
         private bool destinationTrainExited;
+        private bool departureTrainReady;
+        private bool destinationGateOpen;
         private bool transitioning;
         private string pendingDeliveryId;
         private string toast;
@@ -78,13 +85,17 @@ namespace SubwayCarry.Prototype
             EconomyService economy,
             MockTransitProgressProvider transit,
             Transform hub,
-            Transform departureConcourse,
+            Transform departureEscalator,
             Transform departurePlatform,
             Transform travelTrain,
             Transform destinationTrain,
+            Transform destinationEscalator,
             Transform destinationConcourse,
             TrainDoorController[] controlledDepartureDoors,
-            TrainDoorController[] controlledDestinationDoors)
+            TrainDoorController[] controlledDestinationDoors,
+            GameObject controlledDepartureGateBlocker,
+            GameObject controlledDestinationGateBlocker,
+            PrototypeTrainArrival controlledDepartureTrainArrival)
         {
             playerController = controller;
             playerPosture = posture;
@@ -94,13 +105,17 @@ namespace SubwayCarry.Prototype
             economyService = economy;
             transitProgress = transit;
             hubSpawn = hub;
-            departureConcourseSpawn = departureConcourse;
+            departureEscalatorSpawn = departureEscalator;
             departurePlatformSpawn = departurePlatform;
             travelTrainSpawn = travelTrain;
             destinationTrainSpawn = destinationTrain;
+            destinationEscalatorSpawn = destinationEscalator;
             destinationConcourseSpawn = destinationConcourse;
             departureDoors = controlledDepartureDoors;
             destinationDoors = controlledDestinationDoors;
+            departureGateBlocker = controlledDepartureGateBlocker;
+            destinationGateBlocker = controlledDestinationGateBlocker;
+            departureTrainArrival = controlledDepartureTrainArrival;
         }
 
         public bool CanPerform(PrototypeInteractionAction action)
@@ -123,7 +138,8 @@ namespace SubwayCarry.Prototype
 
                 case PrototypeInteractionAction.CompleteAtDestinationGate:
                     return stage == PrototypeFlowStage.DestinationConcourse &&
-                           destinationTrainExited;
+                           destinationTrainExited &&
+                           !destinationGateOpen;
 
                 default:
                     return false;
@@ -149,7 +165,7 @@ namespace SubwayCarry.Prototype
                     return BeginSelectedDelivery();
 
                 case PrototypeInteractionAction.CompleteAtDestinationGate:
-                    CompleteDeliveryAtGate();
+                    OpenDestinationGate();
                     return true;
 
                 default:
@@ -171,22 +187,38 @@ namespace SubwayCarry.Prototype
             }
         }
 
-        public void NotifyEnteredDeparturePlatform()
+        public void NotifyEnteredDepartureEscalator()
         {
             if (stage != PrototypeFlowStage.DepartureConcourse || transitioning)
             {
                 return;
             }
 
+            stage = PrototypeFlowStage.DepartureEscalator;
+            StartCoroutine(FadeTeleport(
+                departureEscalatorSpawn,
+                () => ShowToast("에스컬레이터를 끝까지 지나 승강장으로 내려가자.", 3f)));
+        }
+
+        public void NotifyEnteredDeparturePlatform()
+        {
+            if (stage != PrototypeFlowStage.DepartureEscalator || transitioning)
+            {
+                return;
+            }
+
             stage = PrototypeFlowStage.DeparturePlatform;
+            departureTrainReady = false;
             StartCoroutine(FadeTeleport(
                 departurePlatformSpawn,
-                () => ShowToast("가천대역 승강장이다. 열린 문으로 탑승하자.", 3f)));
+                () => StartCoroutine(BringDepartureTrainIn())));
         }
 
         public void NotifyBoardedTrain()
         {
-            if (stage != PrototypeFlowStage.DeparturePlatform || transitioning)
+            if (stage != PrototypeFlowStage.DeparturePlatform ||
+                transitioning ||
+                !departureTrainReady)
             {
                 return;
             }
@@ -205,11 +237,11 @@ namespace SubwayCarry.Prototype
 
             destinationTrainExited = true;
             ShowToast(
-                "정자역 승강장이다. 계단, 에스컬레이터 또는 엘리베이터로 올라가자.",
+                "정자역 승강장이다. 잘린 에스컬레이터 입구로 이동하자.",
                 4f);
         }
 
-        public void NotifyEnteredDestinationConcourse()
+        public void NotifyEnteredDestinationEscalator()
         {
             if (stage != PrototypeFlowStage.DestinationPlatform ||
                 !destinationTrainExited ||
@@ -218,10 +250,35 @@ namespace SubwayCarry.Prototype
                 return;
             }
 
+            stage = PrototypeFlowStage.DestinationEscalator;
+            StartCoroutine(FadeTeleport(
+                destinationEscalatorSpawn,
+                () => ShowToast("정자역 에스컬레이터를 끝까지 올라가자.", 3f)));
+        }
+
+        public void NotifyEnteredDestinationConcourse()
+        {
+            if (stage != PrototypeFlowStage.DestinationEscalator || transitioning)
+            {
+                return;
+            }
+
             stage = PrototypeFlowStage.DestinationConcourse;
             StartCoroutine(FadeTeleport(
                 destinationConcourseSpawn,
-                () => ShowToast("정자역 대합실이다. 개찰구로 나가자.", 3f)));
+                () => ShowToast("정자역 대합실이다. 긴 개찰구에서 E키로 카드를 찍자.", 3f)));
+        }
+
+        public void NotifyExitedDestinationGate()
+        {
+            if (stage != PrototypeFlowStage.DestinationConcourse ||
+                !destinationGateOpen ||
+                transitioning)
+            {
+                return;
+            }
+
+            CompleteDeliveryAtGate();
         }
 
         private void Awake()
@@ -243,9 +300,14 @@ namespace SubwayCarry.Prototype
             mapOpen = false;
             hasSettlement = false;
             destinationTrainExited = false;
+            departureTrainReady = false;
+            destinationGateOpen = false;
             boardingGraceRemaining = 0f;
             SetDoorsOpen(departureDoors, false);
             SetDoorsOpen(destinationDoors, false);
+            SetBlockerActive(departureGateBlocker, true);
+            SetBlockerActive(destinationGateBlocker, true);
+            departureTrainArrival?.PrepareOffscreen();
 
             TeleportTo(hubSpawn);
             RefreshPlayerControl();
@@ -285,15 +347,38 @@ namespace SubwayCarry.Prototype
 
             nearbyInteraction = null;
             destinationTrainExited = false;
+            departureTrainReady = false;
+            destinationGateOpen = false;
             SetDoorsOpen(destinationDoors, false);
-            SetDoorsOpen(departureDoors, true);
+            SetDoorsOpen(departureDoors, false);
+            SetBlockerActive(departureGateBlocker, false);
             stage = PrototypeFlowStage.DepartureConcourse;
-            StartCoroutine(FadeTeleport(
-                departureConcourseSpawn,
-                () => ShowToast(
-                    "개찰구를 통과했다. 계단, 에스컬레이터 또는 엘리베이터로 승강장에 내려가자.",
-                    4f)));
+            ShowToast(
+                "교통카드 확인. 열린 개찰구를 지나 뒤쪽 에스컬레이터로 가자.",
+                4f);
             return true;
+        }
+
+        private IEnumerator BringDepartureTrainIn()
+        {
+            ShowToast("열차가 들어올 때까지 안전선 안쪽에서 기다리자.", 3f);
+            if (platformTrainWaitDuration > 0f)
+            {
+                yield return new WaitForSecondsRealtime(platformTrainWaitDuration);
+            }
+
+            ShowToast("열차가 승강장으로 들어오고 있다.", 3f);
+            if (departureTrainArrival != null)
+            {
+                yield return departureTrainArrival.Arrive();
+            }
+
+            yield return new WaitForSecondsRealtime(0.35f);
+            SetDoorsOpen(departureDoors, true);
+            yield return WaitForDoors(departureDoors, true, 3f);
+            departureTrainArrival?.OpenPlatformEdge();
+            departureTrainReady = true;
+            ShowToast("열차가 정차했다. 문이 열렸으니 직접 탑승하자.", 4f);
         }
 
         private IEnumerator DepartAfterBoarding()
@@ -352,7 +437,7 @@ namespace SubwayCarry.Prototype
             transitioning = false;
             RefreshPlayerControl();
             ShowToast(
-                "정자역 도착. 열차에서 내린 뒤 승강장 이동 시설로 가자.",
+                "정자역 도착. 열차에서 내려 에스컬레이터 입구로 가자.",
                 3f);
         }
 
@@ -369,6 +454,14 @@ namespace SubwayCarry.Prototype
             nearbyInteraction = null;
             stage = PrototypeFlowStage.Settlement;
             RefreshPlayerControl();
+        }
+
+        private void OpenDestinationGate()
+        {
+            destinationGateOpen = true;
+            nearbyInteraction = null;
+            SetBlockerActive(destinationGateBlocker, false);
+            ShowToast("교통카드 확인. 열린 개찰구를 직접 통과하자.", 3f);
         }
 
         private void HandleDeliverySettled(DeliverySettlementSnapshot settlement)
@@ -390,13 +483,26 @@ namespace SubwayCarry.Prototype
                 stage = PrototypeFlowStage.GachonHub;
                 pendingDeliveryId = null;
                 destinationTrainExited = false;
+                departureTrainReady = false;
+                destinationGateOpen = false;
                 hasSettlement = false;
                 mapOpen = false;
                 boardingGraceRemaining = 0f;
                 SetDoorsOpen(departureDoors, false);
                 SetDoorsOpen(destinationDoors, false);
+                SetBlockerActive(departureGateBlocker, true);
+                SetBlockerActive(destinationGateBlocker, true);
+                departureTrainArrival?.PrepareOffscreen();
                 ShowToast("가천대역으로 복귀했다. 다음 배송을 선택할 수 있다.", 3f);
             }));
+        }
+
+        private static void SetBlockerActive(GameObject blocker, bool active)
+        {
+            if (blocker != null)
+            {
+                blocker.SetActive(active);
+            }
         }
 
         private IEnumerator FadeTeleport(Transform target, Action completed)
@@ -805,19 +911,27 @@ namespace SubwayCarry.Prototype
                 case PrototypeFlowStage.DeliverySelected:
                     return "개찰구에 교통카드를 찍는다.";
                 case PrototypeFlowStage.DepartureConcourse:
-                    return "계단, 에스컬레이터 또는 엘리베이터로 승강장에 내려간다.";
+                    return "열린 개찰구를 통과해 잘린 에스컬레이터 입구로 간다.";
+                case PrototypeFlowStage.DepartureEscalator:
+                    return "에스컬레이터 전용 통로를 끝까지 내려간다.";
                 case PrototypeFlowStage.DeparturePlatform:
-                    return "열린 문을 지나 열차 안으로 직접 들어간다.";
+                    return departureTrainReady
+                        ? "열린 문을 지나 열차 안으로 직접 들어간다."
+                        : "안전선 안쪽에서 열차가 들어오기를 기다린다.";
                 case PrototypeFlowStage.TrainBoarding:
                     return $"열차 문이 닫히기까지 {Mathf.CeilToInt(boardingGraceRemaining)}초";
                 case PrototypeFlowStage.TrainRide:
                     return $"정자역까지 이동 중... {Mathf.CeilToInt(rideRemaining)}초";
                 case PrototypeFlowStage.DestinationPlatform:
                     return destinationTrainExited
-                        ? "계단, 에스컬레이터 또는 엘리베이터로 대합실에 올라간다."
+                        ? "잘린 에스컬레이터 입구로 이동한다."
                         : "열차에서 직접 내려 승강장으로 이동한다.";
+                case PrototypeFlowStage.DestinationEscalator:
+                    return "에스컬레이터 전용 통로를 끝까지 올라간다.";
                 case PrototypeFlowStage.DestinationConcourse:
-                    return "정자역 개찰구로 이동해 배송을 완료한다.";
+                    return destinationGateOpen
+                        ? "열린 개찰구를 직접 통과한다."
+                        : "정자역 긴 개찰구에서 E키로 교통카드를 찍는다.";
                 case PrototypeFlowStage.Settlement:
                     return "정산 결과를 확인한다.";
                 default:
@@ -836,6 +950,8 @@ namespace SubwayCarry.Prototype
                     return "가천대역";
                 case PrototypeFlowStage.DepartureConcourse:
                     return "가천대역 대합실";
+                case PrototypeFlowStage.DepartureEscalator:
+                    return "가천대역 에스컬레이터";
                 case PrototypeFlowStage.DeparturePlatform:
                     return "가천대역 승강장";
                 case PrototypeFlowStage.TrainBoarding:
@@ -843,6 +959,8 @@ namespace SubwayCarry.Prototype
                     return "수인분당선 열차";
                 case PrototypeFlowStage.DestinationPlatform:
                     return "정자역 승강장";
+                case PrototypeFlowStage.DestinationEscalator:
+                    return "정자역 에스컬레이터";
                 case PrototypeFlowStage.DestinationConcourse:
                     return "정자역 대합실";
                 case PrototypeFlowStage.Settlement:

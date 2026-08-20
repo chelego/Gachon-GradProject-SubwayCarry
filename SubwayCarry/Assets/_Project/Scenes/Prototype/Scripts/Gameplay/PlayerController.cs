@@ -10,6 +10,8 @@ namespace SubwayCarry.Gameplay
     {
         [SerializeField, Min(0.1f)] private float moveSpeed = 3.5f;
         [SerializeField] private Camera facingCamera;
+        [SerializeField] private Transform facingIndicator;
+        [SerializeField, Min(0f)] private float facingIndicatorDistance = 0.56f;
 
         private Rigidbody2D body;
         private PlayerPosture posture;
@@ -17,6 +19,15 @@ namespace SubwayCarry.Gameplay
 
         public Vector2 FacingDirection { get; private set; } = Vector2.down;
         public Vector2 MoveInput => moveInput;
+
+        public void ConfigureFacing(
+            Camera camera,
+            Transform indicator)
+        {
+            facingCamera = camera;
+            facingIndicator = indicator;
+            UpdateFacingIndicator();
+        }
 
         private void Awake()
         {
@@ -94,7 +105,28 @@ namespace SubwayCarry.Gameplay
             if (direction.sqrMagnitude > 0.0001f)
             {
                 FacingDirection = direction.normalized;
+                UpdateFacingIndicator();
             }
+        }
+
+        private void UpdateFacingIndicator()
+        {
+            if (facingIndicator == null)
+            {
+                return;
+            }
+
+            Vector2 direction = FacingDirection.sqrMagnitude > 0.0001f
+                ? FacingDirection.normalized
+                : Vector2.down;
+            facingIndicator.localPosition = new Vector3(
+                direction.x * facingIndicatorDistance,
+                direction.y * facingIndicatorDistance,
+                -0.28f);
+            facingIndicator.localRotation = Quaternion.Euler(
+                0f,
+                0f,
+                Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
         }
 
         private void OnDrawGizmosSelected()

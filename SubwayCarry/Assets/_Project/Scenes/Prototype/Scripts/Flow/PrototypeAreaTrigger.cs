@@ -28,6 +28,10 @@ namespace SubwayCarry.Prototype
 
             switch (action)
             {
+                case PrototypeAreaAction.EnterDepartureEscalator:
+                    flowController.NotifyEnteredDepartureEscalator();
+                    break;
+
                 case PrototypeAreaAction.EnterDeparturePlatform:
                     flowController.NotifyEnteredDeparturePlatform();
                     break;
@@ -40,8 +44,16 @@ namespace SubwayCarry.Prototype
                     flowController.NotifyLeftTrainAtDestination();
                     break;
 
+                case PrototypeAreaAction.EnterDestinationEscalator:
+                    flowController.NotifyEnteredDestinationEscalator();
+                    break;
+
                 case PrototypeAreaAction.EnterDestinationConcourse:
                     flowController.NotifyEnteredDestinationConcourse();
+                    break;
+
+                case PrototypeAreaAction.CompleteDeliveryAtDestinationExit:
+                    flowController.NotifyExitedDestinationGate();
                     break;
             }
         }
