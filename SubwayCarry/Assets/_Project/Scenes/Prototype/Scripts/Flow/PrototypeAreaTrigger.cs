@@ -32,8 +32,16 @@ namespace SubwayCarry.Prototype
                     flowController.NotifyEnteredDepartureEscalator();
                     break;
 
+                case PrototypeAreaAction.ReturnToDepartureConcourse:
+                    flowController.NotifyReturnedToDepartureConcourse();
+                    break;
+
                 case PrototypeAreaAction.EnterDeparturePlatform:
                     flowController.NotifyEnteredDeparturePlatform();
+                    break;
+
+                case PrototypeAreaAction.ReturnToDepartureEscalator:
+                    flowController.NotifyReturnedToDepartureEscalator();
                     break;
 
                 case PrototypeAreaAction.BoardTrain:
@@ -48,8 +56,16 @@ namespace SubwayCarry.Prototype
                     flowController.NotifyEnteredDestinationEscalator();
                     break;
 
+                case PrototypeAreaAction.ReturnToDestinationPlatform:
+                    flowController.NotifyReturnedToDestinationPlatform();
+                    break;
+
                 case PrototypeAreaAction.EnterDestinationConcourse:
                     flowController.NotifyEnteredDestinationConcourse();
+                    break;
+
+                case PrototypeAreaAction.ReturnToDestinationEscalator:
+                    flowController.NotifyReturnedToDestinationEscalator();
                     break;
 
                 case PrototypeAreaAction.CompleteDeliveryAtDestinationExit:

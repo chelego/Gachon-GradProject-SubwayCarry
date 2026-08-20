@@ -37,6 +37,9 @@ namespace SubwayCarry.Prototype.Editor
         private const float DoorWidth = 1.9f;
         private const float SeatY = 1.55f;
         private const float PlatformY = -4.05f;
+        private const float EscalatorLaneWidth = 5.2f;
+        private const float EscalatorLaneHeight = 1.25f;
+        private const float EscalatorLaneOffsetY = 1.45f;
         private static readonly float[] TrainDoorLocalX =
         {
             -8.4f,
@@ -108,11 +111,15 @@ namespace SubwayCarry.Prototype.Editor
                 services.Economy,
                 services.Transit,
                 hub.Spawn,
-                departureEscalator.Spawn,
+                hub.PaidReturnSpawn,
+                departureEscalator.StartSpawn,
+                departureEscalator.EndSpawn,
                 departure.PlatformSpawn,
                 travel.TrainSpawn,
                 destination.TrainSpawn,
-                destinationEscalator.Spawn,
+                destination.PlatformSpawn,
+                destinationEscalator.StartSpawn,
+                destinationEscalator.EndSpawn,
                 destinationConcourse.Spawn,
                 departure.Doors,
                 destination.Doors,
@@ -133,9 +140,15 @@ namespace SubwayCarry.Prototype.Editor
             hub.EscalatorEntryTrigger.Configure(
                 flow,
                 PrototypeAreaAction.EnterDepartureEscalator);
+            departureEscalator.StartTrigger.Configure(
+                flow,
+                PrototypeAreaAction.ReturnToDepartureConcourse);
             departureEscalator.EndTrigger.Configure(
                 flow,
                 PrototypeAreaAction.EnterDeparturePlatform);
+            departure.EscalatorTransitionTrigger.Configure(
+                flow,
+                PrototypeAreaAction.ReturnToDepartureEscalator);
             ConfigureAreaTriggers(
                 departure.DoorwayTriggers,
                 flow,
@@ -144,12 +157,18 @@ namespace SubwayCarry.Prototype.Editor
                 destination.DoorwayTriggers,
                 flow,
                 PrototypeAreaAction.LeaveTrainAtDestination);
-            destination.EscalatorEntryTrigger.Configure(
+            destination.EscalatorTransitionTrigger.Configure(
                 flow,
                 PrototypeAreaAction.EnterDestinationEscalator);
+            destinationEscalator.StartTrigger.Configure(
+                flow,
+                PrototypeAreaAction.ReturnToDestinationPlatform);
             destinationEscalator.EndTrigger.Configure(
                 flow,
                 PrototypeAreaAction.EnterDestinationConcourse);
+            destinationConcourse.EscalatorReturnTrigger.Configure(
+                flow,
+                PrototypeAreaAction.ReturnToDestinationEscalator);
             destinationConcourse.ExitGate.Configure(
                 flow,
                 PrototypeInteractionAction.CompleteAtDestinationGate,
@@ -298,6 +317,7 @@ namespace SubwayCarry.Prototype.Editor
             Vector2 center = new Vector2(HubCenterX, 0f);
             GameObject hubRoot = new GameObject("Gachon Hub - Unpaid Concourse");
             hubRoot.transform.SetParent(parent);
+            CreateCameraZone(hubRoot, center, new Vector2(36f, 12f));
 
             CreateBlock(
                 "Gachon Concourse Floor",
@@ -339,7 +359,7 @@ namespace SubwayCarry.Prototype.Editor
                 center + new Vector2(1.5f, 0f),
                 "TAP TRANSIT CARD",
                 hubRoot.transform);
-            PrototypeAreaTrigger escalatorEntry = CreateClippedEscalator(
+            PrototypeAreaTrigger escalatorEntry = CreateEscalatorBank(
                 "Gachon Escalator Entrance",
                 center + new Vector2(14.3f, 0f),
                 hubRoot.transform,
@@ -357,10 +377,15 @@ namespace SubwayCarry.Prototype.Editor
                 "Hub Spawn",
                 center + new Vector2(-15f, -3.6f),
                 hubRoot.transform);
+            Transform paidReturnSpawn = CreatePoint(
+                "Gachon Paid Side Return Spawn",
+                center + new Vector2(9.5f, 0f),
+                hubRoot.transform);
 
             return new HubBuildData
             {
                 Spawn = spawn,
+                PaidReturnSpawn = paidReturnSpawn,
                 MapTerminal = mapTerminal,
                 DepartureGate = departureGate.Interactable,
                 DepartureGateBlocker = departureGate.Blocker,
@@ -376,6 +401,7 @@ namespace SubwayCarry.Prototype.Editor
         {
             GameObject hallRoot = new GameObject(name);
             hallRoot.transform.SetParent(parent);
+            CreateCameraZone(hallRoot, center, new Vector2(36f, 12f));
 
             CreateBlock(
                 "Jeongja Concourse Floor",
@@ -397,12 +423,12 @@ namespace SubwayCarry.Prototype.Editor
                 hallRoot.transform,
                 0.062f);
 
-            CreateClippedEscalator(
+            PrototypeAreaTrigger escalatorReturn = CreateEscalatorBank(
                 "Jeongja Escalator Exit",
                 center + new Vector2(-14.2f, 0f),
                 hallRoot.transform,
                 false,
-                false);
+                true);
             FareGateBuildData exitGate = CreateLongFareGate(
                 "Destination Long Fare Gate",
                 center + new Vector2(2f, 0f),
@@ -425,7 +451,7 @@ namespace SubwayCarry.Prototype.Editor
                 hallRoot.transform);
             Transform spawn = CreatePoint(
                 "Destination Concourse Spawn",
-                center + new Vector2(-13.2f, -2.8f),
+                center + new Vector2(-10.2f, -2.8f),
                 hallRoot.transform);
 
             return new AccessHallBuildData
@@ -433,7 +459,8 @@ namespace SubwayCarry.Prototype.Editor
                 Spawn = spawn,
                 ExitGate = exitGate.Interactable,
                 GateBlocker = exitGate.Blocker,
-                ExitTrigger = exitTrigger
+                ExitTrigger = exitTrigger,
+                EscalatorReturnTrigger = escalatorReturn
             };
         }
 
@@ -445,6 +472,7 @@ namespace SubwayCarry.Prototype.Editor
         {
             GameObject passageRoot = new GameObject(name);
             passageRoot.transform.SetParent(parent);
+            CreateCameraZone(passageRoot, center, new Vector2(32f, 10f));
             CreateBlock(
                 "Escalator Passage Floor",
                 center,
@@ -457,35 +485,40 @@ namespace SubwayCarry.Prototype.Editor
                 passageRoot.transform,
                 center,
                 new Vector2(32f, 10f));
-            CreateBlock(
-                "Escalator Belt",
-                center,
-                new Vector2(25f, 3.5f),
-                "Connector",
-                passageRoot.transform,
-                false,
-                0.4f);
-            foreach (float railY in new[] { -2f, 2f })
+            foreach (float laneSign in new[] { -1f, 1f })
             {
+                Vector2 laneCenter = center +
+                    Vector2.up * laneSign * EscalatorLaneOffsetY;
                 CreateBlock(
-                    "Escalator Side Rail",
-                    center + Vector2.up * railY,
-                    new Vector2(26f, 0.22f),
-                    "ConnectorThreshold",
-                    passageRoot.transform,
-                    true,
-                    -0.08f);
-            }
-            for (int index = 0; index < 15; index++)
-            {
-                CreateBlock(
-                    "Escalator Step " + (index + 1),
-                    center + new Vector2(-11.2f + index * 1.6f, 0f),
-                    new Vector2(0.12f, 3.2f),
-                    "ConnectorThreshold",
+                    laneSign < 0f ? "Down Escalator Belt" : "Up Escalator Belt",
+                    laneCenter,
+                    new Vector2(25f, EscalatorLaneHeight),
+                    "Connector",
                     passageRoot.transform,
                     false,
-                    -0.06f);
+                    0.4f);
+                foreach (float railSign in new[] { -1f, 1f })
+                {
+                    CreateBlock(
+                        "Escalator Side Rail",
+                        laneCenter + Vector2.up * railSign * 0.78f,
+                        new Vector2(25.6f, 0.16f),
+                        "ConnectorThreshold",
+                        passageRoot.transform,
+                        true,
+                        -0.08f);
+                }
+                for (int index = 0; index < 15; index++)
+                {
+                    CreateBlock(
+                        "Escalator Step " + (index + 1),
+                        laneCenter + new Vector2(-11.2f + index * 1.6f, 0f),
+                        new Vector2(0.1f, 1.05f),
+                        "ConnectorThreshold",
+                        passageRoot.transform,
+                        false,
+                        -0.06f);
+                }
             }
             CreateLabel(
                 label,
@@ -493,24 +526,35 @@ namespace SubwayCarry.Prototype.Editor
                 passageRoot.transform,
                 0.082f);
             CreateLabel(
-                "KEEP WALKING  >>>",
+                "<<<  RETURN          KEEP WALKING  >>>",
                 center,
                 passageRoot.transform,
                 0.065f,
                 -0.18f);
 
-            Transform spawn = CreatePoint(
-                name + " Spawn",
-                center + new Vector2(-12.5f, 0f),
+            Transform startSpawn = CreatePoint(
+                name + " Start Spawn",
+                center + new Vector2(-11.2f, -EscalatorLaneOffsetY),
+                passageRoot.transform);
+            Transform endSpawn = CreatePoint(
+                name + " End Spawn",
+                center + new Vector2(11.2f, -EscalatorLaneOffsetY),
+                passageRoot.transform);
+            PrototypeAreaTrigger startTrigger = CreateAreaTrigger(
+                name + " Start Trigger",
+                center + new Vector2(-14.3f, 0f),
+                new Vector2(2f, 4.5f),
                 passageRoot.transform);
             PrototypeAreaTrigger endTrigger = CreateAreaTrigger(
                 name + " End Trigger",
-                center + new Vector2(12.8f, 0f),
-                new Vector2(2.2f, 3.4f),
+                center + new Vector2(14.3f, 0f),
+                new Vector2(2f, 4.5f),
                 passageRoot.transform);
             return new EscalatorBuildData
             {
-                Spawn = spawn,
+                StartSpawn = startSpawn,
+                EndSpawn = endSpawn,
+                StartTrigger = startTrigger,
                 EndTrigger = endTrigger
             };
         }
@@ -524,6 +568,7 @@ namespace SubwayCarry.Prototype.Editor
         {
             GameObject stationRoot = new GameObject(name);
             stationRoot.transform.SetParent(parent);
+            CreateCameraZone(stationRoot, center, new Vector2(32f, 13.6f));
 
             Vector2 carCenter = center + new Vector2(0f, 2.3f);
             GameObject platformRoot = new GameObject(
@@ -560,14 +605,14 @@ namespace SubwayCarry.Prototype.Editor
                 platformRoot.transform,
                 0.085f);
 
-            PrototypeAreaTrigger escalatorEntry = CreateClippedEscalator(
+            PrototypeAreaTrigger escalatorTransition = CreateEscalatorBank(
                 destination
                     ? "Jeongja Escalator Entrance"
                     : "Gachon Escalator Exit",
                 platformCenter + new Vector2(escalatorAccessX, -0.42f),
                 platformRoot.transform,
                 destination,
-                destination);
+                true);
 
             TrainBuildData train = CreateTrainCar(
                 destination ? "Destination Train Car" : "Departure Train Car",
@@ -609,7 +654,7 @@ namespace SubwayCarry.Prototype.Editor
 
             Transform platformSpawn = CreatePoint(
                 destination ? "Destination Platform Spawn" : "Departure Platform Spawn",
-                platformCenter + new Vector2(escalatorAccessX, 0.4f),
+                platformCenter + new Vector2(escalatorAccessX + 3.6f, 0.4f),
                 platformRoot.transform);
 
             return new PlatformBuildData
@@ -618,7 +663,7 @@ namespace SubwayCarry.Prototype.Editor
                 TrainSpawn = train.InteriorSpawn,
                 Doors = train.Doors,
                 DoorwayTriggers = doorwayTriggers.ToArray(),
-                EscalatorEntryTrigger = escalatorEntry,
+                EscalatorTransitionTrigger = escalatorTransition,
                 TrainArrival = trainArrival
             };
         }
@@ -629,6 +674,7 @@ namespace SubwayCarry.Prototype.Editor
         {
             GameObject zoneRoot = new GameObject("Travel Train Interior");
             zoneRoot.transform.SetParent(parent);
+            CreateCameraZone(zoneRoot, center, new Vector2(32f, 16f));
 
             GameObject tunnelRoot = new GameObject("Moving Tunnel Visual");
             tunnelRoot.transform.SetParent(zoneRoot.transform);
@@ -935,7 +981,7 @@ namespace SubwayCarry.Prototype.Editor
             }
         }
 
-        private static PrototypeAreaTrigger CreateClippedEscalator(
+        private static PrototypeAreaTrigger CreateEscalatorBank(
             string name,
             Vector2 center,
             Transform parent,
@@ -946,57 +992,64 @@ namespace SubwayCarry.Prototype.Editor
             escalatorRoot.transform.SetParent(parent);
             escalatorRoot.transform.position = center;
             CreateBlock(
-                "One Third Escalator Landing",
+                "Escalator Bank Landing",
                 center,
-                new Vector2(4.2f, 2.7f),
+                new Vector2(
+                    EscalatorLaneWidth + 0.8f,
+                    EscalatorLaneOffsetY * 2f + EscalatorLaneHeight + 0.8f),
                 "Connector",
                 escalatorRoot.transform,
                 false,
                 0.5f);
-            CreateBlock(
-                "Clipped Escalator Belt",
-                center,
-                new Vector2(3.7f, 1.25f),
-                "Floor",
-                escalatorRoot.transform,
-                false,
-                -0.08f,
-                pointsForward ? 12f : -12f);
-            foreach (float side in new[] { -0.82f, 0.82f })
+            foreach (float laneSign in new[] { -1f, 1f })
             {
+                Vector2 laneCenter = center +
+                    Vector2.up * laneSign * EscalatorLaneOffsetY;
                 CreateBlock(
-                    "Clipped Escalator Rail",
-                    center + Vector2.up * side,
-                    new Vector2(4f, 0.13f),
-                    "ConnectorThreshold",
+                    laneSign < 0f
+                        ? "Lower Escalator Belt"
+                        : "Upper Escalator Belt",
+                    laneCenter,
+                    new Vector2(EscalatorLaneWidth, EscalatorLaneHeight),
+                    "Floor",
                     escalatorRoot.transform,
                     false,
-                    -0.12f,
-                    pointsForward ? 12f : -12f);
-            }
-            for (int index = 0; index < 4; index++)
-            {
-                CreateBlock(
-                    "Visible Escalator Step " + (index + 1),
-                    center + new Vector2(-1.25f + index * 0.82f, 0f),
-                    new Vector2(0.1f, 1.8f),
-                    "ConnectorThreshold",
-                    escalatorRoot.transform,
-                    false,
-                    -0.14f,
-                    pointsForward ? 12f : -12f);
+                    -0.08f);
+                foreach (float railSign in new[] { -1f, 1f })
+                {
+                    CreateBlock(
+                        "Escalator Bank Rail",
+                        laneCenter + Vector2.up * railSign * 0.73f,
+                        new Vector2(EscalatorLaneWidth + 0.2f, 0.13f),
+                        "ConnectorThreshold",
+                        escalatorRoot.transform,
+                        false,
+                        -0.12f);
+                }
+
+                for (int index = 0; index < 6; index++)
+                {
+                    CreateBlock(
+                        "Visible Escalator Step " + (index + 1),
+                        laneCenter + new Vector2(-2.1f + index * 0.84f, 0f),
+                        new Vector2(0.09f, 1.02f),
+                        "ConnectorThreshold",
+                        escalatorRoot.transform,
+                        false,
+                        -0.14f);
+                }
             }
 
             CreateLabel(
-                pointsForward ? "ESCALATOR  >>>" : "<<<  ESCALATOR",
-                center + Vector2.up * 1.75f,
+                pointsForward ? "ESCALATORS  >>>" : "<<<  ESCALATORS",
+                center + Vector2.up * 3.05f,
                 escalatorRoot.transform,
                 0.057f);
             return createTrigger
                 ? CreateAreaTrigger(
                     name + " Trigger",
                     center,
-                    new Vector2(3.6f, 2.2f),
+                    new Vector2(EscalatorLaneWidth, 4.6f),
                     escalatorRoot.transform)
                 : null;
         }
@@ -1239,6 +1292,16 @@ namespace SubwayCarry.Prototype.Editor
             return point.transform;
         }
 
+        private static PrototypeCameraZone CreateCameraZone(
+            GameObject owner,
+            Vector2 center,
+            Vector2 size)
+        {
+            PrototypeCameraZone zone = owner.AddComponent<PrototypeCameraZone>();
+            zone.Configure(center, size);
+            return zone;
+        }
+
         private static void CreateLabel(
             string text,
             Vector2 position,
@@ -1338,6 +1401,9 @@ namespace SubwayCarry.Prototype.Editor
             PrototypeTrainArrival[] trainArrivals =
                 UnityEngine.Object.FindObjectsByType<PrototypeTrainArrival>(
                     FindObjectsSortMode.None);
+            PrototypeCameraZone[] cameraZones =
+                UnityEngine.Object.FindObjectsByType<PrototypeCameraZone>(
+                    FindObjectsSortMode.None);
 
             var errors = new List<string>();
             if (!scene.IsValid() || !scene.isLoaded)
@@ -1373,9 +1439,9 @@ namespace SubwayCarry.Prototype.Editor
             {
                 errors.Add("expected 12 train doors across three one-car trains");
             }
-            if (areaTriggers.Length != 13)
+            if (areaTriggers.Length != 17)
             {
-                errors.Add("expected 13 gate, escalator, and doorway area triggers");
+                errors.Add("expected 17 gate, escalator, return, and doorway area triggers");
             }
             if (tunnelMotions.Length != 1)
             {
@@ -1385,20 +1451,29 @@ namespace SubwayCarry.Prototype.Editor
             {
                 errors.Add("departure train arrival controller is missing or duplicated");
             }
+            if (cameraZones.Length != 7)
+            {
+                errors.Add("expected one camera boundary for each of the seven screens");
+            }
 
             string[] requiredHierarchyNames =
             {
                 "Gachon Hub - Unpaid Concourse",
                 "Departure Long Fare Gate",
                 "Departure Long Fare Gate Blocker",
+                "Gachon Paid Side Return Spawn",
                 "Gachon Escalator Entrance",
                 "Departure Escalator Passage",
+                "Departure Escalator Passage Start Trigger",
+                "Departure Escalator Passage End Trigger",
                 "Gachon Departure Platform",
                 "Gachon Escalator Exit",
                 "Travel Train Interior",
                 "Jeongja Destination Platform",
                 "Jeongja Escalator Entrance",
                 "Destination Escalator Passage",
+                "Destination Escalator Passage Start Trigger",
+                "Destination Escalator Passage End Trigger",
                 "Jeongja Access Hall",
                 "Jeongja Escalator Exit",
                 "Departure Platform Environment",
@@ -1415,6 +1490,41 @@ namespace SubwayCarry.Prototype.Editor
                 if (FindSceneObject(scene, requiredName) == null)
                 {
                     errors.Add("required hierarchy object is missing: " + requiredName);
+                }
+            }
+
+            foreach (string escalatorName in new[]
+                     {
+                         "Gachon Escalator Entrance",
+                         "Gachon Escalator Exit",
+                         "Jeongja Escalator Entrance",
+                         "Jeongja Escalator Exit"
+                     })
+            {
+                GameObject escalator = FindSceneObject(scene, escalatorName);
+                if (escalator == null)
+                {
+                    continue;
+                }
+
+                int beltCount = 0;
+                foreach (Transform child in escalator.GetComponentsInChildren<Transform>(true))
+                {
+                    if (!child.name.EndsWith("Escalator Belt", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    beltCount++;
+                    if (Mathf.Abs(Mathf.DeltaAngle(0f, child.eulerAngles.z)) > 0.01f)
+                    {
+                        errors.Add("escalator belt must be horizontal: " + escalatorName);
+                    }
+                }
+
+                if (beltCount != 2)
+                {
+                    errors.Add("escalator bank must contain two equal lanes: " + escalatorName);
                 }
             }
 
@@ -1562,6 +1672,7 @@ namespace SubwayCarry.Prototype.Editor
         private sealed class HubBuildData
         {
             public Transform Spawn;
+            public Transform PaidReturnSpawn;
             public PrototypeInteractable MapTerminal;
             public PrototypeInteractable DepartureGate;
             public GameObject DepartureGateBlocker;
@@ -1574,11 +1685,14 @@ namespace SubwayCarry.Prototype.Editor
             public PrototypeInteractable ExitGate;
             public GameObject GateBlocker;
             public PrototypeAreaTrigger ExitTrigger;
+            public PrototypeAreaTrigger EscalatorReturnTrigger;
         }
 
         private sealed class EscalatorBuildData
         {
-            public Transform Spawn;
+            public Transform StartSpawn;
+            public Transform EndSpawn;
+            public PrototypeAreaTrigger StartTrigger;
             public PrototypeAreaTrigger EndTrigger;
         }
 
@@ -1588,7 +1702,7 @@ namespace SubwayCarry.Prototype.Editor
             public Transform TrainSpawn;
             public TrainDoorController[] Doors;
             public PrototypeAreaTrigger[] DoorwayTriggers;
-            public PrototypeAreaTrigger EscalatorEntryTrigger;
+            public PrototypeAreaTrigger EscalatorTransitionTrigger;
             public PrototypeTrainArrival TrainArrival;
         }
 

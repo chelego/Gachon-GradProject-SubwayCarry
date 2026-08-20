@@ -19,11 +19,15 @@ namespace SubwayCarry.Prototype
     public enum PrototypeAreaAction
     {
         EnterDepartureEscalator,
+        ReturnToDepartureConcourse,
         EnterDeparturePlatform,
+        ReturnToDepartureEscalator,
         BoardTrain,
         LeaveTrainAtDestination,
         EnterDestinationEscalator,
+        ReturnToDestinationPlatform,
         EnterDestinationConcourse,
+        ReturnToDestinationEscalator,
         CompleteDeliveryAtDestinationExit
     }
 }
