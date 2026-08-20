@@ -72,7 +72,8 @@ namespace SubwayCarry.Prototype.Editor
             {
                 Debug.Log(
                     "[Gameplay Flow Prototype] Play Mode cycle passed: " +
-                    "tutorial -> selection -> gate -> train -> destination -> " +
+                    "tutorial -> selection -> departure concourse -> platform -> " +
+                    "boarding -> ride -> destination platform -> concourse -> " +
                     "settlement -> return.");
                 EditorApplication.Exit(0);
             }
@@ -140,27 +141,66 @@ namespace SubwayCarry.Prototype.Editor
                             "Departure gate rejected the selected delivery.");
                     }
 
-                    RequireStage(flow, PrototypeFlowStage.DeparturePlatform);
+                    RequireStage(flow, PrototypeFlowStage.DepartureConcourse);
+                    SetPrivateField(flow, "boardingOpenGraceDuration", 0.05f);
                     SetPrivateField(flow, "rideDuration", 0.15f);
                     NextPhase();
                     break;
 
                 case 2:
-                    if (Elapsed < 1.5f)
+                    if (GetPrivateField<bool>(flow, "transitioning"))
                     {
+                        if (Elapsed > 5f)
+                        {
+                            throw new TimeoutException(
+                                "The departure concourse fade did not finish.");
+                        }
+
                         return;
                     }
 
-                    flow.NotifyBoardedTrain();
-                    RequireStage(flow, PrototypeFlowStage.TrainRide);
+                    flow.NotifyEnteredDeparturePlatform();
+                    RequireStage(flow, PrototypeFlowStage.DeparturePlatform);
                     NextPhase();
                     break;
 
                 case 3:
-                    if (flow.CurrentStage !=
-                        PrototypeFlowStage.DestinationStation)
+                    if (GetPrivateField<bool>(flow, "transitioning"))
                     {
                         if (Elapsed > 5f)
+                        {
+                            throw new TimeoutException(
+                                "The departure platform fade did not finish.");
+                        }
+
+                        return;
+                    }
+
+                    flow.NotifyBoardedTrain();
+                    RequireStage(flow, PrototypeFlowStage.TrainBoarding);
+                    NextPhase();
+                    break;
+
+                case 4:
+                    if (flow.CurrentStage == PrototypeFlowStage.TrainRide)
+                    {
+                        NextPhase();
+                        return;
+                    }
+
+                    if (Elapsed > 6f)
+                    {
+                        throw new TimeoutException(
+                            "The train did not leave the departure platform.");
+                    }
+
+                    break;
+
+                case 5:
+                    if (flow.CurrentStage != PrototypeFlowStage.DestinationPlatform ||
+                        GetPrivateField<bool>(flow, "transitioning"))
+                    {
+                        if (Elapsed > 6f)
                         {
                             throw new TimeoutException(
                                 "The train did not arrive at the destination.");
@@ -170,6 +210,12 @@ namespace SubwayCarry.Prototype.Editor
                     }
 
                     flow.NotifyLeftTrainAtDestination();
+                    flow.NotifyEnteredDestinationConcourse();
+                    RequireStage(flow, PrototypeFlowStage.DestinationConcourse);
+                    NextPhase();
+                    break;
+
+                case 6:
                     if (!flow.CanPerform(
                             PrototypeInteractionAction.CompleteAtDestinationGate))
                     {
@@ -201,7 +247,7 @@ namespace SubwayCarry.Prototype.Editor
                     NextPhase();
                     break;
 
-                case 4:
+                case 7:
                     if (flow.CurrentStage == PrototypeFlowStage.GachonHub)
                     {
                         Succeed();
@@ -270,6 +316,21 @@ namespace SubwayCarry.Prototype.Editor
             }
 
             field.SetValue(target, value);
+        }
+
+        private static T GetPrivateField<T>(object target, string fieldName)
+        {
+            FieldInfo field = target.GetType().GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (field == null)
+            {
+                throw new MissingFieldException(
+                    target.GetType().Name,
+                    fieldName);
+            }
+
+            return (T)field.GetValue(target);
         }
 
         private static void Succeed()

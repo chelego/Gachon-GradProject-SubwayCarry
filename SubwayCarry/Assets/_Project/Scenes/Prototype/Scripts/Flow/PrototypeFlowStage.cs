@@ -5,15 +5,20 @@ namespace SubwayCarry.Prototype
         Tutorial,
         GachonHub,
         DeliverySelected,
+        DepartureConcourse,
         DeparturePlatform,
+        TrainBoarding,
         TrainRide,
-        DestinationStation,
+        DestinationPlatform,
+        DestinationConcourse,
         Settlement
     }
 
     public enum PrototypeAreaAction
     {
+        EnterDeparturePlatform,
         BoardTrain,
-        LeaveTrainAtDestination
+        LeaveTrainAtDestination,
+        EnterDestinationConcourse
     }
 }
