@@ -217,7 +217,7 @@ namespace SubwayCarry.AI
                 new Color(0.12f, 0.16f, 0.21f),
                 stationRoot.transform,
                 false,
-                "Floor",
+                "JourneyStationFloor",
                 1.1f);
             CreateBlock(
                 "Station Boundary Left",
@@ -226,7 +226,7 @@ namespace SubwayCarry.AI
                 new Color(0.24f, 0.31f, 0.4f),
                 stationRoot.transform,
                 true,
-                "Wall");
+                "JourneyStationBoundary");
             CreateBlock(
                 "Station Boundary Right",
                 new Vector2(12f, -4.8f),
@@ -234,7 +234,7 @@ namespace SubwayCarry.AI
                 new Color(0.24f, 0.31f, 0.4f),
                 stationRoot.transform,
                 true,
-                "Wall");
+                "JourneyStationBoundary");
             CreateBlock(
                 "Station Boundary Bottom",
                 new Vector2(0f, -11.05f),
@@ -242,7 +242,7 @@ namespace SubwayCarry.AI
                 new Color(0.24f, 0.31f, 0.4f),
                 stationRoot.transform,
                 true,
-                "Wall");
+                "JourneyStationBoundary");
 
             CreateBlock(
                 "Entry Fare Gate Left",
@@ -251,7 +251,7 @@ namespace SubwayCarry.AI
                 new Color(0.9f, 0.72f, 0.14f),
                 stationRoot.transform,
                 true,
-                "Door");
+                "JourneyFareGate");
             CreateBlock(
                 "Entry Fare Gate Right",
                 new Vector2(-4.6f, -8.4f),
@@ -259,7 +259,7 @@ namespace SubwayCarry.AI
                 new Color(0.9f, 0.72f, 0.14f),
                 stationRoot.transform,
                 true,
-                "Door");
+                "JourneyFareGate");
             CreateBlock(
                 "Exit Fare Gate Left",
                 new Vector2(6.6f, -8.1f),
@@ -267,7 +267,7 @@ namespace SubwayCarry.AI
                 new Color(0.9f, 0.72f, 0.14f),
                 stationRoot.transform,
                 true,
-                "Door");
+                "JourneyFareGate");
             CreateBlock(
                 "Exit Fare Gate Right",
                 new Vector2(8.4f, -8.1f),
@@ -275,7 +275,7 @@ namespace SubwayCarry.AI
                 new Color(0.9f, 0.72f, 0.14f),
                 stationRoot.transform,
                 true,
-                "Door");
+                "JourneyFareGate");
 
             foreach (float side in new[] { -1f, 1f })
             {
@@ -286,7 +286,7 @@ namespace SubwayCarry.AI
                     new Color(0.18f, 0.25f, 0.32f),
                     stationRoot.transform,
                     false,
-                    "Connector",
+                    "JourneyEscalator",
                     0.3f);
             }
 
@@ -486,7 +486,9 @@ namespace SubwayCarry.AI
                     : new Color(0.72f, 0.4f, 0.95f),
                 car.Center,
                 false,
-                "GeneralPassenger",
+                plan == PassengerPostAlightingPlan.ExitStation
+                    ? "JourneyPassengerExit"
+                    : "JourneyPassengerTransfer",
                 -0.3f);
             AddDynamicCollision(passengerObject);
             TextMesh label = CreatePassengerLabel(passengerObject.transform);
