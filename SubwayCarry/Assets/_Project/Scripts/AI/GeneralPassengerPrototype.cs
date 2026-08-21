@@ -15,6 +15,7 @@ namespace SubwayCarry.AI
 
         private enum PassengerState
         {
+            ApproachingPlatform,
             WaitingOutside,
             Boarding,
             ChoosingBehavior,
@@ -25,7 +26,9 @@ namespace SubwayCarry.AI
             PreparingToExit,
             WaitingAtExitDoor,
             Exiting,
-            LeavingPlatform
+            LeavingPlatform,
+            LeavingStation,
+            Transferring
         }
 
         private enum PassengerBehavior
@@ -56,6 +59,7 @@ namespace SubwayCarry.AI
         [SerializeField] private bool randomizeBoardingDoorway = true;
         [SerializeField] private PassengerDoorway[] doorways;
         [SerializeField] private TrainDoorCyclePrototype doorCycle;
+        [SerializeField] private PassengerStationJourneyPrototype stationJourney;
         [SerializeField] private GridNavigation2D[] navigationAreas;
         [SerializeField] private PassengerSeatPrototype[] seats;
         [SerializeField] private PassengerActivityPoint[] activityPoints;
@@ -70,6 +74,8 @@ namespace SubwayCarry.AI
         [SerializeField, Min(1f)] private float minimumDecisionInterval = 6f;
         [SerializeField, Min(1f)] private float maximumDecisionInterval = 10f;
         [SerializeField, Min(1f)] private float exitPreparationLeadTime = 7f;
+        [SerializeField, Min(1)] private int minimumRideStops = 1;
+        [SerializeField, Min(1)] private int maximumRideStops = 3;
         [SerializeField, Range(0f, 1f)] private float seatRecheckChance = 0.08f;
         [SerializeField, Range(0f, 1f)] private float initialSeatPursuitChance = 0.86f;
         [SerializeField, Min(0.1f)] private float seatApproachCrowdRadius = 1.35f;
@@ -275,7 +281,10 @@ namespace SubwayCarry.AI
         private int visionScanCount;
         private int preferredStandingRetryCount;
 
-        public string CurrentState => state.ToString();
+        public string CurrentState =>
+            stationJourney != null && stationJourney.IsControlling
+                ? stationJourney.CurrentStageName
+                : state.ToString();
         public string CurrentBehavior => behavior.ToString();
         public string DecisionHistory => string.Join(" > ", decisionHistory);
         public PassengerDoorway BoardingDoorway => boardingDoorway;
@@ -316,6 +325,106 @@ namespace SubwayCarry.AI
             stateLabel = label;
         }
 
+        public void ConfigureStationJourney(
+            PassengerStationJourneyPrototype journey)
+        {
+            stationJourney = journey;
+        }
+
+        public void ConfigureRideStops(int minimumStops, int maximumStops)
+        {
+            minimumRideStops = Mathf.Max(1, minimumStops);
+            maximumRideStops = Mathf.Max(minimumRideStops, maximumStops);
+        }
+
+        public void SetStationJourneyStage(
+            PassengerJourneyLeg leg,
+            PassengerJourneyWaypointAction waypointAction)
+        {
+            PassengerState nextState;
+            switch (leg)
+            {
+                case PassengerJourneyLeg.BoardingRoute:
+                    nextState = PassengerState.ApproachingPlatform;
+                    break;
+                case PassengerJourneyLeg.TransferRoute:
+                    nextState = PassengerState.Transferring;
+                    break;
+                case PassengerJourneyLeg.ExitRoute:
+                    nextState = PassengerState.LeavingStation;
+                    break;
+                default:
+                    return;
+            }
+
+            if (state != nextState)
+            {
+                SetState(nextState, PassengerBehavior.None);
+                RecordDecision("Station route -> " + waypointAction);
+            }
+
+            UpdateLabel();
+        }
+
+        public void CompleteStationApproach()
+        {
+            if (boardingDoorway == null)
+            {
+                return;
+            }
+
+            SetState(PassengerState.WaitingOutside, PassengerBehavior.None);
+        }
+
+        public void BeginTransferBoarding(
+            PassengerDoorway transferDoorway,
+            TrainDoorCyclePrototype transferCycle,
+            Transform transferRoot)
+        {
+            if (transferDoorway == null)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            ReleaseCurrentActivity();
+            ReleaseBoardingReservation();
+            ReleaseExitReservation();
+            intentCoordinator?.Unregister(this);
+            intentCoordinator = null;
+
+            boardingDoorway = transferDoorway;
+            doorCycle = transferCycle != null ? transferCycle : doorCycle;
+            mapRoot = transferRoot != null ? transferRoot : transferDoorway.transform.root;
+            randomizeBoardingDoorway = false;
+            exitDoorway = null;
+            exitProgressDoorway = null;
+            reachedBoardingDoorCenter = false;
+            reachedBoardingInside = false;
+            boardingInsideSince = -1f;
+            reachedExitAisle = false;
+            reachedExitCrossing = false;
+            boardingOrder = int.MaxValue;
+            initialPlacement = false;
+            hasBoardingActivityPlan = false;
+            ClearPath();
+            ResetPassengerBlock();
+
+            if (bodyCollider != null)
+            {
+                bodyCollider.enabled = true;
+            }
+            if (body != null)
+            {
+                body.bodyType = RigidbodyType2D.Dynamic;
+                body.linearVelocity = Vector2.zero;
+            }
+
+            RefreshMapReferences();
+            RegisterWithIntentCoordinator();
+            SetState(PassengerState.WaitingOutside, PassengerBehavior.None);
+        }
+
         private void Start()
         {
             body = GetComponent<Rigidbody2D>();
@@ -336,6 +445,10 @@ namespace SubwayCarry.AI
             RefreshMapReferences();
             PassengerSeatPrototype.EnsureDebugNumbering(seats);
             RegisterWithIntentCoordinator();
+            if (stationJourney == null)
+            {
+                stationJourney = GetComponent<PassengerStationJourneyPrototype>();
+            }
 
             if (boardingDoorway == null || !boardingDoorway.IsUsable)
             {
@@ -354,6 +467,13 @@ namespace SubwayCarry.AI
 
             nextVisionScanTime =
                 Time.time + Mathf.Abs(GetInstanceID() % 12) * 0.025f;
+            if (stationJourney != null &&
+                stationJourney.TryBeginPreBoarding(this))
+            {
+                PerformVisionScan(true);
+                return;
+            }
+
             SetPosition(boardingDoorway.GetBoardingQueuePosition(gameObject));
             PerformVisionScan(true);
             SetState(PassengerState.WaitingOutside, PassengerBehavior.None);
@@ -625,6 +745,11 @@ namespace SubwayCarry.AI
 
         private void FixedUpdate()
         {
+            if (stationJourney != null && stationJourney.IsControlling)
+            {
+                return;
+            }
+
             StopResidualMotion();
             UpdateBodySqueezeRotation();
             UpdateObstructionPressure();
@@ -646,7 +771,12 @@ namespace SubwayCarry.AI
                     {
                         boardingOrder = boardingDoorway.GetBoardingOrder(gameObject);
                         boardingStopNumber = doorCycle.StopNumber;
-                        plannedExitStopNumber = boardingStopNumber + Random.Range(1, 4);
+                        int maximumStops = Mathf.Max(
+                            minimumRideStops,
+                            maximumRideStops);
+                        plannedExitStopNumber = boardingStopNumber + Random.Range(
+                            Mathf.Max(1, minimumRideStops),
+                            maximumStops + 1);
                         waitsUntilDoorForExit =
                             Random.value < lateExitPreparationChance;
                         reachedBoardingDoorCenter = false;
@@ -911,7 +1041,11 @@ namespace SubwayCarry.AI
                         if (reachedOutside || exitDoorway.HasLeftTrain(body.position))
                         {
                             ReleaseExitReservation();
-                            Destroy(gameObject);
+                            if (stationJourney == null ||
+                                !stationJourney.TryBeginPostAlighting(this))
+                            {
+                                Destroy(gameObject);
+                            }
                         }
                     }
                     break;
@@ -7929,7 +8063,7 @@ namespace SubwayCarry.AI
             else
             {
                 action = behavior == PassengerBehavior.None
-                    ? state.ToString()
+                    ? CurrentState
                     : behavior.ToString();
             }
 

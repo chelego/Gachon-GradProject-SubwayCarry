@@ -11,6 +11,8 @@ namespace SubwayCarry.AI
     public static class AiPrototypeSceneBuilder
     {
         private const string ScenePath = "Assets/_Project/Scenes/Prototype_AI.unity";
+        public const string JourneyScenePath =
+            "Assets/_Project/Scenes/Prototype/PassengerJourney_AI.unity";
         private const string MaterialFolder = "Assets/_Project/Art/PrototypeMaterials";
         private const float CarWidth = 24.6f;
         private const float CarHeight = 4.6f;
@@ -107,6 +109,67 @@ namespace SubwayCarry.AI
             Debug.Log("[AI Prototype] General passenger scene created: " + ScenePath);
         }
 
+        [MenuItem("SubwayCarry/Prototype/Build Passenger Journey AI Scene")]
+        public static void BuildJourney()
+        {
+            EnsureFolder("Assets/_Project/Scenes", "Prototype");
+            EnsureFolder("Assets/_Project/Art", "PrototypeMaterials");
+
+            Scene scene = EditorSceneManager.NewScene(
+                NewSceneSetup.EmptyScene,
+                NewSceneMode.Single);
+            GameObject root = new GameObject("Passenger Journey AI Prototype");
+            TrainCarCameraController cameraController = CreateCamera(root.transform);
+            Camera camera = cameraController.GetComponent<Camera>();
+            camera.orthographicSize = 10f;
+            cameraController.transform.position = new Vector3(0f, -3.2f, -10f);
+
+            TrainCarBuildData car = CreateTrainCar(
+                "Journey Test Train",
+                new Vector2(0f, 4f),
+                false,
+                false,
+                root.transform);
+
+            GameObject doorCycleObject = new GameObject("Journey Door Cycle");
+            doorCycleObject.transform.SetParent(root.transform);
+            TrainDoorCyclePrototype doorCycle =
+                doorCycleObject.AddComponent<TrainDoorCyclePrototype>();
+            doorCycle.Configure(car.Doors.ToArray());
+            SetFloatValue(doorCycle, "initialDelay", 0.5f);
+            SetFloatValue(doorCycle, "openDuration", 8f);
+            SetFloatValue(doorCycle, "boardingClearanceDelay", 0.2f);
+            SetFloatValue(doorCycle, "travelDuration", 2f);
+
+            PassengerStationRoutePrototype stationRoute =
+                CreateJourneyStation(car, doorCycle);
+            for (int index = 0; index < 4; index++)
+            {
+                PassengerPostAlightingPlan plan = index % 2 == 0
+                    ? PassengerPostAlightingPlan.ExitStation
+                    : PassengerPostAlightingPlan.TransferOnceThenExit;
+                CreateJourneyPassenger(
+                    "Journey Passenger " + (index + 1),
+                    new Vector2(-9.8f + index * 0.72f, -10.1f),
+                    car,
+                    doorCycle,
+                    stationRoute,
+                    plan);
+            }
+
+            EditorSceneManager.SaveScene(scene, JourneyScenePath);
+            ValidateJourneyScene(scene);
+            Selection.activeGameObject = stationRoute.gameObject;
+            if (SceneView.lastActiveSceneView != null)
+            {
+                SceneView.lastActiveSceneView.FrameSelected();
+            }
+
+            Debug.Log(
+                "[AI Prototype] Passenger journey scene created: " +
+                JourneyScenePath);
+        }
+
         [MenuItem("SubwayCarry/Prototype/Validate A* Pathfinding")]
         public static void ValidatePathfinder()
         {
@@ -138,6 +201,352 @@ namespace SubwayCarry.AI
             }
 
             Debug.Log("[AI Prototype] A* validation passed. Path nodes: " + path.Count);
+        }
+
+        private static PassengerStationRoutePrototype CreateJourneyStation(
+            TrainCarBuildData car,
+            TrainDoorCyclePrototype doorCycle)
+        {
+            GameObject stationRoot = new GameObject("Journey Station Route");
+            stationRoot.transform.SetParent(car.Center);
+
+            CreateBlock(
+                "Station Journey Floor",
+                new Vector2(0f, -4.8f),
+                new Vector2(24f, 12.5f),
+                new Color(0.12f, 0.16f, 0.21f),
+                stationRoot.transform,
+                false,
+                "Floor",
+                1.1f);
+            CreateBlock(
+                "Station Boundary Left",
+                new Vector2(-12f, -4.8f),
+                new Vector2(0.2f, 12.5f),
+                new Color(0.24f, 0.31f, 0.4f),
+                stationRoot.transform,
+                true,
+                "Wall");
+            CreateBlock(
+                "Station Boundary Right",
+                new Vector2(12f, -4.8f),
+                new Vector2(0.2f, 12.5f),
+                new Color(0.24f, 0.31f, 0.4f),
+                stationRoot.transform,
+                true,
+                "Wall");
+            CreateBlock(
+                "Station Boundary Bottom",
+                new Vector2(0f, -11.05f),
+                new Vector2(24f, 0.2f),
+                new Color(0.24f, 0.31f, 0.4f),
+                stationRoot.transform,
+                true,
+                "Wall");
+
+            CreateBlock(
+                "Entry Fare Gate Left",
+                new Vector2(-6.4f, -8.4f),
+                new Vector2(0.5f, 1.8f),
+                new Color(0.9f, 0.72f, 0.14f),
+                stationRoot.transform,
+                true,
+                "Door");
+            CreateBlock(
+                "Entry Fare Gate Right",
+                new Vector2(-4.6f, -8.4f),
+                new Vector2(0.5f, 1.8f),
+                new Color(0.9f, 0.72f, 0.14f),
+                stationRoot.transform,
+                true,
+                "Door");
+            CreateBlock(
+                "Exit Fare Gate Left",
+                new Vector2(6.6f, -8.1f),
+                new Vector2(0.5f, 1.8f),
+                new Color(0.9f, 0.72f, 0.14f),
+                stationRoot.transform,
+                true,
+                "Door");
+            CreateBlock(
+                "Exit Fare Gate Right",
+                new Vector2(8.4f, -8.1f),
+                new Vector2(0.5f, 1.8f),
+                new Color(0.9f, 0.72f, 0.14f),
+                stationRoot.transform,
+                true,
+                "Door");
+
+            foreach (float side in new[] { -1f, 1f })
+            {
+                CreateBlock(
+                    side < 0f ? "Down Escalator" : "Up Escalator",
+                    new Vector2(side * 1.1f, -5.1f),
+                    new Vector2(1.6f, 4.4f),
+                    new Color(0.18f, 0.25f, 0.32f),
+                    stationRoot.transform,
+                    false,
+                    "Connector",
+                    0.3f);
+            }
+
+            GameObject navigationObject = new GameObject("Station Journey Navigation");
+            navigationObject.transform.SetParent(stationRoot.transform);
+            navigationObject.transform.position = new Vector2(0f, -4.8f);
+            GridNavigation2D stationNavigation =
+                navigationObject.AddComponent<GridNavigation2D>();
+            stationNavigation.ConfigureDimensions(96, 50, 0.25f);
+
+            PassengerIntentCoordinator coordinator =
+                car.Center.GetComponent<PassengerIntentCoordinator>();
+            if (coordinator == null)
+            {
+                coordinator = car.Center.gameObject.AddComponent<PassengerIntentCoordinator>();
+            }
+
+            PassengerJourneyWaypoint[] boardingRoute =
+            {
+                CreateJourneyWaypoint(
+                    "Approach Entry Gate",
+                    new Vector2(-7.5f, -9.6f),
+                    PassengerJourneyWaypointAction.Walk,
+                    0f,
+                    4,
+                    Vector2.down,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Tap Entry Fare Gate",
+                    new Vector2(-5.5f, -8.4f),
+                    PassengerJourneyWaypointAction.TapEntryGate,
+                    0.35f,
+                    1,
+                    Vector2.down,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Enter Down Escalator",
+                    new Vector2(-1.1f, -6.7f),
+                    PassengerJourneyWaypointAction.EnterVerticalConnector,
+                    0.15f,
+                    2,
+                    Vector2.down,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Leave Down Escalator",
+                    new Vector2(-1.1f, -3.4f),
+                    PassengerJourneyWaypointAction.LeaveVerticalConnector,
+                    0f,
+                    2,
+                    Vector2.down,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Reach Boarding Platform",
+                    new Vector2(-8.4f, -0.45f),
+                    PassengerJourneyWaypointAction.ReachPlatform,
+                    0f,
+                    4,
+                    Vector2.down,
+                    stationRoot.transform)
+            };
+
+            PassengerJourneyWaypoint[] exitRoute =
+            {
+                CreateJourneyWaypoint(
+                    "Clear Arrival Platform",
+                    new Vector2(5.8f, -0.45f),
+                    PassengerJourneyWaypointAction.ClearPlatform,
+                    0f,
+                    4,
+                    Vector2.up,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Enter Up Escalator",
+                    new Vector2(1.1f, -3.4f),
+                    PassengerJourneyWaypointAction.EnterVerticalConnector,
+                    0.15f,
+                    2,
+                    Vector2.up,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Leave Up Escalator",
+                    new Vector2(1.1f, -6.7f),
+                    PassengerJourneyWaypointAction.LeaveVerticalConnector,
+                    0f,
+                    2,
+                    Vector2.up,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Tap Exit Fare Gate",
+                    new Vector2(7.5f, -8.1f),
+                    PassengerJourneyWaypointAction.TapExitGate,
+                    0.35f,
+                    1,
+                    Vector2.up,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Leave Station",
+                    new Vector2(9.7f, -10.1f),
+                    PassengerJourneyWaypointAction.LeaveStation,
+                    0f,
+                    4,
+                    Vector2.up,
+                    stationRoot.transform)
+            };
+
+            PassengerDoorway transferDoorway =
+                car.Doorways[Mathf.Min(3, car.Doorways.Count - 1)];
+            PassengerJourneyWaypoint[] transferRoute =
+            {
+                CreateJourneyWaypoint(
+                    "Clear Transfer Platform",
+                    new Vector2(-5.8f, -0.45f),
+                    PassengerJourneyWaypointAction.ClearPlatform,
+                    0f,
+                    4,
+                    Vector2.up,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Enter Transfer Passage",
+                    new Vector2(-4f, -3f),
+                    PassengerJourneyWaypointAction.EnterTransferPassage,
+                    0.2f,
+                    2,
+                    Vector2.up,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Transfer Passage Center",
+                    new Vector2(0f, -4.2f),
+                    PassengerJourneyWaypointAction.Walk,
+                    0f,
+                    4,
+                    Vector2.left,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Reach Transfer Platform",
+                    new Vector2(8.4f, -0.45f),
+                    PassengerJourneyWaypointAction.ReachTransferPlatform,
+                    0f,
+                    4,
+                    Vector2.down,
+                    stationRoot.transform)
+            };
+
+            PassengerStationRoutePrototype route =
+                stationRoot.AddComponent<PassengerStationRoutePrototype>();
+            route.Configure(
+                boardingRoute,
+                exitRoute,
+                transferRoute,
+                new[] { stationNavigation },
+                coordinator,
+                transferDoorway,
+                doorCycle,
+                car.Center);
+            return route;
+        }
+
+        private static PassengerJourneyWaypoint CreateJourneyWaypoint(
+            string name,
+            Vector2 position,
+            PassengerJourneyWaypointAction action,
+            float dwellDuration,
+            int capacity,
+            Vector2 queueDirection,
+            Transform parent)
+        {
+            GameObject marker = CreateBlock(
+                name,
+                position,
+                new Vector2(0.34f, 0.34f),
+                new Color(0.25f, 0.85f, 1f),
+                parent,
+                false,
+                "JourneyWaypoint",
+                -0.18f);
+            PassengerJourneyWaypoint waypoint =
+                marker.AddComponent<PassengerJourneyWaypoint>();
+            waypoint.Configure(action, dwellDuration, capacity, queueDirection);
+            return waypoint;
+        }
+
+        private static void CreateJourneyPassenger(
+            string name,
+            Vector2 spawnPosition,
+            TrainCarBuildData car,
+            TrainDoorCyclePrototype doorCycle,
+            PassengerStationRoutePrototype route,
+            PassengerPostAlightingPlan plan)
+        {
+            PassengerDoorway boardingDoorway = car.Doorways[0];
+            GameObject passengerObject = CreateBlock(
+                name,
+                spawnPosition,
+                new Vector2(0.62f, 0.62f),
+                plan == PassengerPostAlightingPlan.ExitStation
+                    ? new Color(0.95f, 0.55f, 0.18f)
+                    : new Color(0.72f, 0.4f, 0.95f),
+                car.Center,
+                false,
+                "GeneralPassenger",
+                -0.3f);
+            AddDynamicCollision(passengerObject);
+            TextMesh label = CreatePassengerLabel(passengerObject.transform);
+            GeneralPassengerPrototype passenger =
+                passengerObject.AddComponent<GeneralPassengerPrototype>();
+            PassengerStationJourneyPrototype journey =
+                passengerObject.AddComponent<PassengerStationJourneyPrototype>();
+            passenger.Configure(
+                boardingDoorway,
+                doorCycle,
+                car.Center,
+                false,
+                label);
+            passenger.ConfigureRideStops(1, 1);
+            passenger.ConfigureStationJourney(journey);
+            journey.Configure(route, plan, 3f);
+        }
+
+        private static void ValidateJourneyScene(Scene scene)
+        {
+            PassengerStationRoutePrototype route =
+                UnityEngine.Object.FindFirstObjectByType<PassengerStationRoutePrototype>();
+            PassengerStationJourneyPrototype[] journeys =
+                UnityEngine.Object.FindObjectsByType<PassengerStationJourneyPrototype>(
+                    FindObjectsSortMode.None);
+            PassengerJourneyWaypoint[] waypoints =
+                UnityEngine.Object.FindObjectsByType<PassengerJourneyWaypoint>(
+                    FindObjectsSortMode.None);
+
+            var errors = new List<string>();
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                errors.Add("journey scene is not loaded");
+            }
+            if (route == null)
+            {
+                errors.Add("station route is missing");
+            }
+            if (journeys.Length != 4)
+            {
+                errors.Add("expected four journey passengers");
+            }
+            if (waypoints.Length != 14)
+            {
+                errors.Add("expected fourteen station journey waypoints");
+            }
+            if (route != null &&
+                (route.TransferBoardingDoorway == null ||
+                 route.TransferDoorCycle == null ||
+                 route.TransferMapRoot == null))
+            {
+                errors.Add("transfer boarding handoff is not wired");
+            }
+
+            if (errors.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    "Passenger journey scene validation failed: " +
+                    string.Join(", ", errors));
+            }
         }
 
         private static TrainCarBuildData CreateTrainCar(
@@ -873,6 +1282,23 @@ namespace SubwayCarry.AI
             {
                 AssetDatabase.DeleteAsset(MaterialFolder + "/" + unusedName + ".mat");
             }
+        }
+
+        private static void SetFloatValue(
+            UnityEngine.Object target,
+            string propertyName,
+            float value)
+        {
+            SerializedObject serialized = new SerializedObject(target);
+            SerializedProperty property = serialized.FindProperty(propertyName);
+            if (property == null || property.propertyType != SerializedPropertyType.Float)
+            {
+                throw new InvalidOperationException(
+                    target.GetType().Name + "." + propertyName + " is missing.");
+            }
+
+            property.floatValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void EnsureFolder(string parent, string child)
