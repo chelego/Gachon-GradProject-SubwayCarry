@@ -436,12 +436,43 @@ namespace SubwayCarry.AI
 
             GetDoorAxes(out Vector2 exitDirection, out Vector2 lateral);
             Vector2 doorSideBase =
-                (Vector2)insidePoint.position + exitDirection * 1.15f;
+                (Vector2)insidePoint.position - exitDirection * 0.34f;
             int row = index / 2;
-            float lane = index % 2 == 0 ? -0.34f : 0.34f;
+            float lane = index % 2 == 0 ? -0.46f : 0.46f;
 
             return doorSideBase -
-                   exitDirection * row * 0.72f +
+                   exitDirection * row * 0.84f +
+                   lateral * lane;
+        }
+
+        public Vector2 GetExitOutsidePosition(GameObject passenger)
+        {
+            RemoveMissingExitPassengers();
+            int index = exitingPassengers.IndexOf(passenger);
+            if (index < 0)
+            {
+                return outsidePoint.position;
+            }
+
+            GetDoorAxes(out Vector2 exitDirection, out Vector2 lateral);
+            float lane = index % 2 == 0 ? -0.43f : 0.43f;
+            return (Vector2)outsidePoint.position +
+                   exitDirection * 0.28f +
+                   lateral * lane;
+        }
+
+        public Vector2 GetExitCrossingPosition(GameObject passenger)
+        {
+            RemoveMissingExitPassengers();
+            int index = exitingPassengers.IndexOf(passenger);
+            if (index < 0)
+            {
+                return Vector2.Lerp(insidePoint.position, outsidePoint.position, 0.66f);
+            }
+
+            GetDoorAxes(out _, out Vector2 lateral);
+            float lane = index % 2 == 0 ? -0.43f : 0.43f;
+            return Vector2.Lerp(insidePoint.position, outsidePoint.position, 0.66f) +
                    lateral * lane;
         }
 
