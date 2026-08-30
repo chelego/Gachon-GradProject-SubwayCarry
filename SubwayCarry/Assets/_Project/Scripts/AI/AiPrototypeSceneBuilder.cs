@@ -21,6 +21,11 @@ namespace SubwayCarry.AI
         private const float DoorInsideY = 0.65f;
         private const float DoorOutsideY = 3.15f;
         private const float DoorWidth = 1.9f;
+        private const float SecondCarInteriorOffsetX = 0.55f;
+        private const float ConnectorFloorInset = 0.15f;
+        private const float ConnectorThresholdInset = 0.25f;
+        private const float ConnectorPortalInset = 0.18f;
+        private const float ConnectorArrivalInset = 0.85f;
 
         private sealed class TrainCarBuildData
         {
@@ -228,11 +233,11 @@ namespace SubwayCarry.AI
                 CreateConnector(carRoot.transform, center, -1f);
                 data.LeftPortal = CreatePortal(
                     "Left Connector Portal",
-                    center + new Vector2(-(CarWidth * 0.5f - 0.88f), 0f),
+                    center + new Vector2(-(CarWidth * 0.5f - ConnectorPortalInset), 0f),
                     carRoot.transform);
                 data.LeftArrival = CreatePoint(
                     "Left Connector Arrival",
-                    center + new Vector2(-(CarWidth * 0.5f - 1.25f), 0f),
+                    center + new Vector2(-(CarWidth * 0.5f - ConnectorArrivalInset), 0f),
                     carRoot.transform);
             }
 
@@ -241,11 +246,11 @@ namespace SubwayCarry.AI
                 CreateConnector(carRoot.transform, center, 1f);
                 data.RightPortal = CreatePortal(
                     "Right Connector Portal",
-                    center + new Vector2(CarWidth * 0.5f - 0.88f, 0f),
+                    center + new Vector2(CarWidth * 0.5f - ConnectorPortalInset, 0f),
                     carRoot.transform);
                 data.RightArrival = CreatePoint(
                     "Right Connector Arrival",
-                    center + new Vector2(CarWidth * 0.5f - 1.25f, 0f),
+                    center + new Vector2(CarWidth * 0.5f - ConnectorArrivalInset, 0f),
                     carRoot.transform);
             }
 
@@ -353,7 +358,13 @@ namespace SubwayCarry.AI
         {
             bool mirrorLayout = openLeft;
             float[] doorX = GetDoorPositions(mirrorLayout);
-            float[] seatX = { -5.6f, 0f, 5.6f };
+            float interiorOffsetX = mirrorLayout ? SecondCarInteriorOffsetX : 0f;
+            float[] seatX =
+            {
+                -5.6f + interiorOffsetX,
+                interiorOffsetX,
+                5.6f + interiorOffsetX
+            };
             Color doorColor = new Color(0.16f, 0.58f, 0.58f);
             Color seatColor = new Color(0.1f, 0.45f, 0.62f);
             Color priorityColor = new Color(0.72f, 0.31f, 0.48f);
@@ -417,7 +428,14 @@ namespace SubwayCarry.AI
 
         private static float[] GetDoorPositions(bool mirrorLayout)
         {
-            return new[] { -8.4f, -2.8f, 2.8f, 8.4f };
+            float offsetX = mirrorLayout ? SecondCarInteriorOffsetX : 0f;
+            return new[]
+            {
+                -8.4f + offsetX,
+                -2.8f + offsetX,
+                2.8f + offsetX,
+                8.4f + offsetX
+            };
         }
 
         private static float GetClosedLeftWallLocalX()
@@ -706,14 +724,14 @@ namespace SubwayCarry.AI
         {
             Vector2 connectorCenter = center +
                                       new Vector2(
-                                          direction * (CarWidth * 0.5f - 0.72f),
+                                          direction * (CarWidth * 0.5f - ConnectorFloorInset),
                                           0f);
             CreateBlock("Connector Floor", connectorCenter, new Vector2(0.48f, 2.1f),
                 new Color(0.12f, 0.16f, 0.2f), parent, false, "Connector", 0.5f);
             CreateBlock(
                 "Connector Threshold",
                 center +
-                new Vector2(direction * (CarWidth * 0.5f - 0.9f), 0f),
+                new Vector2(direction * (CarWidth * 0.5f - ConnectorThresholdInset), 0f),
                 new Vector2(0.08f, 2f), new Color(0.84f, 0.72f, 0.2f),
                 parent, false, "ConnectorThreshold", -0.1f);
         }

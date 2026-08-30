@@ -58,6 +58,29 @@ namespace SubwayCarry.AI
         }
     }
 
+    public readonly struct PassengerStandIntent
+    {
+        public readonly GeneralPassengerPrototype Source;
+        public readonly Vector2 SourcePosition;
+        public readonly Vector2 StandPosition;
+        public readonly Vector2 Direction;
+        public readonly float ExpiresAt;
+
+        public PassengerStandIntent(
+            GeneralPassengerPrototype source,
+            Vector2 sourcePosition,
+            Vector2 standPosition,
+            Vector2 direction,
+            float expiresAt)
+        {
+            Source = source;
+            SourcePosition = sourcePosition;
+            StandPosition = standPosition;
+            Direction = direction;
+            ExpiresAt = expiresAt;
+        }
+    }
+
     [DisallowMultipleComponent]
     public sealed class PassengerIntentCoordinator : MonoBehaviour
     {
@@ -156,6 +179,18 @@ namespace SubwayCarry.AI
             }
 
             intent.Recipient.ReceivePassIntent(intent);
+        }
+
+        public void PublishStandIntent(PassengerStandIntent intent)
+        {
+            passengers.RemoveWhere(passenger => passenger == null);
+            foreach (GeneralPassengerPrototype passenger in passengers)
+            {
+                if (passenger != null && passenger != intent.Source)
+                {
+                    passenger.ReceiveStandIntent(intent);
+                }
+            }
         }
 
         public void PublishSeatOccupied(
