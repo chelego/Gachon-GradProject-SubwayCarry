@@ -203,6 +203,14 @@ event Action<PackageDurabilitySnapshot> DurabilityChanged;
 
 HUD와 배송 정산은 Collider나 피해 계산 코드를 직접 읽지 않고 내구도 Snapshot을 사용한다.
 
+### `IPackageDurabilityResetter`
+
+```csharp
+void ResetToFull();
+```
+
+새 운반물을 별도로 생성하는 시스템이 없는 동안 배송 시작을 소유한 시스템은 이 계약으로 실제 운반물 내구도를 초기화한다. HUD와 정산 코드는 초기화를 호출하지 않고 `IPackageDurabilityProvider`만 읽는다.
+
 ```text
 충돌 또는 압박 감지
 -> PackageImpactData

@@ -142,4 +142,9 @@ namespace SubwayCarry.Core.Contracts
         PackageDurabilitySnapshot CurrentDurability { get; }
         event Action<PackageDurabilitySnapshot> DurabilityChanged;
     }
+
+    public interface IPackageDurabilityResetter
+    {
+        void ResetToFull();
+    }
 }
