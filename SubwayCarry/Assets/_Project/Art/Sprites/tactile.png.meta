@@ -1,19 +1,10 @@
 fileFormatVersion: 2
-guid: b12a14e9f3b145a19cb246d88f61200f
+guid: 1ad87ff053d908044aa15029558b2311
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 11000000000000000000000000000000
-    second: sign
-  - first:
-      213: 22000000000000000000000000000000
-    second: bench
-  - first:
-      213: 33000000000000000000000000000000
-    second: vending
-  - first:
-      213: 44000000000000000000000000000000
-    second: escalator
+      213: 7105593301140885856
+    second: tactile_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -55,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -86,39 +77,30 @@ TextureImporter:
     textureFormat: -1
     textureCompression: 0
     compressionQuality: 50
+    crunchedCompression: 0
     allowsAlphaSplitting: 0
     overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: sign
-      rect:
-        serializedVersion: 2
-        x: 0
-        y: 512
-        width: 512
-        height: 512
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      spriteID: 11000000000000000000000000000000
-      internalID: 11000000000000000000000000000000
-    - serializedVersion: 2
-      name: bench
-      rect:
-        serializedVersion: 2
-        x: 512
-        y: 512
-        width: 512
-        height: 512
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      spriteID: 22000000000000000000000000000000
-      internalID: 22000000000000000000000000000000
-    - serializedVersion: 2
-      name: vending
+      name: tactile_0
       rect:
         serializedVersion: 2
         x: 0
@@ -126,31 +108,34 @@ TextureImporter:
         width: 512
         height: 512
       alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+      pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      spriteID: 33000000000000000000000000000000
-      internalID: 33000000000000000000000000000000
-    - serializedVersion: 2
-      name: escalator
-      rect:
-        serializedVersion: 2
-        x: 512
-        y: 0
-        width: 512
-        height: 512
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      spriteID: 44000000000000000000000000000000
-      internalID: 44000000000000000000000000000000
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 061d5e8d5732c9260800000000000000
+      internalID: 7105593301140885856
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
+    customData: 
     physicsShape: []
     bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
     nameFileIdTable:
-      sign: 11000000000000000000000000000000
-      bench: 22000000000000000000000000000000
-      vending: 33000000000000000000000000000000
-      escalator: 44000000000000000000000000000000
+      tactile_0: 7105593301140885856
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
