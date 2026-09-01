@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace SubwayCarry.Delivery
+namespace SubwayCarry.Prototype.Delivery
 {
     public enum SchoolServiceType
     {
