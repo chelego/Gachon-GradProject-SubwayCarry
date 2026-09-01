@@ -3,16 +3,16 @@ guid: a12a14e9f3b145a19cb246d88f61200f
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 10000000000000000000000000000000
+      213: 9223372036854775807
     second: floor
   - first:
-      213: 20000000000000000000000000000000
+      213: 9223372036854775807
     second: tactile
   - first:
-      213: 30000000000000000000000000000000
+      213: 4734375519481495552
     second: screen_door
   - first:
-      213: 40000000000000000000000000000000
+      213: 163586001405476864
     second: pillar
   externalObjects: {}
   serializedVersion: 13
@@ -33,7 +33,7 @@ TextureImporter:
     heightScale: 0.25
     normalMapFilter: 0
     flipGreenChannel: 0
-  isReadable: 0
+  isReadable: 1
   streamingMipmaps: 0
   streamingMipmapsPriority: 0
   vTOnly: 0
@@ -86,8 +86,25 @@ TextureImporter:
     textureFormat: -1
     textureCompression: 0
     compressionQuality: 50
+    crunchedCompression: 0
     allowsAlphaSplitting: 0
     overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
     sprites:
@@ -102,8 +119,17 @@ TextureImporter:
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
       spriteID: 01000000000000000000000000000000
-      internalID: 10000000000000000000000000000000
+      internalID: 9223372036854775807
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     - serializedVersion: 2
       name: tactile
       rect:
@@ -115,8 +141,17 @@ TextureImporter:
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
       spriteID: 02000000000000000000000000000000
-      internalID: 20000000000000000000000000000000
+      internalID: 9223372036854775807
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     - serializedVersion: 2
       name: screen_door
       rect:
@@ -128,8 +163,17 @@ TextureImporter:
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
       spriteID: 03000000000000000000000000000000
-      internalID: 30000000000000000000000000000000
+      internalID: 4734375519481495552
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     - serializedVersion: 2
       name: pillar
       rect:
@@ -141,16 +185,35 @@ TextureImporter:
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
       spriteID: 04000000000000000000000000000000
-      internalID: 40000000000000000000000000000000
+      internalID: 163586001405476864
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
+    customData: 
     physicsShape: []
     bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
     nameFileIdTable:
-      floor: 10000000000000000000000000000000
-      tactile: 20000000000000000000000000000000
-      screen_door: 30000000000000000000000000000000
-      pillar: 40000000000000000000000000000000
+      floor: 9223372036854775807
+      pillar: 163586001405476864
+      screen_door: 4734375519481495552
+      tactile: 9223372036854775807
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
