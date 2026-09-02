@@ -1,7 +1,7 @@
 using SubwayCarry.Core.Contracts;
 using UnityEngine;
 
-namespace SubwayCarry.Gameplay
+namespace SubwayCarry.Prototype.Gameplay
 {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(PlayerPosture))]

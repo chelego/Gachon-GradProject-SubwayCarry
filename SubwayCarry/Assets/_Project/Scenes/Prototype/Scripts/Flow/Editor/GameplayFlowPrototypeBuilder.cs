@@ -2,9 +2,9 @@
 using System;
 using System.Collections.Generic;
 using SubwayCarry.AI;
-using SubwayCarry.Delivery;
-using SubwayCarry.Delivery.Mocks;
-using SubwayCarry.Gameplay;
+using SubwayCarry.Prototype.Delivery;
+using SubwayCarry.Prototype.Delivery.Mocks;
+using SubwayCarry.Prototype.Gameplay;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
