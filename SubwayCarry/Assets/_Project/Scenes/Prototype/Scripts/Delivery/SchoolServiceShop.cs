@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace SubwayCarry.Delivery
+namespace SubwayCarry.Prototype.Delivery
 {
     public sealed class SchoolServiceShop : MonoBehaviour
     {

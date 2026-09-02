@@ -2,7 +2,7 @@ using SubwayCarry.Core.Contracts;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace SubwayCarry.Gameplay
+namespace SubwayCarry.Prototype.Gameplay
 {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(PlayerController), typeof(PlayerPosture))]

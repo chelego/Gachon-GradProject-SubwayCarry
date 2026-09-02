@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace SubwayCarry.Gameplay
+namespace SubwayCarry.Prototype.Gameplay
 {
     [DisallowMultipleComponent]
     public sealed class PlayerPosture : MonoBehaviour
