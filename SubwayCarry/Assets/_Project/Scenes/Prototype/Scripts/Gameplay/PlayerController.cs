@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace SubwayCarry.Gameplay
+namespace SubwayCarry.Prototype.Gameplay
 {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D), typeof(PlayerPosture))]

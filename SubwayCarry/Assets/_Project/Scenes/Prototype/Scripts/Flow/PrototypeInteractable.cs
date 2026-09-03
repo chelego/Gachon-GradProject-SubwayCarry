@@ -1,5 +1,5 @@
 using SubwayCarry.Core.Contracts;
-using SubwayCarry.Gameplay;
+using SubwayCarry.Prototype.Gameplay;
 using UnityEngine;
 
 namespace SubwayCarry.Prototype

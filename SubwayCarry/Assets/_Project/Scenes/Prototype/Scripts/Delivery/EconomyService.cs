@@ -2,7 +2,7 @@ using System;
 using SubwayCarry.Core.Contracts;
 using UnityEngine;
 
-namespace SubwayCarry.Delivery
+namespace SubwayCarry.Prototype.Delivery
 {
     public sealed class EconomyService : MonoBehaviour, IEconomyStateProvider
     {

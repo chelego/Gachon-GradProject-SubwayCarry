@@ -2,7 +2,7 @@ using System;
 using SubwayCarry.Core.Contracts;
 using UnityEngine;
 
-namespace SubwayCarry.Gameplay
+namespace SubwayCarry.Prototype.Gameplay
 {
     [DisallowMultipleComponent]
     public sealed class PackageDurability : MonoBehaviour, IPackageDurabilityProvider, IPackageImpactReceiver

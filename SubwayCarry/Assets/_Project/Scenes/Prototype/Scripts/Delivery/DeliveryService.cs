@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using SubwayCarry.Core.Contracts;
 using UnityEngine;
 
-namespace SubwayCarry.Delivery
+namespace SubwayCarry.Prototype.Delivery
 {
     public sealed class DeliveryService : MonoBehaviour, IDeliveryService, IDeliverySettlementProvider
     {

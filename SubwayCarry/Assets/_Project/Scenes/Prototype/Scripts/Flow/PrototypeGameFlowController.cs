@@ -2,9 +2,9 @@ using System;
 using System.Collections;
 using SubwayCarry.AI;
 using SubwayCarry.Core.Contracts;
-using SubwayCarry.Delivery;
-using SubwayCarry.Delivery.Mocks;
-using SubwayCarry.Gameplay;
+using SubwayCarry.Prototype.Delivery;
+using SubwayCarry.Prototype.Delivery.Mocks;
+using SubwayCarry.Prototype.Gameplay;
 using UnityEngine;
 
 namespace SubwayCarry.Prototype
