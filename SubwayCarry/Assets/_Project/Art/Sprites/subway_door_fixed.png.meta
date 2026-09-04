@@ -1,19 +1,10 @@
 fileFormatVersion: 2
-guid: b12a14e9f3b145a19cb246d88f61200f
+guid: 71aaad42ba1e6b0438cfb5513c4a0919
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 506154752229244928
-    second: sign
-  - first:
-      213: 1012309504458489856
-    second: bench
-  - first:
-      213: 1518464256687734784
-    second: vending
-  - first:
-      213: 2024619008916979712
-    second: escalator
+      213: 6375567503370536849
+    second: subway_door_fixed_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -33,7 +24,7 @@ TextureImporter:
     heightScale: 0.25
     normalMapFilter: 0
     flipGreenChannel: 0
-  isReadable: 1
+  isReadable: 0
   streamingMipmaps: 0
   streamingMipmapsPriority: 0
   vTOnly: 0
@@ -55,11 +46,11 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
-  alignment: 0
-  spritePivot: {x: 0.5, y: 0.5}
+  alignment: 9
+  spritePivot: {x: 0, y: 0}
   spritePixelsToUnits: 32
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
@@ -97,7 +88,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 0
+    textureCompression: 1
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -109,89 +100,23 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: sign
+      name: subway_door_fixed_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 512
-        width: 512
-        height: 512
+        x: 2
+        y: 2
+        width: 898
+        height: 593
       alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+      pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 11000000000000000000000000000000
-      internalID: 506154752229244928
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: bench
-      rect:
-        serializedVersion: 2
-        x: 512
-        y: 512
-        width: 512
-        height: 512
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 22000000000000000000000000000000
-      internalID: 1012309504458489856
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: vending
-      rect:
-        serializedVersion: 2
-        x: 0
-        y: 0
-        width: 512
-        height: 512
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 33000000000000000000000000000000
-      internalID: 1518464256687734784
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: escalator
-      rect:
-        serializedVersion: 2
-        x: 512
-        y: 0
-        width: 512
-        height: 512
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 44000000000000000000000000000000
-      internalID: 2024619008916979712
+      spriteID: 197cce77dd09a7850800000000000000
+      internalID: 6375567503370536849
       vertices: []
       indices: 
       edges: []
@@ -200,7 +125,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices: 
@@ -210,10 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      bench: 1012309504458489856
-      escalator: 2024619008916979712
-      sign: 506154752229244928
-      vending: 1518464256687734784
+      subway_door_fixed_0: 6375567503370536849
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
