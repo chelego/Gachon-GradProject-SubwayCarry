@@ -10274,7 +10274,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 532417602}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2760c08e190607e459bef21e1aeb696c, type: 3}
+  m_Script: {fileID: 11500000, guid: e49c0136f8bbcc54fb90ae59cd67fa74, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Delivery.Mocks.MockTransitProgressProvider
   currentStationId: gachon
@@ -10293,7 +10293,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 532417602}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 37a58f596e1726b4bb3bcf3ede3e2ceb, type: 3}
+  m_Script: {fileID: 11500000, guid: 5f615df963e9a0243969064f7dcb203e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Delivery.SchoolServiceShop
   economyService: {fileID: 532417605}
@@ -10307,7 +10307,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 532417602}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 15e5c1af00f75c549aafbc3ebeccc914, type: 3}
+  m_Script: {fileID: 11500000, guid: c4a74811636c06642a6de96500a772db, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Delivery.EconomyService
   initialCash: 15000
@@ -10320,11 +10320,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 532417602}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 41e7df6f10339124b997e84e511be0e4, type: 3}
+  m_Script: {fileID: 11500000, guid: e358b19237f89d440b45a829bcef4016, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Delivery.DeliveryService
   catalog:
-  - {fileID: 11400000, guid: 186c84b87a0ec644793b594ce035f4f2, type: 2}
+  - {fileID: 11400000, guid: f89de9096270432429e85fffec9233d4, type: 2}
   economyService: {fileID: 532417605}
   serviceShop: {fileID: 532417604}
   packageDurabilityProviderSource: {fileID: 724214980}
@@ -13836,7 +13836,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 724214979}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 11c1c0e251767de4893bda6c231c14e8, type: 3}
+  m_Script: {fileID: 11500000, guid: 0d7634a839d7348439e3c046ea928e6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay.PackageDurability
   speedDamagePerUnit: 12
@@ -13850,7 +13850,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 724214979}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 52f4dc2aa9acb634f9621140d62d4b13, type: 3}
+  m_Script: {fileID: 11500000, guid: 534b9c1c67d5b8946a3ec9694dd8adfc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay.PlayerCollisionImpact
   fallSpeedThreshold: 4
@@ -13864,7 +13864,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 724214979}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1c965ba1d8eafd64a925091d09d42d8f, type: 3}
+  m_Script: {fileID: 11500000, guid: 311383b3da1fea24494b87fc73544614, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay.PlayerInteraction
   interactionRadius: 1
@@ -13998,7 +13998,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 724214979}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a5dd0dc39dfc96c4da7cb018240d8f16, type: 3}
+  m_Script: {fileID: 11500000, guid: f329fc5874047f24686254777b21ad81, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay.PlayerPosture
   leaningTransitionTime: 0.3
@@ -14020,7 +14020,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 724214979}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d9ef5cb35ba71274998c1490323ad4ef, type: 3}
+  m_Script: {fileID: 11500000, guid: 320fc4d87556f644cb9e3df53da591d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay.PlayerController
   moveSpeed: 3.5
