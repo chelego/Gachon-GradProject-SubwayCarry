@@ -21,6 +21,23 @@ namespace SubwayCarry.Prototype.Editor
             "Assets/_Project/Art/PrototypeMaterials";
         private const string DeliveryDataPath =
             "Assets/_Project/Scenes/Prototype/Data/Delivery/DeliveryData_1-1.asset";
+        private const string PlayerSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_Unarmed_8Dir_IdleWalk_v1.png";
+
+        private const int PlayerDirectionCount = 8;
+        private const int PlayerWalkFrameCount = 3;
+
+        private static readonly string[] PlayerDirectionNames =
+        {
+            "South",
+            "SouthWest",
+            "West",
+            "NorthWest",
+            "North",
+            "NorthEast",
+            "East",
+            "SouthEast"
+        };
 
         private const float HubCenterX = -120f;
         private const float DepartureEscalatorCenterX = -80f;
@@ -197,6 +214,34 @@ namespace SubwayCarry.Prototype.Editor
             Debug.Log("[Gameplay Flow Prototype] Scene validation passed.");
         }
 
+        [MenuItem("SubwayCarry/Prototype/Apply Player 8-Direction Sprites")]
+        public static void ApplyPlayerSpritesToSavedScene()
+        {
+            Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            PlayerController controller =
+                UnityEngine.Object.FindFirstObjectByType<PlayerController>();
+            if (controller == null)
+            {
+                throw new InvalidOperationException(
+                    "Gameplay Flow Prototype player is missing.");
+            }
+
+            PlayerPosture posture = controller.GetComponent<PlayerPosture>();
+            if (posture == null)
+            {
+                throw new InvalidOperationException(
+                    "Gameplay Flow Prototype player posture is missing.");
+            }
+
+            ConfigurePlayerSpriteVisual(controller.gameObject, controller, posture);
+            DisablePlayerPrototypeVisuals(controller.transform);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            ValidateScene(scene);
+            Debug.Log(
+                "[Gameplay Flow Prototype] Applied player 8-direction sprites.");
+        }
+
         private static PlayerBuildData CreatePlayer(
             Transform parent,
             Camera facingCamera)
@@ -235,6 +280,8 @@ namespace SubwayCarry.Prototype.Editor
                 "heldPackageSource",
                 durability);
 
+            ConfigurePlayerSpriteVisual(playerObject, controller, posture);
+
             GameObject package = CreateBlock(
                 "Cake Package",
                 (Vector2)playerObject.transform.position + new Vector2(0f, -0.58f),
@@ -244,6 +291,7 @@ namespace SubwayCarry.Prototype.Editor
                 false,
                 -0.2f);
             package.transform.localPosition = new Vector3(0f, -0.58f, -0.2f);
+            SetMeshRendererEnabled(package, false);
             CreateLabel(
                 "PLAYER",
                 (Vector2)playerObject.transform.position + Vector2.down * 0.9f,
@@ -260,6 +308,7 @@ namespace SubwayCarry.Prototype.Editor
                 -0.28f);
             facingIndicator.transform.localPosition =
                 new Vector3(0f, -0.56f, -0.28f);
+            SetMeshRendererEnabled(facingIndicator, false);
             controller.ConfigureFacing(facingCamera, facingIndicator.transform);
 
             return new PlayerBuildData
@@ -268,6 +317,145 @@ namespace SubwayCarry.Prototype.Editor
                 Posture = posture,
                 Durability = durability
             };
+        }
+
+        private static void ConfigurePlayerSpriteVisual(
+            GameObject playerObject,
+            PlayerController controller,
+            PlayerPosture posture)
+        {
+            var spritesByName = new Dictionary<string, Sprite>();
+            foreach (UnityEngine.Object asset in
+                     AssetDatabase.LoadAllAssetsAtPath(PlayerSpriteSheetPath))
+            {
+                if (asset is Sprite sprite)
+                {
+                    spritesByName[sprite.name] = sprite;
+                }
+            }
+
+            int expectedSpriteCount =
+                PlayerDirectionCount * (PlayerWalkFrameCount + 1);
+            if (spritesByName.Count != expectedSpriteCount)
+            {
+                throw new InvalidOperationException(
+                    $"Expected {expectedSpriteCount} player sprites at " +
+                    $"{PlayerSpriteSheetPath}, but found {spritesByName.Count}.");
+            }
+
+            var idleSprites = new Sprite[PlayerDirectionCount];
+            var walkSprites =
+                new Sprite[PlayerDirectionCount * PlayerWalkFrameCount];
+            for (int direction = 0; direction < PlayerDirectionCount; direction++)
+            {
+                idleSprites[direction] = GetRequiredPlayerSprite(
+                    spritesByName,
+                    direction,
+                    0);
+
+                for (int frame = 0; frame < PlayerWalkFrameCount; frame++)
+                {
+                    walkSprites[direction * PlayerWalkFrameCount + frame] =
+                        GetRequiredPlayerSprite(
+                            spritesByName,
+                            direction,
+                            frame + 1);
+                }
+            }
+
+            MeshRenderer placeholderRenderer =
+                playerObject.GetComponent<MeshRenderer>();
+            if (placeholderRenderer != null)
+            {
+                placeholderRenderer.enabled = false;
+            }
+            DisablePlayerPrototypeVisuals(playerObject.transform);
+
+            Transform visualTransform = playerObject.transform.Find("BodyVisual");
+            if (visualTransform == null)
+            {
+                var visualObject = new GameObject("BodyVisual");
+                visualTransform = visualObject.transform;
+                visualTransform.SetParent(playerObject.transform, false);
+            }
+
+            visualTransform.localPosition = Vector3.zero;
+            visualTransform.localRotation = Quaternion.identity;
+            Vector3 playerScale = playerObject.transform.localScale;
+            visualTransform.localScale = new Vector3(
+                Mathf.Approximately(playerScale.x, 0f) ? 1f : 1f / playerScale.x,
+                Mathf.Approximately(playerScale.y, 0f) ? 1f : 1f / playerScale.y,
+                1f);
+
+            SpriteRenderer spriteRenderer =
+                visualTransform.GetComponent<SpriteRenderer>();
+            if (spriteRenderer == null)
+            {
+                spriteRenderer = visualTransform.gameObject.AddComponent<SpriteRenderer>();
+            }
+            spriteRenderer.sprite = idleSprites[0];
+            spriteRenderer.color = Color.white;
+            spriteRenderer.drawMode = SpriteDrawMode.Simple;
+            spriteRenderer.sortingOrder = 1;
+
+            PrototypePlayerSpriteAnimator animator =
+                playerObject.GetComponent<PrototypePlayerSpriteAnimator>();
+            if (animator == null)
+            {
+                animator = playerObject.AddComponent<PrototypePlayerSpriteAnimator>();
+            }
+            animator.Configure(
+                controller,
+                posture,
+                spriteRenderer,
+                idleSprites,
+                walkSprites,
+                PlayerWalkFrameCount,
+                8f);
+        }
+
+        private static Sprite GetRequiredPlayerSprite(
+            IReadOnlyDictionary<string, Sprite> spritesByName,
+            int direction,
+            int row)
+        {
+            string spriteName = row == 0
+                ? $"Player_Unarmed_{PlayerDirectionNames[direction]}_Idle"
+                : $"Player_Unarmed_{PlayerDirectionNames[direction]}_Walk_{row - 1}";
+            if (!spritesByName.TryGetValue(spriteName, out Sprite sprite))
+            {
+                throw new InvalidOperationException(
+                    "Player sprite is missing: " + spriteName);
+            }
+
+            return sprite;
+        }
+
+        private static void DisablePlayerPrototypeVisuals(Transform playerTransform)
+        {
+            foreach (string childName in new[]
+                     {
+                         "Cake Package",
+                         "Player Facing Indicator"
+                     })
+            {
+                Transform child = playerTransform.Find(childName);
+                if (child != null)
+                {
+                    SetMeshRendererEnabled(child.gameObject, false);
+                }
+            }
+        }
+
+        private static void SetMeshRendererEnabled(
+            GameObject gameObject,
+            bool isEnabled)
+        {
+            MeshRenderer meshRenderer = gameObject.GetComponent<MeshRenderer>();
+            if (meshRenderer != null)
+            {
+                meshRenderer.enabled = isEnabled;
+            }
         }
 
         private static ServiceBuildData CreateServices(
@@ -1384,6 +1572,8 @@ namespace SubwayCarry.Prototype.Editor
                 UnityEngine.Object.FindFirstObjectByType<PrototypeGameFlowController>();
             PlayerController player =
                 UnityEngine.Object.FindFirstObjectByType<PlayerController>();
+            PrototypePlayerSpriteAnimator playerSpriteAnimator =
+                UnityEngine.Object.FindFirstObjectByType<PrototypePlayerSpriteAnimator>();
             DeliveryService delivery =
                 UnityEngine.Object.FindFirstObjectByType<DeliveryService>();
             GeneralPassengerPrototype[] passengers =
@@ -1425,6 +1615,28 @@ namespace SubwayCarry.Prototype.Editor
                     serializedPlayer.FindProperty("facingIndicator")?.objectReferenceValue == null)
                 {
                     errors.Add("player mouse-facing camera or indicator is not wired");
+                }
+            }
+            if (playerSpriteAnimator == null || !playerSpriteAnimator.IsConfigured)
+            {
+                errors.Add("player 8-direction sprite animator is missing or not configured");
+            }
+            if (player != null && player.GetComponent<MeshRenderer>()?.enabled == true)
+            {
+                errors.Add("player placeholder renderer must be disabled");
+            }
+            foreach (string helperName in new[]
+                     {
+                         "Cake Package",
+                         "Player Facing Indicator"
+                     })
+            {
+                GameObject helper = FindSceneObject(scene, helperName);
+                if (helper?.GetComponent<MeshRenderer>()?.enabled == true)
+                {
+                    errors.Add(
+                        "player prototype helper renderer must be disabled: " +
+                        helperName);
                 }
             }
             if (delivery == null)
@@ -1483,7 +1695,9 @@ namespace SubwayCarry.Prototype.Editor
                 "Destination Long Fare Gate",
                 "Destination Long Fare Gate Blocker",
                 "Destination Gate Exit Trigger",
-                "Player Facing Indicator"
+                "Cake Package",
+                "Player Facing Indicator",
+                "BodyVisual"
             };
             foreach (string requiredName in requiredHierarchyNames)
             {
