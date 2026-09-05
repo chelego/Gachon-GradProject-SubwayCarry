@@ -79,13 +79,13 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 1
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
-  m_Color: {r: 1, g: 0.82, b: 0.2, a: 1}
+  m_Sprite: {fileID: 908408382, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
-  m_DrawMode: 1
+  m_DrawMode: 0
   m_Size: {x: 0.8, y: 1}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
@@ -139,6 +139,7 @@ GameObject:
   - component: {fileID: 4212135516204653897}
   - component: {fileID: 4250245501859170297}
   - component: {fileID: 9005231940191899007}
+  - component: {fileID: 8992573670436695392}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -334,6 +335,58 @@ MonoBehaviour:
   packageAnchorOverhead: {fileID: 8102724359119024233}
   packageRoot: {fileID: 4404975836006753068}
   frontAnchorDistance: 0.75
+--- !u!114 &8992573670436695392
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5554395081815901480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 414f5d91bcf55664ea896f5b2c26a962, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay.PlayerSpriteAnimator
+  controller: {fileID: 6981318461018434724}
+  posture: {fileID: 7903649557249364266}
+  spriteRenderer: {fileID: 1175688027283190724}
+  idleSprites:
+  - {fileID: 908408382, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 81640704, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 336214955, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 1920965134, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 974801577, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 1403359515, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -741230455, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -1187490054, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  walkSprites:
+  - {fileID: -1694071460, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -1856177254, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -188508469, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -1634114958, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -132843242, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 171220406, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -144476810, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 1624926293, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -407329712, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -486074876, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -945811108, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -28111353, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 540536078, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -2011535355, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 354515478, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -1110041318, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -483890990, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 219423669, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 1880726225, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 33970637, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 1940387128, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 263836314, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: -9195540, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  - {fileID: 733791660, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  walkFramesPerDirection: 3
+  walkFramesPerSecond: 8
+  useMovementDirectionWhileMoving: 1
 --- !u!1 &7263761740810801932
 GameObject:
   m_ObjectHideFlags: 0
