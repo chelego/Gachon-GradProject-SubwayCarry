@@ -1,10 +1,11 @@
 using System.Collections.Generic;
+using SubwayCarry.Core.Contracts;
 using UnityEngine;
 
 namespace SubwayCarry.AI
 {
     [DisallowMultipleComponent]
-    public sealed class PassengerBoardingPrototype : MonoBehaviour
+    public sealed class PassengerBoardingPrototype : MonoBehaviour, IPackageImpactSource
     {
         private enum BoardingState
         {
@@ -38,6 +39,7 @@ namespace SubwayCarry.AI
 
         public string CurrentState => state.ToString();
         public string StateHistory => string.Join(" > ", stateHistory);
+        public Vector2 ImpactVelocity => body != null ? body.linearVelocity : Vector2.zero;
 
         public void Configure(
             TrainDoorController boardingDoor,

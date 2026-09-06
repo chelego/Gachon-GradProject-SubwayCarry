@@ -137,6 +137,11 @@ namespace SubwayCarry.Core.Contracts
         void ApplyImpact(in PackageImpactData impact);
     }
 
+    public interface IPackageImpactSource
+    {
+        Vector2 ImpactVelocity { get; }
+    }
+
     public interface IPackageDurabilityProvider
     {
         PackageDurabilitySnapshot CurrentDurability { get; }
@@ -146,5 +151,11 @@ namespace SubwayCarry.Core.Contracts
     public interface IPackageDurabilityResetter
     {
         void ResetToFull();
+    }
+
+    public interface IPackageAvailabilityController
+    {
+        bool HasPackage { get; }
+        void SetPackageAvailable(bool available);
     }
 }

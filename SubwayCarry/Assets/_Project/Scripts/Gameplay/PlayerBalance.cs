@@ -16,9 +16,11 @@ namespace SubwayCarry.Gameplay
         [SerializeField, Min(1)] private int overheadPromptCount = 4;
         [SerializeField, Min(0.1f)] private float standingTimePerPrompt = 0.6f;
         [SerializeField, Min(0.1f)] private float overheadTimePerPrompt = 0.45f;
+        [SerializeField, Min(0f)] private float failureImpactSpeed = 2f;
 
         private ITrainMotionProvider trainMotionProvider;
         private PlayerPosture posture;
+        private PlayerPackageCarrier packageCarrier;
 
         private Key[] activeSequence;
         private int activeIndex;
@@ -42,6 +44,7 @@ namespace SubwayCarry.Gameplay
         private void Awake()
         {
             posture = GetComponent<PlayerPosture>();
+            packageCarrier = GetComponent<PlayerPackageCarrier>();
             trainMotionProvider = trainMotionProviderSource as ITrainMotionProvider;
 
             if (trainMotionProviderSource != null && trainMotionProvider == null)
@@ -172,8 +175,41 @@ namespace SubwayCarry.Gameplay
 
         private void Fail()
         {
+            ApplyFailureImpact();
             posture.Fall();
             EndCheck(true);
+        }
+
+        private void ApplyFailureImpact()
+        {
+            if (failureImpactSpeed <= 0f || packageCarrier == null)
+            {
+                return;
+            }
+
+            Transform packageRoot = packageCarrier.CurrentPackage;
+            if (packageRoot == null)
+            {
+                return;
+            }
+
+            MonoBehaviour[] behaviours =
+                packageRoot.GetComponentsInChildren<MonoBehaviour>(true);
+            foreach (MonoBehaviour behaviour in behaviours)
+            {
+                if (!(behaviour is IPackageImpactReceiver receiver))
+                {
+                    continue;
+                }
+
+                var impact = new PackageImpactData(
+                    gameObject,
+                    packageRoot.position,
+                    failureImpactSpeed,
+                    0f);
+                receiver.ApplyImpact(impact);
+                return;
+            }
         }
 
         private void EndCheck(bool failed)

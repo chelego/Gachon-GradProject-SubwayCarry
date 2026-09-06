@@ -1,11 +1,12 @@
 using System.Collections.Generic;
+using SubwayCarry.Core.Contracts;
 using UnityEngine;
 
 namespace SubwayCarry.AI
 {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
-    public sealed class GeneralPassengerPrototype : MonoBehaviour
+    public sealed class GeneralPassengerPrototype : MonoBehaviour, IPackageImpactSource
     {
         private static Mesh passengerBodyMesh;
         private static Mesh directVisionMesh;
@@ -297,6 +298,7 @@ namespace SubwayCarry.AI
         public int PerceivedSeatCount => perceivedSeatPoints.Count;
         public Vector2 SimulationPosition =>
             body != null ? body.position : (Vector2)transform.position;
+        public Vector2 ImpactVelocity => GetMovementIntent() * GetCurrentMoveSpeed();
         public bool IsSeekingSeat =>
             behavior == PassengerBehavior.Seated &&
             (state == PassengerState.MovingToActivity ||

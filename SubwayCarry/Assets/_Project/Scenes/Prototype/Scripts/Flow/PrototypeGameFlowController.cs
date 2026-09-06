@@ -26,6 +26,8 @@ namespace SubwayCarry.Prototype
         [SerializeField] private PackageDurability packageDurability;
         [SerializeField] private PrototypeCameraFollow cameraFollow;
 
+        private PrototypePlayerSpriteAnimator playerSpriteAnimator;
+
         [Header("Services")]
         [SerializeField] private DeliveryService deliveryService;
         [SerializeField] private EconomyService economyService;
@@ -109,6 +111,9 @@ namespace SubwayCarry.Prototype
             playerController = controller;
             playerPosture = posture;
             packageDurability = durability;
+            playerSpriteAnimator = controller != null
+                ? controller.GetComponent<PrototypePlayerSpriteAnimator>()
+                : null;
             cameraFollow = followCamera;
             deliveryService = deliveries;
             economyService = economy;
@@ -347,6 +352,7 @@ namespace SubwayCarry.Prototype
 
         private void Awake()
         {
+            ResolvePlayerSpriteAnimator();
             uiFont = Font.CreateDynamicFontFromOSFont(
                 new[] { "Malgun Gothic", "맑은 고딕", "Arial" },
                 24);
@@ -374,6 +380,7 @@ namespace SubwayCarry.Prototype
             SetBlockerActive(destinationGateBlocker, true);
             departureTrainArrival?.PrepareOffscreen();
 
+            SetPackageCarrying(false);
             TeleportTo(hubSpawn);
             RefreshPlayerControl();
         }
@@ -402,7 +409,6 @@ namespace SubwayCarry.Prototype
 
         private bool BeginSelectedDelivery()
         {
-            packageDurability?.ResetToFull();
             if (deliveryService == null ||
                 !deliveryService.TryStartDelivery(pendingDeliveryId))
             {
@@ -565,6 +571,7 @@ namespace SubwayCarry.Prototype
                 hasSettlement = false;
                 mapOpen = false;
                 boardingGraceRemaining = 0f;
+                SetPackageCarrying(false);
                 SetDoorsOpen(departureDoors, false);
                 SetDoorsOpen(destinationDoors, false);
                 SetBlockerActive(departureGateBlocker, true);
@@ -572,6 +579,36 @@ namespace SubwayCarry.Prototype
                 departureTrainArrival?.PrepareOffscreen();
                 ShowToast("가천대역 복귀", 2f);
             }));
+        }
+
+        private void SetPackageCarrying(bool carrying)
+        {
+            ResolvePlayerSpriteAnimator();
+            playerSpriteAnimator?.SetCarryingPackage(carrying);
+
+            PlayerCollisionImpact collisionImpact = playerController != null
+                ? playerController.GetComponent<PlayerCollisionImpact>()
+                : null;
+            if (collisionImpact != null)
+            {
+                collisionImpact.enabled = carrying;
+            }
+        }
+
+        private bool IsPackageCarrying()
+        {
+            ResolvePlayerSpriteAnimator();
+            return playerSpriteAnimator != null &&
+                   playerSpriteAnimator.IsCarryingPackage;
+        }
+
+        private void ResolvePlayerSpriteAnimator()
+        {
+            if (playerSpriteAnimator == null && playerController != null)
+            {
+                playerSpriteAnimator =
+                    playerController.GetComponent<PrototypePlayerSpriteAnimator>();
+            }
         }
 
         private static void SetBlockerActive(GameObject blocker, bool active)
@@ -719,11 +756,23 @@ namespace SubwayCarry.Prototype
 
         private void SelectFirstDelivery()
         {
+            bool alreadyAccepted =
+                stage == PrototypeFlowStage.DeliverySelected &&
+                pendingDeliveryId == "1-1";
             pendingDeliveryId = "1-1";
+            if (!alreadyAccepted)
+            {
+                packageDurability?.ResetToFull();
+            }
+            SetPackageCarrying(true);
             stage = PrototypeFlowStage.DeliverySelected;
             mapOpen = false;
             RefreshPlayerControl();
-            ShowToast("정자역 배송 선택 완료", 2f);
+            ShowToast(
+                alreadyAccepted
+                    ? "정자역 배송은 이미 수락했다."
+                    : "정자역 배송 수락 · 케이크 수령",
+                2f);
         }
 
         private void ShowToast(string message, float seconds = 2f)
@@ -816,11 +865,14 @@ namespace SubwayCarry.Prototype
             PackageDurabilitySnapshot durability = packageDurability != null
                 ? packageDurability.CurrentDurability
                 : new PackageDurabilitySnapshot(100f, 100f, false);
+            bool isCarryingPackage = IsPackageCarrying();
 
             GUI.Label(new Rect(hud.x + 12f, hud.y + 5f, hud.width - 24f, 20f),
                 $"{GetStageLabel()}   보유 현금 {cash:N0}원", hudTitleStyle);
             GUI.Label(new Rect(hud.x + 12f, hud.y + 27f, hud.width - 24f, 16f),
-                $"상자 {durability.BoxDurability:0}%   케이크 {durability.CakeDurability:0}%",
+                isCarryingPackage
+                    ? $"상자 {durability.BoxDurability:0}%   케이크 {durability.CakeDurability:0}%"
+                    : "운반 물품 없음",
                 hudSmallStyle);
             GUI.Label(new Rect(hud.x + 12f, hud.y + 44f, hud.width - 24f, 27f),
                 GetObjective(), hudSmallStyle);
@@ -890,7 +942,7 @@ namespace SubwayCarry.Prototype
                 "교통비: 1,500원 / 배달 수수료: 3,000원",
                 bodyStyle);
             GUI.Label(new Rect(modal.x + 24f, modal.y + 300f, modal.width - 48f, 70f),
-                "선택 후 개찰구에서 교통카드를 찍으면 교통비가 결제된다.",
+                "배송을 수락하면 케이크를 수령한다. 이후 개찰구에서 교통카드를 찍으면 교통비가 결제된다.",
                 smallStyle);
 
             if (GUI.Button(new Rect(modal.x + 24f, modal.yMax - 72f, 150f, 48f),
@@ -900,8 +952,11 @@ namespace SubwayCarry.Prototype
                 RefreshPlayerControl();
             }
 
+            bool alreadyAccepted =
+                stage == PrototypeFlowStage.DeliverySelected &&
+                pendingDeliveryId == "1-1";
             if (GUI.Button(new Rect(modal.xMax - 224f, modal.yMax - 72f, 200f, 48f),
-                    "이 배송 선택", buttonStyle))
+                    alreadyAccepted ? "수락 완료" : "배송 수락", buttonStyle))
             {
                 SelectFirstDelivery();
             }

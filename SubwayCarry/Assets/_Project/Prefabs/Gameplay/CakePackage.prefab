@@ -237,7 +237,7 @@ MonoBehaviour:
   impactLayers:
     serializedVersion: 2
     m_Bits: 4294967295
-  includeTriggerColliders: 0
+  includeTriggerColliders: 1
   minimumImpactSpeed: 0.5
   impactCooldownSeconds: 0.25
   minimumCompressionRatio: 0.01

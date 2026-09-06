@@ -11,7 +11,7 @@ namespace SubwayCarry.Gameplay
         [SerializeField] private MonoBehaviour impactReceiverSource;
         [SerializeField] private Transform ignoredOwnerRoot;
         [SerializeField] private LayerMask impactLayers = ~0;
-        [SerializeField] private bool includeTriggerColliders;
+        [SerializeField] private bool includeTriggerColliders = true;
         [SerializeField, Min(0f)] private float minimumImpactSpeed = 0.5f;
         [SerializeField, Min(0f)] private float impactCooldownSeconds = 0.25f;
         [SerializeField, Range(0f, 1f)] private float minimumCompressionRatio = 0.01f;
@@ -113,7 +113,8 @@ namespace SubwayCarry.Gameplay
 
         private void TryApplyImpact(Collider2D other, Vector2 hitboxVelocity, float currentTime)
         {
-            if (!IsEligibleImpactCollider(other))
+            if (!IsEligibleOverlapCollider(other)
+                || !TryGetImpactSource(other, out IPackageImpactSource impactSource))
             {
                 return;
             }
@@ -131,9 +132,7 @@ namespace SubwayCarry.Gameplay
                 return;
             }
 
-            Vector2 otherVelocity = other.attachedRigidbody != null
-                ? other.attachedRigidbody.linearVelocity
-                : Vector2.zero;
+            Vector2 otherVelocity = impactSource.ImpactVelocity;
             Vector2 relativeVelocity = hitboxVelocity - otherVelocity;
             Vector2 contactNormal = distance.normal;
             if (contactNormal.sqrMagnitude <= 0.0001f)
@@ -239,7 +238,7 @@ namespace SubwayCarry.Gameplay
             for (int i = 0; i < overlapCount; i++)
             {
                 Collider2D other = overlapResults[i];
-                if (!IsEligibleImpactCollider(other))
+                if (!IsEligibleCompressionCollider(other))
                 {
                     continue;
                 }
@@ -274,13 +273,35 @@ namespace SubwayCarry.Gameplay
                 return 0f;
             }
 
+            bool negativeIsImpactSource = TryGetImpactSource(
+                negativeCollider,
+                out _);
+            bool positiveIsImpactSource = TryGetImpactSource(
+                positiveCollider,
+                out _);
+            if (!negativeIsImpactSource && !positiveIsImpactSource)
+            {
+                return 0f;
+            }
+
             float availableGap = Mathf.Max(0f, positiveInnerEdge - negativeInnerEdge);
             float compressionRatio = Mathf.Clamp01(1f - availableGap / axisSize);
             float negativePenetration = Mathf.Max(0f, negativeInnerEdge - packageAxisMin);
             float positivePenetration = Mathf.Max(0f, packageAxisMax - positiveInnerEdge);
-            compressionSource = negativePenetration >= positivePenetration
-                ? negativeCollider
-                : positiveCollider;
+            if (negativeIsImpactSource && !positiveIsImpactSource)
+            {
+                compressionSource = negativeCollider;
+            }
+            else if (positiveIsImpactSource && !negativeIsImpactSource)
+            {
+                compressionSource = positiveCollider;
+            }
+            else
+            {
+                compressionSource = negativePenetration >= positivePenetration
+                    ? negativeCollider
+                    : positiveCollider;
+            }
 
             float contactAxis = (negativeInnerEdge + positiveInnerEdge) * 0.5f;
             contactPoint = horizontal
@@ -289,7 +310,17 @@ namespace SubwayCarry.Gameplay
             return compressionRatio;
         }
 
-        private bool IsEligibleImpactCollider(Collider2D other)
+        private bool IsEligibleCompressionCollider(Collider2D other)
+        {
+            if (!IsEligibleOverlapCollider(other))
+            {
+                return false;
+            }
+
+            return !other.isTrigger || TryGetImpactSource(other, out _);
+        }
+
+        private bool IsEligibleOverlapCollider(Collider2D other)
         {
             if (other == null || other == packageHitbox || !other.enabled)
             {
@@ -307,6 +338,25 @@ namespace SubwayCarry.Gameplay
             }
 
             return true;
+        }
+
+        private static bool TryGetImpactSource(
+            Collider2D other,
+            out IPackageImpactSource impactSource)
+        {
+            MonoBehaviour[] behaviours =
+                other.GetComponentsInParent<MonoBehaviour>(true);
+            foreach (MonoBehaviour behaviour in behaviours)
+            {
+                if (behaviour is IPackageImpactSource source)
+                {
+                    impactSource = source;
+                    return true;
+                }
+            }
+
+            impactSource = null;
+            return false;
         }
 
         private void RemoveExpiredCooldowns(float currentTime)

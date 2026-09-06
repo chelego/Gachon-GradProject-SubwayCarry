@@ -304,6 +304,7 @@ MonoBehaviour:
   overheadPromptCount: 4
   standingTimePerPrompt: 0.6
   overheadTimePerPrompt: 0.45
+  failureImpactSpeed: 2
 --- !u!114 &4250245501859170297
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -335,6 +336,8 @@ MonoBehaviour:
   packageAnchorOverhead: {fileID: 8102724359119024233}
   packageRoot: {fileID: 4404975836006753068}
   frontAnchorDistance: 0.75
+  startWithPackage: 0
+  hidePackageRenderersForSpriteAnimation: 1
 --- !u!114 &8992573670436695392
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -349,6 +352,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay.PlayerSpriteAnimator
   controller: {fileID: 6981318461018434724}
   posture: {fileID: 7903649557249364266}
+  packageCarrier: {fileID: 9005231940191899007}
   spriteRenderer: {fileID: 1175688027283190724}
   idleSprites:
   - {fileID: 908408382, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
@@ -384,6 +388,75 @@ MonoBehaviour:
   - {fileID: 263836314, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
   - {fileID: -9195540, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
   - {fileID: 733791660, guid: d81d4922b30cf224f89fb7ab7e5403db, type: 3}
+  carryingIdleSprites:
+  - {fileID: 908408382, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 81640704, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 336214955, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 1920965134, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 974801577, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 1403359515, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -741230455, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -1187490054, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  carryingWalkSprites:
+  - {fileID: -1694071460, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -1856177254, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -188508469, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -1634114958, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -132843242, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 171220406, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -144476810, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 1624926293, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -407329712, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -486074876, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -945811108, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -28111353, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 540536078, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -2011535355, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 354515478, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -1110041318, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -483890990, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 219423669, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 1880726225, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 33970637, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 1940387128, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 263836314, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: -9195540, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  - {fileID: 733791660, guid: 8a079427ab444e9296aabc059ba93fe9, type: 3}
+  packageIdleSprites:
+  - {fileID: 908408382, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 81640704, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 336214955, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 1920965134, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 974801577, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 1403359515, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -741230455, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -1187490054, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  packageWalkSprites:
+  - {fileID: -1694071460, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -1856177254, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -188508469, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -1634114958, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -132843242, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 171220406, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -144476810, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 1624926293, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -407329712, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -486074876, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -945811108, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -28111353, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 540536078, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -2011535355, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 354515478, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -1110041318, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -483890990, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 219423669, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 1880726225, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 33970637, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 1940387128, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 263836314, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: -9195540, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 733791660, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+
   walkFramesPerDirection: 3
   walkFramesPerSecond: 8
   useMovementDirectionWhileMoving: 1

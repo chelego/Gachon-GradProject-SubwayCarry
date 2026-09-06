@@ -11,10 +11,12 @@ namespace SubwayCarry.Delivery
         [SerializeField] private EconomyService economyService;
         [SerializeField] private SchoolServiceShop serviceShop;
         [SerializeField] private MonoBehaviour packageDurabilityProviderSource;
+        [SerializeField] private MonoBehaviour packageAvailabilitySource;
         [SerializeField] private MonoBehaviour transitProgressProviderSource;
 
         private IPackageDurabilityProvider packageDurabilityProvider;
         private IPackageDurabilityResetter packageDurabilityResetter;
+        private IPackageAvailabilityController packageAvailability;
         private ITransitProgressProvider transitProgressProvider;
 
         private DeliveryData activeDelivery;
@@ -31,6 +33,21 @@ namespace SubwayCarry.Delivery
         {
             packageDurabilityProvider = packageDurabilityProviderSource as IPackageDurabilityProvider;
             packageDurabilityResetter = packageDurabilityProviderSource as IPackageDurabilityResetter;
+            packageAvailability = packageAvailabilitySource as IPackageAvailabilityController;
+            if (packageAvailability == null && packageDurabilityProviderSource != null)
+            {
+                MonoBehaviour[] parentBehaviours =
+                    packageDurabilityProviderSource.GetComponentsInParent<MonoBehaviour>(true);
+                foreach (MonoBehaviour parentBehaviour in parentBehaviours)
+                {
+                    if (parentBehaviour is IPackageAvailabilityController availability)
+                    {
+                        packageAvailabilitySource = parentBehaviour;
+                        packageAvailability = availability;
+                        break;
+                    }
+                }
+            }
             transitProgressProvider = transitProgressProviderSource as ITransitProgressProvider;
 
             if (packageDurabilityProvider != null)
@@ -63,6 +80,7 @@ namespace SubwayCarry.Delivery
             }
 
             packageDurabilityResetter?.ResetToFull();
+            packageAvailability?.SetPackageAvailable(true);
             activeDelivery = data;
             SetState(new DeliveryStateSnapshot(data.DeliveryId, data.DestinationStationId, DeliveryPhase.InTransit, DeliveryFailureReason.None));
             return true;
@@ -162,6 +180,7 @@ namespace SubwayCarry.Delivery
             DeliverySettled?.Invoke(lastSettlement);
 
             SetState(new DeliveryStateSnapshot(activeDelivery.DeliveryId, activeDelivery.DestinationStationId, phase, reason));
+            packageAvailability?.SetPackageAvailable(false);
 
             activeDelivery = null;
             CheckBankruptcy();

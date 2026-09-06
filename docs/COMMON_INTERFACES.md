@@ -184,7 +184,15 @@ event Action<BalanceStateSnapshot> BalanceStateChanged;
 void ApplyImpact(in PackageImpactData impact);
 ```
 
-충돌을 감지한 승객, 벽, 문, 좌석과 바닥은 직접 내구도를 깎지 않고 `PackageImpactData`를 전달한다. 운반물 기능이 상자 보호량과 케이크 피해를 계산한다.
+### `IPackageImpactSource`
+
+```csharp
+Vector2 ImpactVelocity { get; }
+```
+
+운반물에 직접 충돌 피해를 줄 수 있는 승객이 이 계약을 구현한다. 운반물 충돌 감지기는 이 계약으로 승객 여부와 이동 속도를 읽으며, 벽, 문, 좌석, 바닥과 일반 사물은 직접 충돌 피해원으로 취급하지 않는다.
+
+승객 충돌 또는 승객이 관여한 압박을 감지하면 `PackageImpactData`를 전달한다. 균형 시스템도 실패가 확정된 시점에 한 번의 `PackageImpactData`를 전달한다. 운반물 기능이 상자 보호량과 케이크 피해를 계산한다.
 
 ### `PackageDurabilitySnapshot`
 
@@ -209,10 +217,19 @@ HUD와 배송 정산은 Collider나 피해 계산 코드를 직접 읽지 않고
 void ResetToFull();
 ```
 
-새 운반물을 별도로 생성하는 시스템이 없는 동안 배송 시작을 소유한 시스템은 이 계약으로 실제 운반물 내구도를 초기화한다. HUD와 정산 코드는 초기화를 호출하지 않고 `IPackageDurabilityProvider`만 읽는다.
+배송 수락을 소유한 시스템은 새 운반물을 지급하는 시점에 이 계약으로 내구도를 초기화한다. 이후 출발 교통비 결제가 실패하더라도 같은 운반물의 내구도를 다시 초기화하지 않는다. HUD와 정산 코드는 초기화를 호출하지 않고 `IPackageDurabilityProvider`만 읽는다.
+
+### `IPackageAvailabilityController`
+
+```csharp
+bool HasPackage { get; }
+void SetPackageAvailable(bool available);
+```
+
+배송 확인 화면만 연 단계에는 운반물을 표시하거나 충돌 피해 대상으로 취급하지 않는다. 배송 수락 시 운반물을 활성화하고, 배송 정산 또는 허브 복귀 흐름이 끝날 때 비활성화한다. 플레이어 애니메이션은 `HasPackage`에 따라 빈손 또는 운반 자세를 선택하며, 케이크 상자는 별도 SpriteRenderer에서 같은 방향·프레임으로 재생한다.
 
 ```text
-충돌 또는 압박 감지
+승객 충돌, 승객이 관여한 압박 또는 균형 실패
 -> PackageImpactData
 -> IPackageImpactReceiver.ApplyImpact
 -> 상자와 케이크 피해 계산
@@ -380,7 +397,7 @@ event Action<DeliveryStateSnapshot> DeliveryStateChanged;
 bool TryStartDelivery(string deliveryId);
 ```
 
-배송 선택 UI는 `TryStartDelivery`로 시작을 요청한다. 배송 가능 여부, 교통비 지불과 현재 진행 상태는 배송 기능이 결정한다.
+배송 선택 UI는 배송 수락 시 케이크 상자를 먼저 지급하고 운반 애니메이션으로 전환한다. 개찰구 상호작용은 `TryStartDelivery`로 출발을 요청하며, 배송 가능 여부, 교통비 지불과 현재 진행 상태는 배송 기능이 결정한다. 반환값이 `false`이면 개찰구 통과만 중단하고 이미 수락한 배송과 케이크 상자는 유지한다.
 
 ## 경제와 정산
 

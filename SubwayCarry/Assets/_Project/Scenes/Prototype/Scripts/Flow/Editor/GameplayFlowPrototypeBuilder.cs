@@ -21,8 +21,12 @@ namespace SubwayCarry.Prototype.Editor
             "Assets/_Project/Art/PrototypeMaterials";
         private const string DeliveryDataPath =
             "Assets/_Project/Scenes/Prototype/Data/Delivery/DeliveryData_1-1.asset";
-        private const string PlayerSpriteSheetPath =
+        private const string PlayerUnarmedSpriteSheetPath =
             "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_Unarmed_8Dir_IdleWalk_v1.png";
+        private const string PlayerCarryingPoseSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_CarryingPose_8Dir_IdleWalk_v1.png";
+        private const string CakePackageSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_CakePackage_8Dir_IdleWalk_v1.png";
 
         private const int PlayerDirectionCount = 8;
         private const int PlayerWalkFrameCount = 3;
@@ -324,42 +328,63 @@ namespace SubwayCarry.Prototype.Editor
             PlayerController controller,
             PlayerPosture posture)
         {
-            var spritesByName = new Dictionary<string, Sprite>();
-            foreach (UnityEngine.Object asset in
-                     AssetDatabase.LoadAllAssetsAtPath(PlayerSpriteSheetPath))
-            {
-                if (asset is Sprite sprite)
-                {
-                    spritesByName[sprite.name] = sprite;
-                }
-            }
-
             int expectedSpriteCount =
                 PlayerDirectionCount * (PlayerWalkFrameCount + 1);
-            if (spritesByName.Count != expectedSpriteCount)
-            {
-                throw new InvalidOperationException(
-                    $"Expected {expectedSpriteCount} player sprites at " +
-                    $"{PlayerSpriteSheetPath}, but found {spritesByName.Count}.");
-            }
+            IReadOnlyDictionary<string, Sprite> unarmedSpritesByName =
+                LoadPlayerSprites(PlayerUnarmedSpriteSheetPath, expectedSpriteCount);
+            IReadOnlyDictionary<string, Sprite> carryingSpritesByName =
+                LoadPlayerSprites(PlayerCarryingPoseSpriteSheetPath, expectedSpriteCount);
+            IReadOnlyDictionary<string, Sprite> packageSpritesByName =
+                LoadPlayerSprites(CakePackageSpriteSheetPath, expectedSpriteCount);
 
             var idleSprites = new Sprite[PlayerDirectionCount];
             var walkSprites =
                 new Sprite[PlayerDirectionCount * PlayerWalkFrameCount];
+            var carryingIdleSprites = new Sprite[PlayerDirectionCount];
+            var carryingWalkSprites =
+                new Sprite[PlayerDirectionCount * PlayerWalkFrameCount];
+            var packageIdleSprites = new Sprite[PlayerDirectionCount];
+            var packageWalkSprites =
+                new Sprite[PlayerDirectionCount * PlayerWalkFrameCount];
             for (int direction = 0; direction < PlayerDirectionCount; direction++)
             {
                 idleSprites[direction] = GetRequiredPlayerSprite(
-                    spritesByName,
+                    unarmedSpritesByName,
                     direction,
-                    0);
+                    0,
+                    "Player_Unarmed");
+                carryingIdleSprites[direction] = GetRequiredPlayerSprite(
+                    carryingSpritesByName,
+                    direction,
+                    0,
+                    "Player_CarryingPose");
+                packageIdleSprites[direction] = GetRequiredPlayerSprite(
+                    packageSpritesByName,
+                    direction,
+                    0,
+                    "CakePackage");
 
                 for (int frame = 0; frame < PlayerWalkFrameCount; frame++)
                 {
-                    walkSprites[direction * PlayerWalkFrameCount + frame] =
+                    int spriteIndex = direction * PlayerWalkFrameCount + frame;
+                    walkSprites[spriteIndex] =
                         GetRequiredPlayerSprite(
-                            spritesByName,
+                            unarmedSpritesByName,
                             direction,
-                            frame + 1);
+                            frame + 1,
+                            "Player_Unarmed");
+                    carryingWalkSprites[spriteIndex] =
+                        GetRequiredPlayerSprite(
+                            carryingSpritesByName,
+                            direction,
+                            frame + 1,
+                            "Player_CarryingPose");
+                    packageWalkSprites[spriteIndex] =
+                        GetRequiredPlayerSprite(
+                            packageSpritesByName,
+                            direction,
+                            frame + 1,
+                            "CakePackage");
                 }
             }
 
@@ -410,18 +435,47 @@ namespace SubwayCarry.Prototype.Editor
                 spriteRenderer,
                 idleSprites,
                 walkSprites,
+                carryingIdleSprites,
+                carryingWalkSprites,
+                packageIdleSprites,
+                packageWalkSprites,
                 PlayerWalkFrameCount,
                 8f);
+        }
+
+        private static IReadOnlyDictionary<string, Sprite> LoadPlayerSprites(
+            string spriteSheetPath,
+            int expectedSpriteCount)
+        {
+            var spritesByName = new Dictionary<string, Sprite>();
+            foreach (UnityEngine.Object asset in
+                     AssetDatabase.LoadAllAssetsAtPath(spriteSheetPath))
+            {
+                if (asset is Sprite sprite)
+                {
+                    spritesByName[sprite.name] = sprite;
+                }
+            }
+
+            if (spritesByName.Count != expectedSpriteCount)
+            {
+                throw new InvalidOperationException(
+                    $"Expected {expectedSpriteCount} player sprites at " +
+                    $"{spriteSheetPath}, but found {spritesByName.Count}.");
+            }
+
+            return spritesByName;
         }
 
         private static Sprite GetRequiredPlayerSprite(
             IReadOnlyDictionary<string, Sprite> spritesByName,
             int direction,
-            int row)
+            int row,
+            string spritePrefix)
         {
             string spriteName = row == 0
-                ? $"Player_Unarmed_{PlayerDirectionNames[direction]}_Idle"
-                : $"Player_Unarmed_{PlayerDirectionNames[direction]}_Walk_{row - 1}";
+                ? $"{spritePrefix}_{PlayerDirectionNames[direction]}_Idle"
+                : $"{spritePrefix}_{PlayerDirectionNames[direction]}_Walk_{row - 1}";
             if (!spritesByName.TryGetValue(spriteName, out Sprite sprite))
             {
                 throw new InvalidOperationException(

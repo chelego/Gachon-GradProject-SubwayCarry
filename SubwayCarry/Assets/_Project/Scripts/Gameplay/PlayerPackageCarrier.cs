@@ -4,7 +4,7 @@ using UnityEngine;
 namespace SubwayCarry.Gameplay
 {
     [DisallowMultipleComponent]
-    public sealed class PlayerPackageCarrier : MonoBehaviour
+    public sealed class PlayerPackageCarrier : MonoBehaviour, IPackageAvailabilityController
     {
         [SerializeField] private MonoBehaviour carryStateProviderSource;
         [SerializeField] private PlayerController facingSource;
@@ -12,21 +12,30 @@ namespace SubwayCarry.Gameplay
         [SerializeField] private Transform packageAnchorOverhead;
         [SerializeField] private Transform packageRoot;
         [SerializeField, Min(0f)] private float frontAnchorDistance = 0.75f;
+        [SerializeField] private bool startWithPackage;
+        [SerializeField] private bool hidePackageRenderersForSpriteAnimation = true;
 
         private IPlayerCarryStateProvider carryStateProvider;
+        private bool packageAvailable;
 
-        public Transform CurrentPackage => packageRoot;
+        public Transform CurrentPackage => HasPackage ? packageRoot : null;
+        public bool HasPackage =>
+            packageRoot != null &&
+            packageAvailable &&
+            packageRoot.gameObject.activeInHierarchy;
         public Transform CurrentAnchor { get; private set; }
 
         public void SetPackage(Transform newPackageRoot)
         {
             packageRoot = newPackageRoot;
+            packageAvailable = packageRoot != null;
             if (packageRoot == null)
             {
                 CurrentAnchor = null;
                 return;
             }
 
+            ApplyPackageAvailability();
             ConfigurePackageCollisionIgnoring();
 
             if (carryStateProvider != null)
@@ -35,12 +44,45 @@ namespace SubwayCarry.Gameplay
             }
         }
 
+        public void SetPackageAvailable(bool available)
+        {
+            packageAvailable = available && packageRoot != null;
+            ApplyPackageAvailability();
+
+            if (packageAvailable && carryStateProvider != null)
+            {
+                SyncPackageToCarryState(carryStateProvider.CurrentCarryState);
+            }
+        }
+
         private void Awake()
         {
+            packageAvailable = startWithPackage && packageRoot != null;
+            ApplyPackageAvailability();
             ResolveCarryStateProvider();
             ResolveFacingSource();
             UpdateFrontAnchorFacing();
             ConfigurePackageCollisionIgnoring();
+        }
+
+        private void ApplyPackageAvailability()
+        {
+            if (packageRoot == null)
+            {
+                return;
+            }
+
+            packageRoot.gameObject.SetActive(packageAvailable);
+            if (!packageAvailable || !hidePackageRenderersForSpriteAnimation)
+            {
+                return;
+            }
+
+            Renderer[] packageRenderers = packageRoot.GetComponentsInChildren<Renderer>(true);
+            foreach (Renderer packageRenderer in packageRenderers)
+            {
+                packageRenderer.enabled = false;
+            }
         }
 
         private void OnEnable()

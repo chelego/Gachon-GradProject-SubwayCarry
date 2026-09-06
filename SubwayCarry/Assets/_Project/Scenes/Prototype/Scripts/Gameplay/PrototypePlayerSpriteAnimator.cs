@@ -13,12 +13,21 @@ namespace SubwayCarry.Prototype.Gameplay
         [SerializeField] private PlayerController controller;
         [SerializeField] private PlayerPosture posture;
         [SerializeField] private SpriteRenderer spriteRenderer;
+        [SerializeField] private SpriteRenderer packageSpriteRenderer;
 
-        [Header("Sprites")]
+        [Header("Sprites - Unarmed")]
         [Tooltip("South, South-West, West, North-West, North, North-East, East, South-East")]
         [SerializeField] private Sprite[] idleSprites = new Sprite[DirectionCount];
         [Tooltip("Direction-major order. Each direction contains walkFramesPerDirection consecutive frames.")]
         [SerializeField] private Sprite[] walkSprites = new Sprite[DirectionCount * 3];
+
+        [Header("Sprites - Carrying Pose")]
+        [SerializeField] private Sprite[] carryingIdleSprites = new Sprite[DirectionCount];
+        [SerializeField] private Sprite[] carryingWalkSprites = new Sprite[DirectionCount * 3];
+
+        [Header("Sprites - Cake Package Overlay")]
+        [SerializeField] private Sprite[] packageIdleSprites = new Sprite[DirectionCount];
+        [SerializeField] private Sprite[] packageWalkSprites = new Sprite[DirectionCount * 3];
 
         [Header("Playback")]
         [SerializeField, Min(1)] private int walkFramesPerDirection = 3;
@@ -26,7 +35,11 @@ namespace SubwayCarry.Prototype.Gameplay
 
         private float walkElapsed;
         private bool wasMoving;
+        private bool isCarryingPackage;
+        private bool wasCarryingPackage;
         private int previousDirectionIndex = -1;
+
+        public bool IsCarryingPackage => isCarryingPackage;
 
         public bool IsConfigured =>
             controller != null &&
@@ -34,7 +47,11 @@ namespace SubwayCarry.Prototype.Gameplay
             spriteRenderer != null &&
             spriteRenderer.sprite != null &&
             HasAssignedSprites(idleSprites, DirectionCount) &&
-            HasAssignedSprites(walkSprites, DirectionCount * walkFramesPerDirection);
+            HasAssignedSprites(walkSprites, DirectionCount * walkFramesPerDirection) &&
+            HasAssignedSprites(carryingIdleSprites, DirectionCount) &&
+            HasAssignedSprites(carryingWalkSprites, DirectionCount * walkFramesPerDirection) &&
+            HasAssignedSprites(packageIdleSprites, DirectionCount) &&
+            HasAssignedSprites(packageWalkSprites, DirectionCount * walkFramesPerDirection);
 
         public void Configure(
             PlayerController playerController,
@@ -42,6 +59,10 @@ namespace SubwayCarry.Prototype.Gameplay
             SpriteRenderer playerSpriteRenderer,
             Sprite[] playerIdleSprites,
             Sprite[] playerWalkSprites,
+            Sprite[] playerCarryingIdleSprites,
+            Sprite[] playerCarryingWalkSprites,
+            Sprite[] playerPackageIdleSprites,
+            Sprite[] playerPackageWalkSprites,
             int walkFrameCount,
             float framesPerSecond)
         {
@@ -63,14 +84,59 @@ namespace SubwayCarry.Prototype.Gameplay
                     "Walk sprites must contain the same number of frames for all eight directions.",
                     nameof(playerWalkSprites));
             }
+            if (playerCarryingIdleSprites == null ||
+                playerCarryingIdleSprites.Length != DirectionCount)
+            {
+                throw new ArgumentException(
+                    $"Expected {DirectionCount} carrying idle sprites.",
+                    nameof(playerCarryingIdleSprites));
+            }
+            if (playerCarryingWalkSprites == null ||
+                playerCarryingWalkSprites.Length != DirectionCount * walkFrameCount)
+            {
+                throw new ArgumentException(
+                    "Carrying walk sprites must contain the same number of frames for all eight directions.",
+                    nameof(playerCarryingWalkSprites));
+            }
+            if (playerPackageIdleSprites == null ||
+                playerPackageIdleSprites.Length != DirectionCount)
+            {
+                throw new ArgumentException(
+                    $"Expected {DirectionCount} package idle sprites.",
+                    nameof(playerPackageIdleSprites));
+            }
+            if (playerPackageWalkSprites == null ||
+                playerPackageWalkSprites.Length != DirectionCount * walkFrameCount)
+            {
+                throw new ArgumentException(
+                    "Package walk sprites must contain the same number of frames for all eight directions.",
+                    nameof(playerPackageWalkSprites));
+            }
 
             controller = playerController;
             posture = playerPosture;
             spriteRenderer = playerSpriteRenderer;
             idleSprites = (Sprite[])playerIdleSprites.Clone();
             walkSprites = (Sprite[])playerWalkSprites.Clone();
+            carryingIdleSprites = (Sprite[])playerCarryingIdleSprites.Clone();
+            carryingWalkSprites = (Sprite[])playerCarryingWalkSprites.Clone();
+            packageIdleSprites = (Sprite[])playerPackageIdleSprites.Clone();
+            packageWalkSprites = (Sprite[])playerPackageWalkSprites.Clone();
             walkFramesPerDirection = walkFrameCount;
             walkFramesPerSecond = Mathf.Max(0.1f, framesPerSecond);
+            ResolvePackageSpriteRenderer();
+            RefreshSprite();
+        }
+
+        public void SetCarryingPackage(bool carrying)
+        {
+            if (isCarryingPackage == carrying)
+            {
+                return;
+            }
+
+            isCarryingPackage = carrying;
+            walkElapsed = 0f;
             RefreshSprite();
         }
 
@@ -86,11 +152,15 @@ namespace SubwayCarry.Prototype.Gameplay
             }
             if (spriteRenderer == null)
             {
-                spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+                Transform bodyVisual = transform.Find("BodyVisual");
+                spriteRenderer = bodyVisual != null
+                    ? bodyVisual.GetComponent<SpriteRenderer>()
+                    : GetComponentInChildren<SpriteRenderer>();
             }
 
             HidePrototypeHelperRenderers();
 
+            ResolvePackageSpriteRenderer();
             RefreshSprite();
         }
 
@@ -135,11 +205,16 @@ namespace SubwayCarry.Prototype.Gameplay
             if (!isMoving)
             {
                 walkElapsed = 0f;
-                SetSprite(GetIdleSprite(directionIndex));
+                SetSprites(
+                    GetIdleSprite(directionIndex),
+                    isCarryingPackage ? GetPackageIdleSprite(directionIndex) : null,
+                    directionIndex);
             }
             else
             {
-                if (!wasMoving || directionIndex != previousDirectionIndex)
+                if (!wasMoving ||
+                    directionIndex != previousDirectionIndex ||
+                    isCarryingPackage != wasCarryingPackage)
                 {
                     walkElapsed = 0f;
                 }
@@ -151,15 +226,29 @@ namespace SubwayCarry.Prototype.Gameplay
                 int frameIndex =
                     Mathf.FloorToInt(walkElapsed * walkFramesPerSecond) %
                     walkFramesPerDirection;
-                SetSprite(GetWalkSprite(directionIndex, frameIndex));
+                SetSprites(
+                    GetWalkSprite(directionIndex, frameIndex),
+                    isCarryingPackage
+                        ? GetPackageWalkSprite(directionIndex, frameIndex)
+                        : null,
+                    directionIndex);
             }
 
             wasMoving = isMoving;
+            wasCarryingPackage = isCarryingPackage;
             previousDirectionIndex = directionIndex;
         }
 
         private Sprite GetIdleSprite(int directionIndex)
         {
+            if (isCarryingPackage &&
+                carryingIdleSprites != null &&
+                directionIndex < carryingIdleSprites.Length &&
+                carryingIdleSprites[directionIndex] != null)
+            {
+                return carryingIdleSprites[directionIndex];
+            }
+
             return idleSprites != null && directionIndex < idleSprites.Length
                 ? idleSprites[directionIndex]
                 : null;
@@ -173,6 +262,14 @@ namespace SubwayCarry.Prototype.Gameplay
             }
 
             int spriteIndex = directionIndex * walkFramesPerDirection + frameIndex;
+            if (isCarryingPackage &&
+                carryingWalkSprites != null &&
+                spriteIndex < carryingWalkSprites.Length &&
+                carryingWalkSprites[spriteIndex] != null)
+            {
+                return carryingWalkSprites[spriteIndex];
+            }
+
             return spriteIndex < walkSprites.Length ? walkSprites[spriteIndex] : null;
         }
 
@@ -182,6 +279,89 @@ namespace SubwayCarry.Prototype.Gameplay
             {
                 spriteRenderer.sprite = sprite;
             }
+        }
+
+        private Sprite GetPackageIdleSprite(int directionIndex)
+        {
+            return packageIdleSprites != null && directionIndex < packageIdleSprites.Length
+                ? packageIdleSprites[directionIndex]
+                : null;
+        }
+
+        private Sprite GetPackageWalkSprite(int directionIndex, int frameIndex)
+        {
+            if (packageWalkSprites == null || walkFramesPerDirection <= 0)
+            {
+                return null;
+            }
+
+            int spriteIndex = directionIndex * walkFramesPerDirection + frameIndex;
+            return spriteIndex < packageWalkSprites.Length
+                ? packageWalkSprites[spriteIndex]
+                : null;
+        }
+
+        private void SetSprites(Sprite bodySprite, Sprite packageSprite, int directionIndex)
+        {
+            SetSprite(bodySprite);
+            ResolvePackageSpriteRenderer();
+            if (packageSpriteRenderer == null)
+            {
+                return;
+            }
+
+            packageSpriteRenderer.sprite = packageSprite;
+            packageSpriteRenderer.enabled = packageSprite != null;
+            packageSpriteRenderer.sortingLayerID = spriteRenderer.sortingLayerID;
+            packageSpriteRenderer.sortingOrder = IsPackageBehindPlayer(directionIndex)
+                ? spriteRenderer.sortingOrder - 1
+                : spriteRenderer.sortingOrder + 1;
+        }
+
+        private void ResolvePackageSpriteRenderer()
+        {
+            if (packageSpriteRenderer != null || spriteRenderer == null)
+            {
+                return;
+            }
+
+            Transform packageVisual = transform.Find("PackageVisual");
+            if (packageVisual == null)
+            {
+                var packageObject = new GameObject("PackageVisual");
+                packageObject.layer = spriteRenderer.gameObject.layer;
+                packageVisual = packageObject.transform;
+                packageVisual.SetParent(
+                    spriteRenderer.transform == transform
+                        ? transform
+                        : spriteRenderer.transform.parent,
+                    false);
+                packageVisual.localPosition = spriteRenderer.transform == transform
+                    ? Vector3.zero
+                    : spriteRenderer.transform.localPosition;
+                packageVisual.localRotation = spriteRenderer.transform == transform
+                    ? Quaternion.identity
+                    : spriteRenderer.transform.localRotation;
+                packageVisual.localScale = spriteRenderer.transform == transform
+                    ? Vector3.one
+                    : spriteRenderer.transform.localScale;
+            }
+
+            packageSpriteRenderer = packageVisual.GetComponent<SpriteRenderer>();
+            if (packageSpriteRenderer == null)
+            {
+                packageSpriteRenderer = packageVisual.gameObject.AddComponent<SpriteRenderer>();
+            }
+
+            packageSpriteRenderer.color = spriteRenderer.color;
+            packageSpriteRenderer.sharedMaterial = spriteRenderer.sharedMaterial;
+            packageSpriteRenderer.drawMode = SpriteDrawMode.Simple;
+            packageSpriteRenderer.enabled = false;
+        }
+
+        private static bool IsPackageBehindPlayer(int directionIndex)
+        {
+            return directionIndex >= 3 && directionIndex <= 5;
         }
 
         private static bool HasAssignedSprites(Sprite[] sprites, int expectedCount)
