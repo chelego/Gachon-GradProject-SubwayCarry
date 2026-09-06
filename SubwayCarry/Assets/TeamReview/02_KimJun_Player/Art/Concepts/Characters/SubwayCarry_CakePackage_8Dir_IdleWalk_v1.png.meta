@@ -1,0 +1,1087 @@
+fileFormatVersion: 2
+guid: 7d5b8a3f42545ad6f8faced592d6031a
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 4904779860705776775
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_0
+  - first:
+      213: 4470497321362412743
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_1
+  - first:
+      213: 8472582989344063541
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_2
+  - first:
+      213: -8031958083602813523
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_3
+  - first:
+      213: 7938296354212937027
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_4
+  - first:
+      213: 5976762323316870382
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_5
+  - first:
+      213: 971170221337806022
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_6
+  - first:
+      213: -161670672008445749
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_7
+  - first:
+      213: 4548201153991646818
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_8
+  - first:
+      213: 6571612988737717273
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_9
+  - first:
+      213: -1607808605257695750
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_10
+  - first:
+      213: 2953266612532294429
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_11
+  - first:
+      213: -7361719168352390813
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_12
+  - first:
+      213: -3976702305185129684
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_13
+  - first:
+      213: 1210393689682022130
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_14
+  - first:
+      213: 7951683916387723147
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_15
+  - first:
+      213: 5608628892241609133
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_16
+  - first:
+      213: -7224084662327225652
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_17
+  - first:
+      213: -3250623555067343191
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_18
+  - first:
+      213: -6370443376229675200
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_19
+  - first:
+      213: 2417400561806055868
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_20
+  - first:
+      213: -746104166620933200
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_21
+  - first:
+      213: 3247613292042163161
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_22
+  - first:
+      213: -7899165754049824009
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_23
+  - first:
+      213: -2215864279697900214
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_24
+  - first:
+      213: -2058647491053368020
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_25
+  - first:
+      213: -2601133805112149394
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_26
+  - first:
+      213: -5332692545967901781
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_27
+  - first:
+      213: 5684978255191881764
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_28
+  - first:
+      213: 8772049345314819604
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_29
+  - first:
+      213: 2349361898635641021
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_30
+  - first:
+      213: -6755841458661011554
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_31
+  - first:
+      213: -7681803543820450265
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_32
+  - first:
+      213: 6870824359620204130
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_33
+  - first:
+      213: 6821792950049328152
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_34
+  - first:
+      213: 3378535541017658741
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_35
+  - first:
+      213: 7043930819048582232
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_36
+  - first:
+      213: 2355983934789814681
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_37
+  - first:
+      213: 6793876228242836626
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_38
+  - first:
+      213: -5626678057871833677
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_39
+  - first:
+      213: -8290611785460596227
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_40
+  - first:
+      213: -2131692654739457828
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_41
+  - first:
+      213: 7876278234022192978
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_42
+  - first:
+      213: 1210902774299017323
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_43
+  - first:
+      213: -6329786862406322500
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_44
+  - first:
+      213: -4512963191291110335
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_45
+  - first:
+      213: -7715495961201386746
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_46
+  - first:
+      213: -168523602290186661
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_47
+  - first:
+      213: 1847279173414959099
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_48
+  - first:
+      213: 8129583779758730485
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_49
+  - first:
+      213: 8554343058505018632
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_50
+  - first:
+      213: -4684534689614748706
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_51
+  - first:
+      213: 6664952522395870522
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_52
+  - first:
+      213: 1660776427459731129
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_53
+  - first:
+      213: 2083814696009907846
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_54
+  - first:
+      213: 2023025940415778377
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_55
+  - first:
+      213: -123790384889933427
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_56
+  - first:
+      213: -3660710163705482032
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_57
+  - first:
+      213: 132441213206804901
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_58
+  - first:
+      213: -6564877831284878935
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_59
+  - first:
+      213: 1326317388887782682
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_60
+  - first:
+      213: -6881438603688499998
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_61
+  - first:
+      213: -3773448566027422857
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_62
+  - first:
+      213: -4627225215271495951
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_63
+  - first:
+      213: 1777902835055997641
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_64
+  - first:
+      213: 7187788954072892884
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_65
+  - first:
+      213: 3987257456939261571
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_66
+  - first:
+      213: -1884927200610105215
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_67
+  - first:
+      213: 6144823522778620146
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_68
+  - first:
+      213: 3093602125417135233
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_69
+  - first:
+      213: 3304966458793229852
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_70
+  - first:
+      213: -8503228403195909781
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_71
+  - first:
+      213: 3253300661309509529
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_72
+  - first:
+      213: 6225734607249406072
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_73
+  - first:
+      213: 6662566003592240787
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_74
+  - first:
+      213: 2546396695691958417
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_75
+  - first:
+      213: 6027574920472558738
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_76
+  - first:
+      213: 3397993737924665971
+    second: SubwayCarry_CakePackage_8Dir_IdleWalk_v1_77
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 160
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: CakePackage_South_Idle
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 960
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8695c17dfd6791543b7b8c74682e1b7e
+      internalID: 908408382
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SouthWest_Idle
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 960
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: aee89b20d13e4324c850539037ba9b37
+      internalID: 81640704
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_West_Idle
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 960
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 686e1d9adbc0b244b9fea96c7f70dc74
+      internalID: 336214955
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_NorthWest_Idle
+      rect:
+        serializedVersion: 2
+        x: 576
+        y: 960
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 32eac943dde89954faa62b527d1a917b
+      internalID: 1920965134
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_North_Idle
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 960
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4e352745c34df2b4aa986f18313c9e1a
+      internalID: 974801577
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_NorthEast_Idle
+      rect:
+        serializedVersion: 2
+        x: 960
+        y: 960
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 32332fbacbbca904391918e77a577ff3
+      internalID: 1403359515
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_East_Idle
+      rect:
+        serializedVersion: 2
+        x: 1152
+        y: 960
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e95fd60c1b4e12e40996541f6918957a
+      internalID: -741230455
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SouthEast_Idle
+      rect:
+        serializedVersion: 2
+        x: 1344
+        y: 960
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d23f4c39fb77779449f140bb89045d46
+      internalID: -1187490054
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_South_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 640
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6215a209b2dbcfa4fbd0178ea73e8253
+      internalID: -1694071460
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SouthWest_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 640
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d7ba3d308d5839d4fb7b086d8fca43d0
+      internalID: -1634114958
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_West_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 640
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 362751dfde29ae64893b988c4c851b9c
+      internalID: -144476810
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_NorthWest_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 576
+        y: 640
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ffc2f4cc52bd8b74e83dbf0249ae2d03
+      internalID: -486074876
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_North_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 640
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a4b3e01914d9c6a45ab7ff1849834f19
+      internalID: 540536078
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_NorthEast_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 960
+        y: 640
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c97434515117140408848a68bfb6afb4
+      internalID: -1110041318
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_East_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 1152
+        y: 640
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7f2c9c72480388f49a35b8b73bb0b3d6
+      internalID: 1880726225
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SouthEast_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 1344
+        y: 640
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 21647e26578695848a9199085ef33a04
+      internalID: 263836314
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_South_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 320
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3d000bf4d9d95f4488881bae8b5e3cd9
+      internalID: -1856177254
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SouthWest_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 320
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c783e44c269854b478538ae4b08d01e9
+      internalID: -132843242
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_West_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 320
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5ffb46d86ae72ee41b6ea99a7c3da412
+      internalID: 1624926293
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_NorthWest_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 576
+        y: 320
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9a1a57937bb761a49897f405bc6bf74c
+      internalID: -945811108
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_North_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 320
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4aff74b2bb3c29849ae376797810989a
+      internalID: -2011535355
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_NorthEast_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 960
+        y: 320
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fae936818fa882541af28dcc43d24f34
+      internalID: -483890990
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_East_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 1152
+        y: 320
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8cdf1a6cef98a7144b746c01fa3bef95
+      internalID: 33970637
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SouthEast_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 1344
+        y: 320
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 73a74b5b65dff7e489d54b6d18293e6b
+      internalID: -9195540
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_South_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1c9f28449e1244248a722dea704642c7
+      internalID: -188508469
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SouthWest_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 0
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4b0bf8c4e5ad10043b32f4dfbb40cf50
+      internalID: 171220406
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_West_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 0
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3aaad7f96be528a41a721919cbd38a9d
+      internalID: -407329712
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_NorthWest_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 576
+        y: 0
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 97764f5ef39118a4586ae474cef5f669
+      internalID: -28111353
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_North_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 0
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 63e1197b48702924bad97f2131ed447d
+      internalID: 354515478
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_NorthEast_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 960
+        y: 0
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e5bb6f0a051abfc429506668921509f9
+      internalID: 219423669
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_East_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 1152
+        y: 0
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d3475c628abf16f47adc433caa114da5
+      internalID: 1940387128
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SouthEast_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 1344
+        y: 0
+        width: 192
+        height: 320
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b85f490bd862e2340b9c2d73e02586b4
+      internalID: 733791660
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    outline: []
+    customData:
+    physicsShape: []
+    bones: []
+    spriteID: e1c2c2b5971c93f4ea669008caab28e9
+    internalID: 0
+    vertices: []
+    indices:
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      CakePackage_East_Idle: -741230455
+      CakePackage_East_Walk_0: 1880726225
+      CakePackage_East_Walk_1: 33970637
+      CakePackage_East_Walk_2: 1940387128
+      CakePackage_NorthEast_Idle: 1403359515
+      CakePackage_NorthEast_Walk_0: -1110041318
+      CakePackage_NorthEast_Walk_1: -483890990
+      CakePackage_NorthEast_Walk_2: 219423669
+      CakePackage_NorthWest_Idle: 1920965134
+      CakePackage_NorthWest_Walk_0: -486074876
+      CakePackage_NorthWest_Walk_1: -945811108
+      CakePackage_NorthWest_Walk_2: -28111353
+      CakePackage_North_Idle: 974801577
+      CakePackage_North_Walk_0: 540536078
+      CakePackage_North_Walk_1: -2011535355
+      CakePackage_North_Walk_2: 354515478
+      CakePackage_SouthEast_Idle: -1187490054
+      CakePackage_SouthEast_Walk_0: 263836314
+      CakePackage_SouthEast_Walk_1: -9195540
+      CakePackage_SouthEast_Walk_2: 733791660
+      CakePackage_SouthWest_Idle: 81640704
+      CakePackage_SouthWest_Walk_0: -1634114958
+      CakePackage_SouthWest_Walk_1: -132843242
+      CakePackage_SouthWest_Walk_2: 171220406
+      CakePackage_South_Idle: 908408382
+      CakePackage_South_Walk_0: -1694071460
+      CakePackage_South_Walk_1: -1856177254
+      CakePackage_South_Walk_2: -188508469
+      CakePackage_West_Idle: 336214955
+      CakePackage_West_Walk_0: -144476810
+      CakePackage_West_Walk_1: 1624926293
+      CakePackage_West_Walk_2: -407329712
+  mipmapLimitGroupName:
+  pSDRemoveMatte: 0
+  userData:
+  assetBundleName:
+  assetBundleVariant:
