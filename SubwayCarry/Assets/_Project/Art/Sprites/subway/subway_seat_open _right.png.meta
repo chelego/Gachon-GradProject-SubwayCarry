@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: d7e09b09008e4224384492e469c59538
+guid: 7a687b6864908f444b1158d1a5517a34
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -8849118344517510941
-    second: subway_seat_open_0
+      213: -8213044354789394201
+    second: subway_seat_open _right_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,7 +100,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: subway_seat_open_0
+      name: subway_seat_open _right_0
       rect:
         serializedVersion: 2
         x: 203
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 3e814a310cd913580800000000000000
-      internalID: -8849118344517510941
+      spriteID: 7e830448ca7650e80800000000000000
+      internalID: -8213044354789394201
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      subway_seat_open_0: -8849118344517510941
+      subway_seat_open _right_0: -8213044354789394201
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
