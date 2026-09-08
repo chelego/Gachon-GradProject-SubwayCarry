@@ -1,0 +1,220 @@
+{
+  "member": "정준호",
+  "branch": "feature-station",
+  "commit": "adc631e6d4cf359bc0f6f7fa3742b17093350af8",
+  "importedAt": "2026-09-07",
+  "namespace": "SubwayCarry.TeamReview.JeongJunho",
+  "scenes": [
+    "Scenes/GachonUniv.unity",
+    "Scenes/Subway.unity",
+    "Scenes/Wangsimni.unity"
+  ],
+  "externalGuids": [
+    "311925a002f4447b3a28927169b83ea6",
+    "a79441f348de89743a2939f4d699eac1",
+    "a97c105638bdf8b4a8650670310a4cd3",
+    "e260cfa7296ee7642b167f1eb5be5023"
+  ],
+  "files": [
+    {
+      "path": "Art/Sprites/bench_2.png",
+      "sourcePath": "_Project/Art/Sprites/bench_2.png",
+      "sourceGuid": "fd55e5c463720e04284f2a83ef709c0a",
+      "reviewGuid": "ccfc45559f9468c5ef3b34978fb3a60b",
+      "sourceSha256": "50CFF697D973E8F6678451B7BE91FE5FC671E48DB538590791C34AF8960535A5",
+      "reviewSha256": "50CFF697D973E8F6678451B7BE91FE5FC671E48DB538590791C34AF8960535A5"
+    },
+    {
+      "path": "Art/Sprites/bench_gachon.png",
+      "sourcePath": "_Project/Art/Sprites/bench_gachon.png",
+      "sourceGuid": "63f31fe08a5c54544845cb6fd8a804e4",
+      "reviewGuid": "f5c2476eb45d25d14b590005608fa369",
+      "sourceSha256": "F763B65C96DE0427DD9B815D8781AC8E8C448E811179DCD19E35D3111638CD50",
+      "reviewSha256": "F763B65C96DE0427DD9B815D8781AC8E8C448E811179DCD19E35D3111638CD50"
+    },
+    {
+      "path": "Art/Sprites/escalator.png",
+      "sourcePath": "_Project/Art/Sprites/escalator.png",
+      "sourceGuid": "4a3ff8b378ad1f442927163f1c86f38a",
+      "reviewGuid": "934005654d47fbdc2b1208b627f4db70",
+      "sourceSha256": "8FD17D87B71F5A36106CBEB13B5FB04009D0E3DA48C056DBC6AB10C2B9DC58D7",
+      "reviewSha256": "8FD17D87B71F5A36106CBEB13B5FB04009D0E3DA48C056DBC6AB10C2B9DC58D7"
+    },
+    {
+      "path": "Art/Sprites/floor_0.asset",
+      "sourcePath": "_Project/Art/Sprites/floor_0.asset",
+      "sourceGuid": "e808ae21f1546b147b725d8925327c76",
+      "reviewGuid": "0136dd27064033c7ecd8583a6c4cc6ee",
+      "sourceSha256": "74FCE8F3A1566A5E4EC0D04A6853589322052367E869F6F02033E980DC8A3861",
+      "reviewSha256": "DC4657C1927405DD89168E9F3020626FCEFBA9F2E3520108FD5029C242D35E67"
+    },
+    {
+      "path": "Art/Sprites/floor.png",
+      "sourcePath": "_Project/Art/Sprites/floor.png",
+      "sourceGuid": "79de44c04cf9b524785b8478e936a909",
+      "reviewGuid": "fe384d2874517b4e09d0021c96f9f700",
+      "sourceSha256": "AE561ED7FAC67C7EAFFB25DEA30B2CE404FC1D9F1CA037A12FE48BC63D7AE762",
+      "reviewSha256": "AE561ED7FAC67C7EAFFB25DEA30B2CE404FC1D9F1CA037A12FE48BC63D7AE762"
+    },
+    {
+      "path": "Art/Sprites/Materials/escalator.mat",
+      "sourcePath": "_Project/Art/Sprites/Materials/escalator.mat",
+      "sourceGuid": "a6b35816fc784a649bf63c6f1f17a7cf",
+      "reviewGuid": "2680c5ef861e60804f9d555b40880a6c",
+      "sourceSha256": "5FFD8F6109297D9A2D5308654A83C35305241A9607C451B37B8A7FB774D06A53",
+      "reviewSha256": "B21DAE37064C9C69DFBE26312AB3F1C78A477927F437501AEB20E32196A78EF0"
+    },
+    {
+      "path": "Art/Sprites/Materials/pillar.mat",
+      "sourcePath": "_Project/Art/Sprites/Materials/pillar.mat",
+      "sourceGuid": "16e81323ce788a740988369fecca1f4f",
+      "reviewGuid": "ce45e611e0d532554c46e180519abf97",
+      "sourceSha256": "B9BF08D58026887E60E84DE7A23DD834FC1F98124C37C25DC97C79FB3373C4D4",
+      "reviewSha256": "C7639FC881B063AD72F9781C4F6319F5D218A954BFB59086DA1CAF9FDD71884B"
+    },
+    {
+      "path": "Art/Sprites/pillar.png",
+      "sourcePath": "_Project/Art/Sprites/pillar.png",
+      "sourceGuid": "0f2bc3b27872d754992d474d30cb0ac9",
+      "reviewGuid": "6d241a345a31f426335bb838b2f56033",
+      "sourceSha256": "EE899794B92BD48B17B91ECAE747624E85DEEA0C8168A25F90E478898F6226F8",
+      "reviewSha256": "EE899794B92BD48B17B91ECAE747624E85DEEA0C8168A25F90E478898F6226F8"
+    },
+    {
+      "path": "Art/Sprites/screen_door_fixed.png",
+      "sourcePath": "_Project/Art/Sprites/screen_door_fixed.png",
+      "sourceGuid": "367217b10a153854680b7b515fa0410a",
+      "reviewGuid": "3d780d1e1eb083c507c9765f47808520",
+      "sourceSha256": "242B56044A953398E7A7424EF8E8E15C6539FCF8C697A98A68AC057C86051BE6",
+      "reviewSha256": "242B56044A953398E7A7424EF8E8E15C6539FCF8C697A98A68AC057C86051BE6"
+    },
+    {
+      "path": "Art/Sprites/screen_door_leaf_left.png",
+      "sourcePath": "_Project/Art/Sprites/screen_door_leaf_left.png",
+      "sourceGuid": "93a0fd9ba4f18804fbc16fdf14b82bc6",
+      "reviewGuid": "39aa4cbbc9b6188f5c94fd455002b2a7",
+      "sourceSha256": "8B38FAF4E5976ABB207CFFDBA98C02B3F5AA1AA372C0DB7360A0D817E738EA2E",
+      "reviewSha256": "8B38FAF4E5976ABB207CFFDBA98C02B3F5AA1AA372C0DB7360A0D817E738EA2E"
+    },
+    {
+      "path": "Art/Sprites/screen_door_leaf_right.png",
+      "sourcePath": "_Project/Art/Sprites/screen_door_leaf_right.png",
+      "sourceGuid": "213f048b200936741b9bd381afdf313a",
+      "reviewGuid": "6529d705f2e9903e76f0e83eb4b70d34",
+      "sourceSha256": "781CDD839B5C044C69FE90202FA4E3BEE60395F2677854CD0E13902FFD5B35D1",
+      "reviewSha256": "781CDD839B5C044C69FE90202FA4E3BEE60395F2677854CD0E13902FFD5B35D1"
+    },
+    {
+      "path": "Art/Sprites/subway_door_fixed.png",
+      "sourcePath": "_Project/Art/Sprites/subway_door_fixed.png",
+      "sourceGuid": "71aaad42ba1e6b0438cfb5513c4a0919",
+      "reviewGuid": "8f5775dff0011ba8a2d63330f5b67c02",
+      "sourceSha256": "C8DEAC8BD9B63E66ABB7AB543C1A6B7C2CA34E767D952D8D77F2F50FE4644B2F",
+      "reviewSha256": "C8DEAC8BD9B63E66ABB7AB543C1A6B7C2CA34E767D952D8D77F2F50FE4644B2F"
+    },
+    {
+      "path": "Art/Sprites/subway_door_leaf_left.png",
+      "sourcePath": "_Project/Art/Sprites/subway_door_leaf_left.png",
+      "sourceGuid": "61d55da8813ae0847abc599d3d2ea745",
+      "reviewGuid": "edfb4095d1e05175b3332fcf8b5b84b7",
+      "sourceSha256": "43F6C393157738C8ADA914F22F3E8C7D3CA547AE7104B71DF814FD05E1AF0E5F",
+      "reviewSha256": "43F6C393157738C8ADA914F22F3E8C7D3CA547AE7104B71DF814FD05E1AF0E5F"
+    },
+    {
+      "path": "Art/Sprites/subway_door_leaf_right.png",
+      "sourcePath": "_Project/Art/Sprites/subway_door_leaf_right.png",
+      "sourceGuid": "83b2bbcb8736b4148915f2853fc9fe68",
+      "reviewGuid": "b01ac016303153118921a8b3ecf52904",
+      "sourceSha256": "E68676CE8CA0CFA6F6A1A94663634AB5F9FF4E994AC7ECBF1510277CC6E20661",
+      "reviewSha256": "E68676CE8CA0CFA6F6A1A94663634AB5F9FF4E994AC7ECBF1510277CC6E20661"
+    },
+    {
+      "path": "Art/Sprites/subway_seat.png",
+      "sourcePath": "_Project/Art/Sprites/subway_seat.png",
+      "sourceGuid": "d7e09b09008e4224384492e469c59538",
+      "reviewGuid": "a7a3bf3324589ca487fccac1b9f4c885",
+      "sourceSha256": "4B5FB338646DC64FA01BEFB581D96C2B183DC9FD9E9A862016BF149F8233BC17",
+      "reviewSha256": "4B5FB338646DC64FA01BEFB581D96C2B183DC9FD9E9A862016BF149F8233BC17"
+    },
+    {
+      "path": "Art/Sprites/subway_seat(left).png",
+      "sourcePath": "_Project/Art/Sprites/subway_seat(left).png",
+      "sourceGuid": "4ea0ef97f6c1d2f43a599e7b83c9ebfc",
+      "reviewGuid": "4219f54c6796a7d8ec2e85cf4c11f174",
+      "sourceSha256": "73D0BED772B8D664E81B8C5B1682B761F4DED5461FC9D029B908F73379619409",
+      "reviewSha256": "73D0BED772B8D664E81B8C5B1682B761F4DED5461FC9D029B908F73379619409"
+    },
+    {
+      "path": "Art/Sprites/subway_window.png",
+      "sourcePath": "_Project/Art/Sprites/subway_window.png",
+      "sourceGuid": "4cf8fa4ab533b7047961d25e7c1ed226",
+      "reviewGuid": "be2f12c2b361b89a57a09912fc435782",
+      "sourceSha256": "7A6A6CCD04C8D39A9364E33494F93061FCF0BE311AE3E845147DB6BCAAC37330",
+      "reviewSha256": "7A6A6CCD04C8D39A9364E33494F93061FCF0BE311AE3E845147DB6BCAAC37330"
+    },
+    {
+      "path": "Art/Sprites/tactile_0.asset",
+      "sourcePath": "_Project/Art/Sprites/tactile_0.asset",
+      "sourceGuid": "145c257f42440ac44ad737f21bdae869",
+      "reviewGuid": "6cecb81491c94721df392fe2d2d27bc2",
+      "sourceSha256": "4C20A746DCF59AA60150953F83BD1E879E15AE11044E3D4EF1A480A42C749127",
+      "reviewSha256": "51F6F0704B66605661F44C2D0A3293C31099B1ED38B032CE5B7E1F893DEDA024"
+    },
+    {
+      "path": "Art/Sprites/tactile.png",
+      "sourcePath": "_Project/Art/Sprites/tactile.png",
+      "sourceGuid": "1ad87ff053d908044aa15029558b2311",
+      "reviewGuid": "d5e41216b082283016f8cfe7cbe52bf7",
+      "sourceSha256": "67750A4EA2A5527BCA00BD504DA43392302E5F9583A48EEFB876ECD7EAF83E51",
+      "reviewSha256": "67750A4EA2A5527BCA00BD504DA43392302E5F9583A48EEFB876ECD7EAF83E51"
+    },
+    {
+      "path": "Art/Sprites/vending.png",
+      "sourcePath": "_Project/Art/Sprites/vending.png",
+      "sourceGuid": "7b989abf1c6d607488e84e5eebbe3d29",
+      "reviewGuid": "d9c9c8843080ea4112ed88b94e5699e2",
+      "sourceSha256": "5D3FFC395E3F81F4E3D0BEAABB1FB8C86F42BBA1B68742E9F5AAF87291DDA3A6",
+      "reviewSha256": "5D3FFC395E3F81F4E3D0BEAABB1FB8C86F42BBA1B68742E9F5AAF87291DDA3A6"
+    },
+    {
+      "path": "Prefabs/Screen_door.prefab",
+      "sourcePath": "_Project/Prefabs/Screen_door.prefab",
+      "sourceGuid": "3b447362faaf90b4f8aadce3ec53be68",
+      "reviewGuid": "98e0400db6e7ed05de6e31c0e3acae43",
+      "sourceSha256": "EB7B17D17FDBD6E5396F49C84D3CDF0F6A35231E89E4BDFBF23E6C509B38D30F",
+      "reviewSha256": "F13A52A1ADDAD27EF3E9259639205D987DC0E25BFBDFF1921755EE2438160F5B"
+    },
+    {
+      "path": "Prefabs/Subway_door.prefab",
+      "sourcePath": "_Project/Prefabs/Subway_door.prefab",
+      "sourceGuid": "e2d304b0d723f524e8428af75543433e",
+      "reviewGuid": "6f7babc4538a55f8f84555f65071a5e6",
+      "sourceSha256": "A2D71EADAC3EDC2194A174EFE7B88770914B3C6A329CA1BB46C75FF7C5507669",
+      "reviewSha256": "EA25C03A1D15B8776E1B99EB4390F617EA082BC126BCA00419E5C9C7C2460BB8"
+    },
+    {
+      "path": "Scenes/GachonUniv.unity",
+      "sourcePath": "_Project/Scenes/GachonUniv.unity",
+      "sourceGuid": "8125dee6282cf4546aeb30e685d088ab",
+      "reviewGuid": "2cfffd84753c856b85221e3217a16c39",
+      "sourceSha256": "9D7AD58F29A167F974F41447D4F45EE9FAD77AC3E0513387324079D0A5EFF4DC",
+      "reviewSha256": "B27777D214818B69651F53FC0F2A867EADC355203AD431FD0336F68948AC52C9"
+    },
+    {
+      "path": "Scenes/Subway.unity",
+      "sourcePath": "_Project/Scenes/Subway.unity",
+      "sourceGuid": "10ef75227786c80469c44467a428f8bf",
+      "reviewGuid": "f00f07b2f6f4d6ff5d8ffbd535488a39",
+      "sourceSha256": "0474AA465861E53A0B5F43A4DA1ED2D52BAB746B867C42A3DB9B4EB20583F6F8",
+      "reviewSha256": "1718B166BAE41A4B6F792761FFA43A7F7E555F3E7EDFE581F887795D307FCCED"
+    },
+    {
+      "path": "Scenes/Wangsimni.unity",
+      "sourcePath": "_Project/Scenes/Wangsimni.unity",
+      "sourceGuid": "0c55cf19fef92e5489953e0444618e31",
+      "reviewGuid": "13bcf0b298af888a0fb62f3846ad62fe",
+      "sourceSha256": "225E1D06867F98B39BD5E184801B9BF530683D8A5F4A2EB3BDD3767F7CD73796",
+      "reviewSha256": "3ECDE6769D1F2EAB8425C135FA439B46E29CF07C1D8F8FBB4ADD3BE1243C1F86"
+    }
+  ]
+}

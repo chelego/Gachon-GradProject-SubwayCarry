@@ -18,6 +18,7 @@
 
 ## 문서
 
+- [버티컬 슬라이스 실행 안내](docs/VERTICAL_SLICE.md)
 - [게임 기획서](docs/GAME_DESIGN.md)
 - [개발 작업 분해](docs/DEVELOPMENT_BREAKDOWN.md)
 - [프로젝트 구조](docs/PROJECT_STRUCTURE.md)

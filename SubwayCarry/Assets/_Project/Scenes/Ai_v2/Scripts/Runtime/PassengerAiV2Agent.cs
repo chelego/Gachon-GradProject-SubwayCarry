@@ -66,6 +66,11 @@ namespace SubwayCarry.AI.V2
         private bool autoLoop = true;
         private bool holdPosition;
         private bool emergentCorridorFlowEnabled;
+        // Opt-in integration hooks. Existing 01-06 scenarios keep their original motor.
+        private System.Func<Vector2, Vector2, Vector2> steeringTargetResolver;
+        private System.Func<Vector2, Vector2, float, Vector2> movementConstraint;
+        private Transform externalMotionSource;
+        private Vector2 previousExternalPosition;
 
         public Vector2 Position => body != null ? body.position : (Vector2)transform.position;
         public Vector2 Velocity => velocity;
@@ -74,6 +79,8 @@ namespace SubwayCarry.AI.V2
         {
             get
             {
+                if (externalMotionSource != null)
+                    return velocity.sqrMagnitude > 0.001f ? velocity.normalized : lastTravelDirection;
                 Vector2 direction = movementTarget - Position;
                 return direction.sqrMagnitude > 0.001f ? direction.normalized : lastTravelDirection;
             }
@@ -152,6 +159,30 @@ namespace SubwayCarry.AI.V2
         public void SetAutoLoop(bool enabled)
         {
             autoLoop = enabled;
+        }
+
+        public void ConfigureMovementSpace(
+            System.Func<Vector2, Vector2, Vector2> resolveSteeringTarget,
+            System.Func<Vector2, Vector2, float, Vector2> constrainMove,
+            float worldRadius)
+        {
+            steeringTargetResolver = resolveSteeringTarget;
+            movementConstraint = constrainMove;
+            bodyRadius = Mathf.Max(0.1f, worldRadius);
+        }
+
+        // A non-rendered participant lets the existing spatial hash perceive a human-controlled player.
+        public void FollowExternalMotion(Transform source, float worldRadius)
+        {
+            externalMotionSource = source;
+            bodyRadius = Mathf.Max(0.1f, worldRadius);
+            previousExternalPosition = source.position;
+            body.position = previousExternalPosition;
+            velocity = desiredVelocity = Vector2.zero;
+            bodyRenderer.enabled = false;
+            GetComponent<CircleCollider2D>().enabled = false;
+            if (facingMarker != null) facingMarker.gameObject.SetActive(false);
+            autoLoop = false;
         }
 
         public void SetMovementBounds(Rect bounds)
@@ -243,7 +274,7 @@ namespace SubwayCarry.AI.V2
 
         private void Update()
         {
-            if (crowdManager == null || holdPosition || Time.time < nextPerceptionTime)
+            if (externalMotionSource != null || crowdManager == null || holdPosition || Time.time < nextPerceptionTime)
             {
                 return;
             }
@@ -260,10 +291,27 @@ namespace SubwayCarry.AI.V2
                 return;
             }
 
+            if (externalMotionSource != null)
+            {
+                Vector2 position = externalMotionSource.position;
+                Vector2 measured = (position - previousExternalPosition) / Mathf.Max(0.001f, Time.fixedDeltaTime);
+                velocity = measured.sqrMagnitude > 100f ? Vector2.zero : measured;
+                previousExternalPosition = position;
+                body.position = position;
+                movementTarget = position + velocity;
+                if (velocity.sqrMagnitude > 0.001f) lastTravelDirection = velocity.normalized;
+                return;
+            }
+
             velocity = Vector2.MoveTowards(velocity, desiredVelocity, acceleration * Time.fixedDeltaTime);
             Vector2 next = body.position + velocity * Time.fixedDeltaTime;
             next.x = Mathf.Clamp(next.x, movementBounds.xMin + bodyRadius, movementBounds.xMax - bodyRadius);
             next.y = Mathf.Clamp(next.y, movementBounds.yMin + bodyRadius, movementBounds.yMax - bodyRadius);
+            if (movementConstraint != null)
+            {
+                next = movementConstraint(body.position, next, bodyRadius);
+                velocity = (next - body.position) / Mathf.Max(0.001f, Time.fixedDeltaTime);
+            }
             body.MovePosition(next);
 
             if (facingMarker != null && velocity.sqrMagnitude > 0.01f)
@@ -307,7 +355,9 @@ namespace SubwayCarry.AI.V2
         private void EvaluateSocialVelocity()
         {
             Vector2 position = body.position;
-            Vector2 toTarget = movementTarget - position;
+            Vector2 steeringTarget = steeringTargetResolver != null
+                ? steeringTargetResolver(position, movementTarget) : movementTarget;
+            Vector2 toTarget = steeringTarget - position;
             if (toTarget.sqrMagnitude <= 0.001f)
             {
                 desiredVelocity = Vector2.zero;
