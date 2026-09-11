@@ -27,9 +27,23 @@ namespace SubwayCarry.Prototype.Editor
             "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_CarryingPose_8Dir_IdleWalk_v1.png";
         private const string CakePackageSpriteSheetPath =
             "Assets/_Project/Art/Concepts/Characters/SubwayCarry_CakePackage_8Dir_IdleWalk_v1.png";
+        private const string PlayerSittingSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_Sitting_FrontBack_v1.png";
+        private const string CakePackageSittingSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_CakePackage_Sitting_FrontBack_v1.png";
+        private const string PlayerFallenSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_Fallen_FrontBack_5Frame_v1.png";
+        private const string CakePackageFallenSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_CakePackage_Fallen_FrontBack_5Frame_v1.png";
+        private const string PlayerFallenSideSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_Fallen_LeftRight_5Frame_v1.png";
+        private const string CakePackageFallenSideSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_CakePackage_Fallen_LeftRight_5Frame_v1.png";
 
         private const int PlayerDirectionCount = 8;
         private const int PlayerWalkFrameCount = 3;
+        private const int PlayerFallenDirectionCount = 4;
+        private const int PlayerFallenFrameCount = 5;
 
         private static readonly string[] PlayerDirectionNames =
         {
@@ -41,6 +55,14 @@ namespace SubwayCarry.Prototype.Editor
             "NorthEast",
             "East",
             "SouthEast"
+        };
+
+        private static readonly string[] PlayerFallenDirectionNames =
+        {
+            "South",
+            "West",
+            "North",
+            "East"
         };
 
         private const float HubCenterX = -120f;
@@ -218,7 +240,7 @@ namespace SubwayCarry.Prototype.Editor
             Debug.Log("[Gameplay Flow Prototype] Scene validation passed.");
         }
 
-        [MenuItem("SubwayCarry/Prototype/Apply Player 8-Direction Sprites")]
+        [MenuItem("SubwayCarry/Prototype/Apply Player Walking + Posture Sprites")]
         public static void ApplyPlayerSpritesToSavedScene()
         {
             Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
@@ -243,7 +265,7 @@ namespace SubwayCarry.Prototype.Editor
             EditorSceneManager.SaveScene(scene, ScenePath);
             ValidateScene(scene);
             Debug.Log(
-                "[Gameplay Flow Prototype] Applied player 8-direction sprites.");
+                "[Gameplay Flow Prototype] Applied player walking and posture sprites.");
         }
 
         private static PlayerBuildData CreatePlayer(
@@ -336,6 +358,18 @@ namespace SubwayCarry.Prototype.Editor
                 LoadPlayerSprites(PlayerCarryingPoseSpriteSheetPath, expectedSpriteCount);
             IReadOnlyDictionary<string, Sprite> packageSpritesByName =
                 LoadPlayerSprites(CakePackageSpriteSheetPath, expectedSpriteCount);
+            IReadOnlyDictionary<string, Sprite> sittingBodySpritesByName =
+                LoadPlayerSprites(PlayerSittingSpriteSheetPath, 2);
+            IReadOnlyDictionary<string, Sprite> sittingPackageSpritesByName =
+                LoadPlayerSprites(CakePackageSittingSpriteSheetPath, 2);
+            IReadOnlyDictionary<string, Sprite> fallenBodyFrontBackSpritesByName =
+                LoadPlayerSprites(PlayerFallenSpriteSheetPath, 2 * PlayerFallenFrameCount);
+            IReadOnlyDictionary<string, Sprite> fallenPackageFrontBackSpritesByName =
+                LoadPlayerSprites(CakePackageFallenSpriteSheetPath, 2 * PlayerFallenFrameCount);
+            IReadOnlyDictionary<string, Sprite> fallenBodySideSpritesByName =
+                LoadPlayerSprites(PlayerFallenSideSpriteSheetPath, 2 * PlayerFallenFrameCount);
+            IReadOnlyDictionary<string, Sprite> fallenPackageSideSpritesByName =
+                LoadPlayerSprites(CakePackageFallenSideSpriteSheetPath, 2 * PlayerFallenFrameCount);
 
             var idleSprites = new Sprite[PlayerDirectionCount];
             var walkSprites =
@@ -346,6 +380,48 @@ namespace SubwayCarry.Prototype.Editor
             var packageIdleSprites = new Sprite[PlayerDirectionCount];
             var packageWalkSprites =
                 new Sprite[PlayerDirectionCount * PlayerWalkFrameCount];
+            var sittingBodySprites = new[]
+            {
+                GetRequiredPlayerSprite(
+                    sittingBodySpritesByName,
+                    "Player_Sitting_South"),
+                GetRequiredPlayerSprite(
+                    sittingBodySpritesByName,
+                    "Player_Sitting_North")
+            };
+            var sittingPackageSprites = new[]
+            {
+                GetRequiredPlayerSprite(
+                    sittingPackageSpritesByName,
+                    "CakePackage_Sitting_South"),
+                GetRequiredPlayerSprite(
+                    sittingPackageSpritesByName,
+                    "CakePackage_Sitting_North")
+            };
+            var fallenBodySprites =
+                new Sprite[PlayerFallenDirectionCount * PlayerFallenFrameCount];
+            var fallenPackageSprites =
+                new Sprite[PlayerFallenDirectionCount * PlayerFallenFrameCount];
+            for (int direction = 0; direction < PlayerFallenDirectionNames.Length; direction++)
+            {
+                bool usesSideSheet = direction == 1 || direction == 3;
+                IReadOnlyDictionary<string, Sprite> bodySource = usesSideSheet
+                    ? fallenBodySideSpritesByName
+                    : fallenBodyFrontBackSpritesByName;
+                IReadOnlyDictionary<string, Sprite> packageSource = usesSideSheet
+                    ? fallenPackageSideSpritesByName
+                    : fallenPackageFrontBackSpritesByName;
+                for (int frame = 0; frame < PlayerFallenFrameCount; frame++)
+                {
+                    int spriteIndex = direction * PlayerFallenFrameCount + frame;
+                    fallenBodySprites[spriteIndex] = GetRequiredPlayerSprite(
+                        bodySource,
+                        $"Player_Fallen_{PlayerFallenDirectionNames[direction]}_{frame}");
+                    fallenPackageSprites[spriteIndex] = GetRequiredPlayerSprite(
+                        packageSource,
+                        $"CakePackage_Fallen_{PlayerFallenDirectionNames[direction]}_{frame}");
+                }
+            }
             for (int direction = 0; direction < PlayerDirectionCount; direction++)
             {
                 idleSprites[direction] = GetRequiredPlayerSprite(
@@ -439,8 +515,15 @@ namespace SubwayCarry.Prototype.Editor
                 carryingWalkSprites,
                 packageIdleSprites,
                 packageWalkSprites,
+                sittingBodySprites,
+                sittingPackageSprites,
                 PlayerWalkFrameCount,
                 8f);
+            animator.ConfigureFallenSprites(
+                fallenBodySprites,
+                fallenPackageSprites,
+                PlayerFallenFrameCount,
+                9f);
         }
 
         private static IReadOnlyDictionary<string, Sprite> LoadPlayerSprites(
@@ -476,6 +559,19 @@ namespace SubwayCarry.Prototype.Editor
             string spriteName = row == 0
                 ? $"{spritePrefix}_{PlayerDirectionNames[direction]}_Idle"
                 : $"{spritePrefix}_{PlayerDirectionNames[direction]}_Walk_{row - 1}";
+            if (!spritesByName.TryGetValue(spriteName, out Sprite sprite))
+            {
+                throw new InvalidOperationException(
+                    "Player sprite is missing: " + spriteName);
+            }
+
+            return sprite;
+        }
+
+        private static Sprite GetRequiredPlayerSprite(
+            IReadOnlyDictionary<string, Sprite> spritesByName,
+            string spriteName)
+        {
             if (!spritesByName.TryGetValue(spriteName, out Sprite sprite))
             {
                 throw new InvalidOperationException(
@@ -1673,7 +1769,7 @@ namespace SubwayCarry.Prototype.Editor
             }
             if (playerSpriteAnimator == null || !playerSpriteAnimator.IsConfigured)
             {
-                errors.Add("player 8-direction sprite animator is missing or not configured");
+                errors.Add("player walking/posture sprite animator is missing or not configured");
             }
             if (player != null && player.GetComponent<MeshRenderer>()?.enabled == true)
             {

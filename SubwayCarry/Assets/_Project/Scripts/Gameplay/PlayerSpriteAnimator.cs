@@ -1,3 +1,4 @@
+using SubwayCarry.Core.Contracts;
 using UnityEngine;
 
 namespace SubwayCarry.Gameplay
@@ -7,6 +8,7 @@ namespace SubwayCarry.Gameplay
     public sealed class PlayerSpriteAnimator : MonoBehaviour
     {
         private const int DirectionCount = 8;
+        private const int FallenDirectionCount = 4;
 
         [Header("References")]
         [SerializeField] private PlayerController controller;
@@ -29,15 +31,30 @@ namespace SubwayCarry.Gameplay
         [SerializeField] private Sprite[] packageIdleSprites = new Sprite[DirectionCount];
         [SerializeField] private Sprite[] packageWalkSprites = new Sprite[DirectionCount * 3];
 
+        [Header("Sprites - Sitting (Front, Back)")]
+        [Tooltip("South/front and North/back. Side and diagonal facing use the nearest of these two views.")]
+        [SerializeField] private Sprite[] sittingBodySprites = new Sprite[2];
+        [SerializeField] private Sprite[] sittingPackageSprites = new Sprite[2];
+
+        [Header("Sprites - Fallen (South, West, North, East)")]
+        [Tooltip("Direction-major order. Each cardinal direction contains fallenFramesPerDirection consecutive frames.")]
+        [SerializeField] private Sprite[] fallenBodySprites = new Sprite[FallenDirectionCount * 5];
+        [SerializeField] private Sprite[] fallenPackageSprites = new Sprite[FallenDirectionCount * 5];
+
         [Header("Playback")]
         [SerializeField, Min(1)] private int walkFramesPerDirection = 3;
         [SerializeField, Min(0.1f)] private float walkFramesPerSecond = 8f;
+        [SerializeField, Min(1)] private int fallenFramesPerDirection = 5;
+        [SerializeField, Min(0.1f)] private float fallenFramesPerSecond = 9f;
         [SerializeField] private bool useMovementDirectionWhileMoving = true;
 
         private float walkElapsed;
+        private float fallenElapsed;
         private bool wasMoving;
+        private bool wasFallen;
         private bool wasCarryingPackage;
         private int previousDirectionIndex = -1;
+        private int lockedFallenDirectionIndex = -1;
 
         private void Awake()
         {
@@ -86,6 +103,60 @@ namespace SubwayCarry.Gameplay
                 ? controller.MoveInput
                 : controller.FacingDirection;
             int directionIndex = GetDirectionIndex(direction);
+
+            if (posture != null && posture.CurrentState == CarryPosture.Fallen)
+            {
+                walkElapsed = 0f;
+                if (!wasFallen)
+                {
+                    fallenElapsed = 0f;
+                    lockedFallenDirectionIndex = directionIndex;
+                }
+                else
+                {
+                    fallenElapsed += Time.deltaTime;
+                }
+
+                int fallenDirectionIndex =
+                    GetFallenDirectionIndex(lockedFallenDirectionIndex);
+                int fallenFrameIndex = Mathf.Clamp(
+                    Mathf.FloorToInt(fallenElapsed * fallenFramesPerSecond),
+                    0,
+                    Mathf.Max(0, fallenFramesPerDirection - 1));
+                SetSprites(
+                    GetFallenBodySprite(
+                        fallenDirectionIndex,
+                        fallenFrameIndex,
+                        lockedFallenDirectionIndex,
+                        isCarryingPackage),
+                    isCarryingPackage
+                        ? GetFallenPackageSprite(fallenDirectionIndex, fallenFrameIndex)
+                        : null,
+                    lockedFallenDirectionIndex);
+                wasFallen = true;
+                wasMoving = false;
+                wasCarryingPackage = isCarryingPackage;
+                previousDirectionIndex = lockedFallenDirectionIndex;
+                return;
+            }
+
+            wasFallen = false;
+            fallenElapsed = 0f;
+            lockedFallenDirectionIndex = -1;
+
+            if (posture != null && posture.CurrentState == CarryPosture.Sitting)
+            {
+                walkElapsed = 0f;
+                int sittingDirectionIndex = GetSittingDirectionIndex(directionIndex);
+                SetSprites(
+                    GetSittingBodySprite(sittingDirectionIndex, directionIndex, isCarryingPackage),
+                    isCarryingPackage ? GetSittingPackageSprite(sittingDirectionIndex) : null,
+                    directionIndex);
+                wasMoving = false;
+                wasCarryingPackage = isCarryingPackage;
+                previousDirectionIndex = directionIndex;
+                return;
+            }
 
             if (!isMoving)
             {
@@ -192,6 +263,59 @@ namespace SubwayCarry.Gameplay
                 : null;
         }
 
+        private Sprite GetSittingBodySprite(
+            int sittingDirectionIndex,
+            int directionIndex,
+            bool isCarryingPackage)
+        {
+            if (sittingBodySprites != null &&
+                sittingDirectionIndex < sittingBodySprites.Length &&
+                sittingBodySprites[sittingDirectionIndex] != null)
+            {
+                return sittingBodySprites[sittingDirectionIndex];
+            }
+
+            return GetIdleSprite(directionIndex, isCarryingPackage);
+        }
+
+        private Sprite GetSittingPackageSprite(int sittingDirectionIndex)
+        {
+            return sittingPackageSprites != null &&
+                sittingDirectionIndex < sittingPackageSprites.Length
+                ? sittingPackageSprites[sittingDirectionIndex]
+                : null;
+        }
+
+        private Sprite GetFallenBodySprite(
+            int fallenDirectionIndex,
+            int frameIndex,
+            int directionIndex,
+            bool isCarryingPackage)
+        {
+            int spriteIndex = fallenDirectionIndex * fallenFramesPerDirection + frameIndex;
+            if (fallenFramesPerDirection > 0 &&
+                fallenBodySprites != null &&
+                spriteIndex >= 0 &&
+                spriteIndex < fallenBodySprites.Length &&
+                fallenBodySprites[spriteIndex] != null)
+            {
+                return fallenBodySprites[spriteIndex];
+            }
+
+            return GetIdleSprite(directionIndex, isCarryingPackage);
+        }
+
+        private Sprite GetFallenPackageSprite(int fallenDirectionIndex, int frameIndex)
+        {
+            int spriteIndex = fallenDirectionIndex * fallenFramesPerDirection + frameIndex;
+            return fallenFramesPerDirection > 0 &&
+                fallenPackageSprites != null &&
+                spriteIndex >= 0 &&
+                spriteIndex < fallenPackageSprites.Length
+                    ? fallenPackageSprites[spriteIndex]
+                    : null;
+        }
+
         private void SetSprites(Sprite bodySprite, Sprite packageSprite, int directionIndex)
         {
             SetSprite(bodySprite);
@@ -253,6 +377,16 @@ namespace SubwayCarry.Gameplay
         private static bool IsPackageBehindPlayer(int directionIndex)
         {
             return directionIndex >= 3 && directionIndex <= 5;
+        }
+
+        internal static int GetSittingDirectionIndex(int directionIndex)
+        {
+            return IsPackageBehindPlayer(directionIndex) ? 1 : 0;
+        }
+
+        internal static int GetFallenDirectionIndex(int directionIndex)
+        {
+            return ((directionIndex + 1) / 2) % FallenDirectionCount;
         }
 
         internal static int GetDirectionIndex(Vector2 direction)

@@ -148,14 +148,45 @@ event Action<StaminaStateSnapshot> StaminaStateChanged;
 - `Down`
 - `Right`
 
+### `BalanceInputAxis`
+
+- `None`
+- `Horizontal`
+- `Vertical`
+
+### `BalanceChallengePattern`
+
+- `None`
+- `CounterTap`
+- `CenterGauge`
+- `ImpactTiming`
+
+현재 1차 구현은 열차 관성의 반대 방향을 제한시간 안에 반복 입력하는 `CounterTap`을 사용한다. 나머지 패턴은 같은 상태 계약과 HUD를 재사용해 순차 구현한다.
+
+### `BalanceChallengePhase`
+
+- `Inactive`
+- `Warning`
+- `Active`
+- `Succeeded`
+- `Failed`
+- `Cancelled`
+
 ### `BalanceStateSnapshot`
 
 | 값 | 내용 |
 | --- | --- |
 | `SequenceId` | 같은 균형 이벤트를 구분하는 번호 |
-| `IsActive` | 균형잡기 진행 여부 |
+| `Pattern` | 현재 중심잡기 패턴 |
+| `Phase` | 예고, 입력, 성공, 실패 또는 취소 상태 |
+| `IsActive` | 예고 또는 입력 진행 여부 |
+| `InputAxis` | 게이지 조작에 사용하는 수평 또는 수직 축 |
 | `RequiredInput` | 현재 요구 방향 |
 | `RemainingSeconds` | 입력 제한시간 |
+| `Progress` | 현재 성공 게이지 0~1 |
+| `IndicatorValue` | 중심 또는 타이밍 표시 위치 -1~1 |
+| `TargetValue` | 안전 구간의 중심 위치 -1~1 |
+| `SafeZoneHalfWidth` | 안전 구간의 반너비 |
 | `HasFailed` | 실패 확정 여부 |
 
 ### `IBalanceStateProvider`
@@ -165,7 +196,14 @@ BalanceStateSnapshot CurrentBalanceState { get; }
 event Action<BalanceStateSnapshot> BalanceStateChanged;
 ```
 
-열차 움직임은 `ITrainMotionProvider`로 전달하고 균형 시스템이 요구 입력을 결정한다. UI는 `W!`, `A!`, `S!`, `D!` 표시와 남은 시간을 갱신한다. 실패 시 넘어짐과 운반물 피해는 Gameplay에서 처리한다.
+### `IPlayerBalanceParticipant`
+
+```csharp
+CarryPosture CurrentBalancePosture { get; }
+void FallFromBalance();
+```
+
+열차 움직임은 `ITrainMotionProvider`로 전달하고 균형 시스템이 관성의 반대 방향을 요구 입력으로 결정한다. `CounterTap`은 정답 방향을 연타해 게이지를 채우고, `CenterGauge`는 한 축의 두 방향키로 표시를 중앙에 유지하며, `ImpactTiming`은 표시가 안전 구간에 들어왔을 때 정답 방향을 누른다. 잘못 누른 입력은 진행도 감소나 안전 구간 축소로 처리하고 즉시 실패시키지 않는다. 실패 시 `IPlayerBalanceParticipant`로 넘어짐을 요청하고 운반물에는 한 번만 충격을 전달한다. 중심잡기 진행 중에는 같은 WASD가 플레이어 이동에 함께 적용되지 않는다.
 
 ## 케이크 충돌과 내구도
 

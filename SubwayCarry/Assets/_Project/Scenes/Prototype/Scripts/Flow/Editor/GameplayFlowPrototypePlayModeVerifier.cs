@@ -128,6 +128,7 @@ namespace SubwayCarry.Prototype.Editor
                         return;
                     }
 
+                    flow.SetBalanceChallengesEnabled(false);
                     InvokePrivate(flow, "FinishTutorial");
                     RequireStage(flow, PrototypeFlowStage.GachonHub);
                     RequireCameraStartsAtScreenEdge();

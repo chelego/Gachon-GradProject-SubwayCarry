@@ -1625,7 +1625,7 @@ TextMesh:
     6 Depart  7 Speed Change  8
     Arrive  9 Emergency Brake
 
-    Balance: follow W/A/S/D prompt in Inspector
+    Balance: follow the on-screen QTE HUD
 
     Delivery:
     DeliveryIntegration > DeliveryService > Debug Start 1-1'

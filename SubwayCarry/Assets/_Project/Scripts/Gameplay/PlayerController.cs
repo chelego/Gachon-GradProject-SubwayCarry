@@ -14,6 +14,7 @@ namespace SubwayCarry.Gameplay
 
         private Rigidbody2D body;
         private PlayerPosture posture;
+        private PlayerBalance balance;
         private Vector2 moveInput;
 
         public Vector2 FacingDirection { get; private set; } = Vector2.down;
@@ -23,6 +24,7 @@ namespace SubwayCarry.Gameplay
         {
             body = GetComponent<Rigidbody2D>();
             posture = GetComponent<PlayerPosture>();
+            balance = GetComponent<PlayerBalance>();
 
             body.gravityScale = 0f;
             body.freezeRotation = true;
@@ -42,7 +44,8 @@ namespace SubwayCarry.Gameplay
 
         private void FixedUpdate()
         {
-            if (!posture.CanMove)
+            if (!posture.CanMove ||
+                (balance != null && balance.ConsumesMovementInput))
             {
                 return;
             }
@@ -53,7 +56,8 @@ namespace SubwayCarry.Gameplay
         private void ReadMovementInput()
         {
             moveInput = Vector2.zero;
-            if (Keyboard.current == null)
+            if (Keyboard.current == null ||
+                (balance != null && balance.ConsumesMovementInput))
             {
                 return;
             }
@@ -83,7 +87,9 @@ namespace SubwayCarry.Gameplay
 
         private void UpdateFacingDirection()
         {
-            if (facingCamera == null || Mouse.current == null)
+            if ((posture != null && posture.CurrentState == CarryPosture.Fallen) ||
+                facingCamera == null ||
+                Mouse.current == null)
             {
                 return;
             }

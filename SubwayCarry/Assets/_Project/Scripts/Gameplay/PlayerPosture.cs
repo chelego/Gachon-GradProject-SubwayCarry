@@ -5,7 +5,8 @@ using UnityEngine;
 namespace SubwayCarry.Gameplay
 {
     [DisallowMultipleComponent]
-    public sealed class PlayerPosture : MonoBehaviour, IPlayerCarryStateProvider, IStaminaStateProvider
+    public sealed class PlayerPosture : MonoBehaviour, IPlayerCarryStateProvider,
+        IStaminaStateProvider, IPlayerBalanceParticipant
     {
         [SerializeField] private float leaningTransitionTime = 0.3f;
         [SerializeField] private float sittingTransitionTime = 0.4f;
@@ -30,6 +31,8 @@ namespace SubwayCarry.Gameplay
         public float StaminaRatio => maxStamina <= 0f ? 0f : currentStamina / maxStamina;
 
         public CarryPosture CurrentState => currentState;
+
+        public CarryPosture CurrentBalancePosture => currentState;
 
         public PlayerCarryStateSnapshot CurrentCarryState => new PlayerCarryStateSnapshot(
             currentState,
@@ -76,6 +79,11 @@ namespace SubwayCarry.Gameplay
             targetState = CarryPosture.Fallen;
             fallenTimer = fallenRecoveryTime;
             NotifyCarryStateChanged();
+        }
+
+        public void FallFromBalance()
+        {
+            Fall();
         }
 
         private void Awake()

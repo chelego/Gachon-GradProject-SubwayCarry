@@ -5,7 +5,10 @@ using SubwayCarry.Core.Contracts;
 using SubwayCarry.Prototype.Delivery;
 using SubwayCarry.Prototype.Delivery.Mocks;
 using SubwayCarry.Prototype.Gameplay;
+using SubwayCarry.UI;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using RuntimePlayerBalance = SubwayCarry.Gameplay.PlayerBalance;
 
 namespace SubwayCarry.Prototype
 {
@@ -17,7 +20,8 @@ namespace SubwayCarry.Prototype
             "방학 동안 다음 학기 학비를 마련해야 한다.\n가천대학교 배달 앱의 첫 배송 튜토리얼.",
             "WASD로 이동하고 마우스 방향을 바라본다.\n가까운 시설은 E키로 상호작용한다.",
             "배송을 선택한 뒤 긴 개찰구에서 E키로 교통카드를 찍는다.\n카드를 찍기 전에는 개찰구 통로를 지나갈 수 없다.",
-            "개찰구 뒤의 2열 에스컬레이터와 전용 통로를 지나 승강장으로 간다.\n열차가 들어와 정차하고 문이 열리면 직접 탑승한다."
+            "개찰구 뒤의 2열 에스컬레이터와 전용 통로를 지나 승강장으로 간다.\n열차가 들어와 정차하고 문이 열리면 직접 탑승한다.",
+            "열차가 흔들리면 화면의 중심잡기 안내를 따른다.\n이때 WASD는 이동 대신 반대 방향 버티기나 중심 조절에 사용된다."
         };
 
         [Header("Player")]
@@ -53,6 +57,7 @@ namespace SubwayCarry.Prototype
         [SerializeField, Min(0f)] private float platformTrainWaitDuration = 1.5f;
         [SerializeField, Min(0f)] private float boardingOpenGraceDuration = 6f;
         [SerializeField, Min(1f)] private float rideDuration = 8f;
+        [SerializeField] private bool enableBalanceChallenges = true;
 
         private PrototypeFlowStage stage;
         private PrototypeInteractable nearbyInteraction;
@@ -71,6 +76,10 @@ namespace SubwayCarry.Prototype
         private float rideRemaining;
         private float fadeAlpha;
         private int tutorialPage;
+        private bool midRideBalanceEmitted;
+
+        private RuntimePlayerBalance playerBalance;
+        private PrototypeTrainMotionProvider trainMotionProvider;
 
         private Font uiFont;
         private GUIStyle panelStyle;
@@ -82,6 +91,15 @@ namespace SubwayCarry.Prototype
         private GUIStyle hudSmallStyle;
 
         public PrototypeFlowStage CurrentStage => stage;
+
+        public void SetBalanceChallengesEnabled(bool enabled)
+        {
+            enableBalanceChallenges = enabled;
+            if (!enabled)
+            {
+                playerBalance?.CancelCurrentChallenge();
+            }
+        }
 
         public void Configure(
             PlayerController controller,
@@ -353,6 +371,7 @@ namespace SubwayCarry.Prototype
         private void Awake()
         {
             ResolvePlayerSpriteAnimator();
+            EnsureBalanceSystem();
             uiFont = Font.CreateDynamicFontFromOSFont(
                 new[] { "Malgun Gothic", "맑은 고딕", "Arial" },
                 24);
@@ -374,6 +393,7 @@ namespace SubwayCarry.Prototype
             departureTrainArrivalStarted = false;
             destinationGateOpen = false;
             boardingGraceRemaining = 0f;
+            midRideBalanceEmitted = false;
             SetDoorsOpen(departureDoors, false);
             SetDoorsOpen(destinationDoors, false);
             SetBlockerActive(departureGateBlocker, true);
@@ -400,8 +420,35 @@ namespace SubwayCarry.Prototype
                 return;
             }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (enableBalanceChallenges && playerBalance != null &&
+                !playerBalance.IsActive && Keyboard.current != null &&
+                Keyboard.current.digit9Key.wasPressedThisFrame)
+            {
+                trainMotionProvider?.Emit(
+                    TrainMotionPhase.EmergencyBraking,
+                    Vector2.up,
+                    1.5f);
+            }
+#endif
+
             rideRemaining = Mathf.Max(0f, rideRemaining - Time.deltaTime);
-            if (rideRemaining <= 0f)
+            if (enableBalanceChallenges && !midRideBalanceEmitted &&
+                rideRemaining <= rideDuration * 0.5f &&
+                playerBalance != null && !playerBalance.IsActive &&
+                playerPosture != null &&
+                (playerPosture.CurrentState == PostureState.Standing ||
+                 playerPosture.CurrentState == PostureState.OverheadCarry))
+            {
+                midRideBalanceEmitted = true;
+                trainMotionProvider?.Emit(
+                    TrainMotionPhase.SpeedChanging,
+                    Vector2.right,
+                    1f);
+            }
+
+            if (rideRemaining <= 0f &&
+                (playerBalance == null || !playerBalance.IsActive))
             {
                 StartCoroutine(ArriveAtDestination());
             }
@@ -421,6 +468,8 @@ namespace SubwayCarry.Prototype
             departureTrainReady = false;
             departureTrainArrivalStarted = false;
             destinationGateOpen = false;
+            midRideBalanceEmitted = false;
+            playerBalance?.CancelCurrentChallenge();
             SetDoorsOpen(destinationDoors, false);
             SetDoorsOpen(departureDoors, false);
             SetBlockerActive(departureGateBlocker, false);
@@ -497,15 +546,28 @@ namespace SubwayCarry.Prototype
             yield return new WaitForSecondsRealtime(0.25f);
             stage = PrototypeFlowStage.TrainRide;
             rideRemaining = rideDuration;
+            midRideBalanceEmitted = false;
             yield return FadeTo(0f, 0.65f);
 
             transitioning = false;
             RefreshPlayerControl();
             ShowToast("열차 출발", 2f);
+            if (enableBalanceChallenges)
+            {
+                trainMotionProvider?.Emit(
+                    TrainMotionPhase.Departing,
+                    Vector2.left,
+                    1f);
+            }
         }
 
         private IEnumerator ArriveAtDestination()
         {
+            playerBalance?.CancelCurrentChallenge();
+            trainMotionProvider?.Emit(
+                TrainMotionPhase.Stopped,
+                Vector2.zero,
+                0f);
             transitioning = true;
             RefreshPlayerControl();
             yield return FadeTo(1f, 0.65f);
@@ -571,6 +633,12 @@ namespace SubwayCarry.Prototype
                 hasSettlement = false;
                 mapOpen = false;
                 boardingGraceRemaining = 0f;
+                midRideBalanceEmitted = false;
+                playerBalance?.CancelCurrentChallenge();
+                trainMotionProvider?.Emit(
+                    TrainMotionPhase.Stopped,
+                    Vector2.zero,
+                    0f);
                 SetPackageCarrying(false);
                 SetDoorsOpen(departureDoors, false);
                 SetDoorsOpen(destinationDoors, false);
@@ -609,6 +677,43 @@ namespace SubwayCarry.Prototype
                 playerSpriteAnimator =
                     playerController.GetComponent<PrototypePlayerSpriteAnimator>();
             }
+        }
+
+        private void EnsureBalanceSystem()
+        {
+            if (playerController == null || playerPosture == null)
+            {
+                return;
+            }
+
+            trainMotionProvider = GetComponent<PrototypeTrainMotionProvider>();
+            if (trainMotionProvider == null)
+            {
+                trainMotionProvider =
+                    gameObject.AddComponent<PrototypeTrainMotionProvider>();
+            }
+
+            playerBalance =
+                playerController.GetComponent<RuntimePlayerBalance>();
+            if (playerBalance == null)
+            {
+                playerBalance =
+                    playerController.gameObject.AddComponent<RuntimePlayerBalance>();
+            }
+
+            playerBalance.Configure(
+                trainMotionProvider,
+                playerPosture,
+                packageDurability);
+            playerController.SetBalanceController(playerBalance);
+
+            BalanceHudPresenter balanceHud =
+                GetComponent<BalanceHudPresenter>();
+            if (balanceHud == null)
+            {
+                balanceHud = gameObject.AddComponent<BalanceHudPresenter>();
+            }
+            balanceHud.Configure(playerBalance);
         }
 
         private static void SetBlockerActive(GameObject blocker, bool active)

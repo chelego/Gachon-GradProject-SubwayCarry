@@ -22,6 +22,31 @@ namespace SubwayCarry.Core.Contracts
         Right
     }
 
+    public enum BalanceInputAxis
+    {
+        None,
+        Horizontal,
+        Vertical
+    }
+
+    public enum BalanceChallengePattern
+    {
+        None,
+        CounterTap,
+        CenterGauge,
+        ImpactTiming
+    }
+
+    public enum BalanceChallengePhase
+    {
+        Inactive,
+        Warning,
+        Active,
+        Succeeded,
+        Failed,
+        Cancelled
+    }
+
     public readonly struct PlayerCarryStateSnapshot
     {
         public PlayerCarryStateSnapshot(
@@ -58,23 +83,41 @@ namespace SubwayCarry.Core.Contracts
     {
         public BalanceStateSnapshot(
             int sequenceId,
-            bool isActive,
+            BalanceChallengePattern pattern,
+            BalanceChallengePhase phase,
+            BalanceInputAxis inputAxis,
             BalanceInputDirection requiredInput,
             float remainingSeconds,
-            bool hasFailed)
+            float progress,
+            float indicatorValue,
+            float targetValue,
+            float safeZoneHalfWidth)
         {
             SequenceId = sequenceId;
-            IsActive = isActive;
+            Pattern = pattern;
+            Phase = phase;
+            InputAxis = inputAxis;
             RequiredInput = requiredInput;
-            RemainingSeconds = remainingSeconds;
-            HasFailed = hasFailed;
+            RemainingSeconds = Mathf.Max(0f, remainingSeconds);
+            Progress = Mathf.Clamp01(progress);
+            IndicatorValue = Mathf.Clamp(indicatorValue, -1.2f, 1.2f);
+            TargetValue = Mathf.Clamp(targetValue, -1f, 1f);
+            SafeZoneHalfWidth = Mathf.Clamp(safeZoneHalfWidth, 0f, 1f);
         }
 
         public int SequenceId { get; }
-        public bool IsActive { get; }
+        public BalanceChallengePattern Pattern { get; }
+        public BalanceChallengePhase Phase { get; }
+        public BalanceInputAxis InputAxis { get; }
         public BalanceInputDirection RequiredInput { get; }
         public float RemainingSeconds { get; }
-        public bool HasFailed { get; }
+        public float Progress { get; }
+        public float IndicatorValue { get; }
+        public float TargetValue { get; }
+        public float SafeZoneHalfWidth { get; }
+        public bool IsActive => Phase == BalanceChallengePhase.Warning ||
+                                Phase == BalanceChallengePhase.Active;
+        public bool HasFailed => Phase == BalanceChallengePhase.Failed;
     }
 
     public readonly struct PackageImpactData
@@ -130,6 +173,12 @@ namespace SubwayCarry.Core.Contracts
     {
         BalanceStateSnapshot CurrentBalanceState { get; }
         event Action<BalanceStateSnapshot> BalanceStateChanged;
+    }
+
+    public interface IPlayerBalanceParticipant
+    {
+        CarryPosture CurrentBalancePosture { get; }
+        void FallFromBalance();
     }
 
     public interface IPackageImpactReceiver
