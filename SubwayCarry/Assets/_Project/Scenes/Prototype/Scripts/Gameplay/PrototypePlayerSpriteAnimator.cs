@@ -54,6 +54,7 @@ namespace SubwayCarry.Prototype.Gameplay
         private bool wasCarryingPackage;
         private int previousDirectionIndex = -1;
         private int lockedFallenDirectionIndex = -1;
+        private SubwayCarry.Gameplay.PackageDamageVisual packageDamageVisual;
 
         public bool IsCarryingPackage => isCarryingPackage;
 
@@ -211,6 +212,15 @@ namespace SubwayCarry.Prototype.Gameplay
             RefreshSprite();
         }
 
+        public void SetPackageDurabilityProvider(MonoBehaviour providerSource)
+        {
+            ResolvePackageSpriteRenderer();
+            EnsurePackageDamageVisual();
+            packageDamageVisual?.Configure(
+                packageSpriteRenderer,
+                providerSource);
+        }
+
         private void Awake()
         {
             if (controller == null)
@@ -232,6 +242,7 @@ namespace SubwayCarry.Prototype.Gameplay
             HidePrototypeHelperRenderers();
 
             ResolvePackageSpriteRenderer();
+            EnsurePackageDamageVisual();
             RefreshSprite();
         }
 
@@ -534,6 +545,24 @@ namespace SubwayCarry.Prototype.Gameplay
             packageSpriteRenderer.sharedMaterial = spriteRenderer.sharedMaterial;
             packageSpriteRenderer.drawMode = SpriteDrawMode.Simple;
             packageSpriteRenderer.enabled = false;
+        }
+
+        private void EnsurePackageDamageVisual()
+        {
+            if (packageSpriteRenderer == null)
+            {
+                return;
+            }
+
+            packageDamageVisual = packageSpriteRenderer
+                .GetComponent<SubwayCarry.Gameplay.PackageDamageVisual>();
+            if (packageDamageVisual == null)
+            {
+                packageDamageVisual = packageSpriteRenderer.gameObject
+                    .AddComponent<SubwayCarry.Gameplay.PackageDamageVisual>();
+            }
+
+            packageDamageVisual.Configure(packageSpriteRenderer);
         }
 
         private static bool IsPackageBehindPlayer(int directionIndex)

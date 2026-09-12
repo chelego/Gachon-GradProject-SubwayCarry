@@ -52,5 +52,39 @@ namespace SubwayCarry.Gameplay
             deliveryFailed = false;
             DurabilityChanged?.Invoke(CurrentDurability);
         }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        [ContextMenu("Debug Set Intact (100/100)")]
+        private void DebugSetIntact()
+        {
+            SetDebugDurability(100f, 100f);
+        }
+
+        [ContextMenu("Debug Set Slight Damage (70/100)")]
+        private void DebugSetSlightDamage()
+        {
+            SetDebugDurability(70f, 100f);
+        }
+
+        [ContextMenu("Debug Set Heavy Damage (40/100)")]
+        private void DebugSetHeavyDamage()
+        {
+            SetDebugDurability(40f, 100f);
+        }
+
+        [ContextMenu("Debug Set Destroyed (0/20)")]
+        private void DebugSetDestroyed()
+        {
+            SetDebugDurability(0f, 20f);
+        }
+
+        private void SetDebugDurability(float box, float cake)
+        {
+            boxDurability = Mathf.Clamp(box, 0f, 100f);
+            cakeDurability = Mathf.Clamp(cake, 0f, 100f);
+            deliveryFailed = false;
+            DurabilityChanged?.Invoke(CurrentDurability);
+        }
+#endif
     }
 }

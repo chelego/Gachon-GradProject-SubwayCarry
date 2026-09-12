@@ -55,6 +55,7 @@ namespace SubwayCarry.Gameplay
         private bool wasCarryingPackage;
         private int previousDirectionIndex = -1;
         private int lockedFallenDirectionIndex = -1;
+        private PackageDamageVisual packageDamageVisual;
 
         private void Awake()
         {
@@ -82,6 +83,7 @@ namespace SubwayCarry.Gameplay
             }
 
             ResolvePackageSpriteRenderer();
+            EnsurePackageDamageVisual();
             RefreshSprite();
         }
 
@@ -372,6 +374,24 @@ namespace SubwayCarry.Gameplay
             packageSpriteRenderer.sharedMaterial = spriteRenderer.sharedMaterial;
             packageSpriteRenderer.drawMode = SpriteDrawMode.Simple;
             packageSpriteRenderer.enabled = false;
+        }
+
+        private void EnsurePackageDamageVisual()
+        {
+            if (packageSpriteRenderer == null)
+            {
+                return;
+            }
+
+            packageDamageVisual =
+                packageSpriteRenderer.GetComponent<PackageDamageVisual>();
+            if (packageDamageVisual == null)
+            {
+                packageDamageVisual = packageSpriteRenderer.gameObject
+                    .AddComponent<PackageDamageVisual>();
+            }
+
+            packageDamageVisual.Configure(packageSpriteRenderer);
         }
 
         private static bool IsPackageBehindPlayer(int directionIndex)

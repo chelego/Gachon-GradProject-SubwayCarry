@@ -132,6 +132,7 @@ namespace SubwayCarry.Prototype
             playerSpriteAnimator = controller != null
                 ? controller.GetComponent<PrototypePlayerSpriteAnimator>()
                 : null;
+            playerSpriteAnimator?.SetPackageDurabilityProvider(durability);
             cameraFollow = followCamera;
             deliveryService = deliveries;
             economyService = economy;
@@ -371,6 +372,7 @@ namespace SubwayCarry.Prototype
         private void Awake()
         {
             ResolvePlayerSpriteAnimator();
+            playerSpriteAnimator?.SetPackageDurabilityProvider(packageDurability);
             EnsureBalanceSystem();
             uiFont = Font.CreateDynamicFontFromOSFont(
                 new[] { "Malgun Gothic", "맑은 고딕", "Arial" },
