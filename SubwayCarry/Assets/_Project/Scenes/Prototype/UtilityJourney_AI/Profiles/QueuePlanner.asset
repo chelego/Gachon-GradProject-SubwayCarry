@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 741d65f938a84a54a95a480b9999c53b, type: 3}
+  m_Name: QueuePlanner
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.AI.UtilityJourney.UtilityPassengerTuningProfile
+  displayName: QueuePlanner
+  archetype: 0
+  decisionWeights:
+    ProgressPriority: 1.12
+    DistanceEfficiency: 1.1
+    CrowdAvoidance: 0.9
+    QueueAvoidance: 1.05
+    PersonalPreference: 1.18
+    Commitment: 1
+    TrainUrgency: 1.35
+    PreferredExitPriority: 1
+    ComfortSeeking: 0.55
+    TransferConvenience: 1.45
+  doorQueuePreference: 0.98
+  seatPreference: 0.28
+  wallPreference: 0.24
+  walkSpeed: 1.2
+  runSpeed: 2.6
+  acceleration: 5
+  decisionInterval: 0.27
+  repathInterval: 0.36
+  socialTuning:
+    AwarenessRadius: 2.35
+    PersonalSpaceRadius: 0.78
+    MinimumCrowdedRadius: 0.32
+    Courtesy: 0.82
+    Assertiveness: 0.42
+    QueueDiscipline: 0.96
+    CrowdTolerance: 0.44
+    PassingSidePreference: 0.7
+    DoorRushThresholdSeconds: 3.5

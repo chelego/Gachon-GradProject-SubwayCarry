@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 741d65f938a84a54a95a480b9999c53b, type: 3}
+  m_Name: SeatSeeker
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.AI.UtilityJourney.UtilityPassengerTuningProfile
+  displayName: SeatSeeker
+  archetype: 1
+  decisionWeights:
+    ProgressPriority: 0.92
+    DistanceEfficiency: 0.86
+    CrowdAvoidance: 1.15
+    QueueAvoidance: 0.9
+    PersonalPreference: 1.42
+    Commitment: 1.16
+    TrainUrgency: 0.9
+    PreferredExitPriority: 1
+    ComfortSeeking: 1.58
+    TransferConvenience: 0.62
+  doorQueuePreference: 0.22
+  seatPreference: 1
+  wallPreference: 0.5
+  walkSpeed: 1.05
+  runSpeed: 2.25
+  acceleration: 4.1
+  decisionInterval: 0.36
+  repathInterval: 0.48
+  socialTuning:
+    AwarenessRadius: 2.45
+    PersonalSpaceRadius: 0.86
+    MinimumCrowdedRadius: 0.34
+    Courtesy: 0.8
+    Assertiveness: 0.3
+    QueueDiscipline: 0.9
+    CrowdTolerance: 0.3
+    PassingSidePreference: 0.65
+    DoorRushThresholdSeconds: 2.8

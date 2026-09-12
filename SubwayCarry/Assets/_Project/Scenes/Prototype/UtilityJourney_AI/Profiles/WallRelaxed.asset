@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 741d65f938a84a54a95a480b9999c53b, type: 3}
+  m_Name: WallRelaxed
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.AI.UtilityJourney.UtilityPassengerTuningProfile
+  displayName: WallRelaxed
+  archetype: 2
+  decisionWeights:
+    ProgressPriority: 0.88
+    DistanceEfficiency: 0.84
+    CrowdAvoidance: 1.38
+    QueueAvoidance: 1.16
+    PersonalPreference: 1.35
+    Commitment: 1.22
+    TrainUrgency: 0.8
+    PreferredExitPriority: 1
+    ComfortSeeking: 1.25
+    TransferConvenience: 0.66
+  doorQueuePreference: 0.18
+  seatPreference: 0.48
+  wallPreference: 1
+  walkSpeed: 1
+  runSpeed: 2.1
+  acceleration: 3.8
+  decisionInterval: 0.42
+  repathInterval: 0.54
+  socialTuning:
+    AwarenessRadius: 2.55
+    PersonalSpaceRadius: 0.92
+    MinimumCrowdedRadius: 0.36
+    Courtesy: 0.88
+    Assertiveness: 0.24
+    QueueDiscipline: 0.92
+    CrowdTolerance: 0.2
+    PassingSidePreference: -0.55
+    DoorRushThresholdSeconds: 2.6

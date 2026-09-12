@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 741d65f938a84a54a95a480b9999c53b, type: 3}
+  m_Name: QuickTransfer
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.AI.UtilityJourney.UtilityPassengerTuningProfile
+  displayName: QuickTransfer
+  archetype: 4
+  decisionWeights:
+    ProgressPriority: 1.22
+    DistanceEfficiency: 1.22
+    CrowdAvoidance: 0.72
+    QueueAvoidance: 0.78
+    PersonalPreference: 1.12
+    Commitment: 0.86
+    TrainUrgency: 1.62
+    PreferredExitPriority: 1.12
+    ComfortSeeking: 0.34
+    TransferConvenience: 1.82
+  doorQueuePreference: 1
+  seatPreference: 0.12
+  wallPreference: 0.14
+  walkSpeed: 1.28
+  runSpeed: 2.82
+  acceleration: 5.6
+  decisionInterval: 0.22
+  repathInterval: 0.3
+  socialTuning:
+    AwarenessRadius: 2.05
+    PersonalSpaceRadius: 0.62
+    MinimumCrowdedRadius: 0.27
+    Courtesy: 0.38
+    Assertiveness: 0.84
+    QueueDiscipline: 0.64
+    CrowdTolerance: 0.84
+    PassingSidePreference: 0.8
+    DoorRushThresholdSeconds: 4.4

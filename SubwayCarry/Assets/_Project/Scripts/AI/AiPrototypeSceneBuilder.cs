@@ -1,7 +1,8 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
-using SubwayCarry.Gameplay;
+using SubwayCarry.Prototype.Gameplay;
+using StationFareGatePrototype = SubwayCarry.Gameplay.StationFareGatePrototype;
 using SubwayCarry.Prototype;
 using UnityEditor;
 using UnityEditor.SceneManagement;
