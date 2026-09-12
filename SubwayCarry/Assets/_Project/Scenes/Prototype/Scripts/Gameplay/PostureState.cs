@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace SubwayCarry.Gameplay
+namespace SubwayCarry.Prototype.Gameplay
 {
     public enum PostureState
     {

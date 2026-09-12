@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace SubwayCarry.Delivery
+namespace SubwayCarry.Prototype.Delivery
 {
     public enum UpgradeStat
     {

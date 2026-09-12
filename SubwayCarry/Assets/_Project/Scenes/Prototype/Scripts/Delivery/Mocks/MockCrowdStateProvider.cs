@@ -2,7 +2,7 @@ using System;
 using SubwayCarry.Core.Contracts;
 using UnityEngine;
 
-namespace SubwayCarry.Delivery.Mocks
+namespace SubwayCarry.Prototype.Delivery.Mocks
 {
     public sealed class MockCrowdStateProvider : MonoBehaviour, ICrowdStateProvider
     {
