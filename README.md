@@ -18,6 +18,7 @@
 
 ## 문서
 
+- [팀 원본 보존·역할별 작업·통합 테스트 방식](docs/TEAM_WORKFLOW.md)
 - [버티컬 슬라이스 실행 안내](docs/VERTICAL_SLICE.md)
 - [게임 기획서](docs/GAME_DESIGN.md)
 - [개발 작업 분해](docs/DEVELOPMENT_BREAKDOWN.md)

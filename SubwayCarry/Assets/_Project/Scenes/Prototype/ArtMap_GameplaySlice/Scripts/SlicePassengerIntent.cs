@@ -1,6 +1,6 @@
 using UnityEngine;
 using SubwayCarry.AI.V2;
-using GameplayContracts = SubwayCarry.TeamReview.KimJun.Core.Contracts;
+using GameplayContracts = SubwayCarry.Core.Contracts;
 
 namespace SubwayCarry.Prototype.ArtMapSlice
 {

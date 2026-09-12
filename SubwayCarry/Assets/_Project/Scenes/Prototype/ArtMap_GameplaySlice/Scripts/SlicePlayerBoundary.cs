@@ -1,5 +1,5 @@
 using UnityEngine;
-using SubwayCarry.TeamReview.KimJun.Gameplay;
+using SubwayCarry.Gameplay;
 
 namespace SubwayCarry.Prototype.ArtMapSlice
 {

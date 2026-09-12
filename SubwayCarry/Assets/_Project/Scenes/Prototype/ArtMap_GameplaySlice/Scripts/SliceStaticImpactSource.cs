@@ -1,5 +1,5 @@
 using UnityEngine;
-using SubwayCarry.TeamReview.KimJun.Core.Contracts;
+using SubwayCarry.Core.Contracts;
 namespace SubwayCarry.Prototype.ArtMapSlice
 {
     public sealed class SliceStaticImpactSource : MonoBehaviour, IPackageImpactSource

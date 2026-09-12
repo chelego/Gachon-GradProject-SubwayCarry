@@ -15,6 +15,7 @@
 *.csproj
 *.unityproj
 *.sln
+*.slnx
 *.suo
 *.tmp
 *.user
@@ -43,3 +44,11 @@ crashlytics-build.properties
 
 # Packages (if using local package cache, keep manifest but ignore lock artifacts as needed)
 /[Pp]ackages/*.log
+
+# Local Unity recovery and generated scene-template preferences (AGENTS.md)
+/Assets/_Recovery/
+/Assets/_Recovery.meta
+/Assets/Screenshots/
+/Assets/Screenshots.meta
+/ProjectSettings/SceneTemplateSettings.json
+/.vsconfig

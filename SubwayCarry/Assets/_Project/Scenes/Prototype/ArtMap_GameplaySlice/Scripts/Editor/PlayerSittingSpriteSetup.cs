@@ -6,14 +6,14 @@ using SubwayCarry.Gameplay.Editor;
 using UnityEditor;
 using UnityEditor.U2D.Sprites;
 using UnityEngine;
-using ReviewGameplay = SubwayCarry.TeamReview.KimJun.Gameplay;
+using ReviewGameplay = SubwayCarry.Gameplay;
 
 namespace SubwayCarry.Prototype.ArtMapSlice.Editor
 {
     public static class PlayerSittingSpriteSetup
     {
         private const string ReviewRoot =
-            "Assets/TeamReview/02_KimJun_Player/";
+            "Assets/_Project/";
         private const string SittingBodySpriteSheetPath =
             ReviewRoot + "Art/Concepts/Characters/SubwayCarry_Player_Sitting_FrontBack_v1.png";
         private const string SittingPackageSpriteSheetPath =
@@ -39,21 +39,16 @@ namespace SubwayCarry.Prototype.ArtMapSlice.Editor
         [MenuItem("SubwayCarry/Art/Apply Player Sitting Sprites")]
         public static void ApplyAll()
         {
-            PlayerSpriteSetupUtility.ApplyPlayerSprites();
-            ConfigureSpriteSheet(SittingBodySpriteSheetPath, "Player_Sitting");
-            ConfigureSpriteSheet(SittingPackageSpriteSheetPath, "CakePackage_Sitting");
+            // The owner prepares shared sprite sheets. Integration only reads them.
 
             IReadOnlyDictionary<string, Sprite> bodySprites =
                 LoadSpritesByName(SittingBodySpriteSheetPath);
             IReadOnlyDictionary<string, Sprite> packageSprites =
                 LoadSpritesByName(SittingPackageSpriteSheetPath);
 
-            ApplyToPrefab(ReviewPlayerPrefabPath, bodySprites, packageSprites);
             ApplyToPrefab(SlicePlayerPrefabPath, bodySprites, packageSprites);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
 
-            Debug.Log("Applied front/back sitting body and package sprites to source and vertical-slice player prefabs.");
+            Debug.Log("Applied shared animation data to the vertical-slice player prefab; source assets were not modified.");
         }
 
         [MenuItem("SubwayCarry/Art/Validate Player Sitting Sprites")]
@@ -61,13 +56,9 @@ namespace SubwayCarry.Prototype.ArtMapSlice.Editor
         {
             ValidateSpriteSheet(SourceSittingBodySpriteSheetPath);
             ValidateSpriteSheet(SourceSittingPackageSpriteSheetPath);
-            ValidateSpriteSheet(SittingBodySpriteSheetPath);
-            ValidateSpriteSheet(SittingPackageSpriteSheetPath);
             ValidatePrefab(SourcePlayerPrefabPath);
-            ValidatePrefab(ReviewPlayerPrefabPath);
             ValidatePrefab(SlicePlayerPrefabPath);
             ValidateDirectionMapping(typeof(SubwayCarry.Gameplay.PlayerSpriteAnimator));
-            ValidateDirectionMapping(typeof(ReviewGameplay.PlayerSpriteAnimator));
 
             Debug.Log("Validated sitting sprite sheets, prefab references, package renderer, and front/back direction mapping.");
         }
@@ -171,7 +162,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice.Editor
                 if (animator == null || bodyRenderer == null)
                 {
                     throw new InvalidOperationException(
-                        $"{prefabPath} requires the review PlayerSpriteAnimator and BodyVisual/SpriteRenderer.");
+                        $"{prefabPath} requires the shared PlayerSpriteAnimator and BodyVisual/SpriteRenderer.");
                 }
 
                 SpriteRenderer packageRenderer =
@@ -195,6 +186,16 @@ namespace SubwayCarry.Prototype.ArtMapSlice.Editor
                         packageSprites[GetSpriteName(direction, "CakePackage_Sitting")];
                 }
 
+                // Keep the slice's movement/outline overrides; reuse the shared animation data.
+                var sourcePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SourcePlayerPrefabPath);
+                var sourceComponent = sourcePrefab != null
+                    ? sourcePrefab.GetComponent<ReviewGameplay.PlayerSpriteAnimator>()
+                    : null;
+                if (sourceComponent == null)
+                    throw new InvalidOperationException($"Missing shared PlayerSpriteAnimator at {SourcePlayerPrefabPath}.");
+                var sourceAnimator = new SerializedObject(sourceComponent);
+                foreach (string field in new[] { "fallenBodySprites", "fallenPackageSprites", "fallenFramesPerDirection", "fallenFramesPerSecond" })
+                    serializedAnimator.CopyFromSerializedProperty(sourceAnimator.FindProperty(field));
                 serializedAnimator.ApplyModifiedPropertiesWithoutUndo();
 
                 ReviewGameplay.PlayerPackageCarrier carrier =

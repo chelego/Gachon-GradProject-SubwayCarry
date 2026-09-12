@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
 using UnityEngine.Rendering.Universal;
 using SubwayCarry.AI.V2;
-using SubwayCarry.TeamReview.KimJun.Gameplay;
+using SubwayCarry.Gameplay;
 
 namespace SubwayCarry.Prototype.ArtMapSlice.Editor
 {
@@ -15,8 +15,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice.Editor
     {
         public const string Root = "Assets/_Project/Scenes/Prototype/ArtMap_GameplaySlice";
         public const string ScenePath = Root + "/ArtMap_01_Gachon_Train_Wangsimni_Playable.unity";
-        const string StationSource = "Assets/TeamReview/01_JeongJunho_Station/Scenes/";
-        const string PlayerSource = "Assets/TeamReview/02_KimJun_Player/Prefabs/Gameplay/";
+        const string StationSource = "Assets/_Project/Scenes/";
+        const string PlayerSource = "Assets/_Project/Prefabs/Gameplay/";
 
         [MenuItem("SubwayCarry/Art Map Slice/Create Connected Maps (new scene only)")]
         public static void Build()

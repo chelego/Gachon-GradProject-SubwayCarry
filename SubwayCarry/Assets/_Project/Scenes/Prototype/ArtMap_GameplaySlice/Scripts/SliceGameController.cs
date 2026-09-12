@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using SubwayCarry.AI.V2;
-using SubwayCarry.TeamReview.KimJun.Gameplay;
+using SubwayCarry.Gameplay;
 
 namespace SubwayCarry.Prototype.ArtMapSlice
 {

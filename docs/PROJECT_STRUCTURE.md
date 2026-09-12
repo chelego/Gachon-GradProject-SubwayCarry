@@ -2,6 +2,8 @@
 
 프로젝트 전용 Unity Asset은 `SubwayCarry/Assets/_Project`에 저장한다.
 
+팀원 원본의 기존 경로를 유지하고 각자 담당 파일만 갱신한다. 통합은 `Scenes/Prototype/ArtMap_GameplaySlice`에서 원본을 참조하는 방식으로 관리한다. 역할별 소유 범위와 병합 절차는 [TEAM_WORKFLOW.md](TEAM_WORKFLOW.md)를 기준으로 한다. 팀원 구현을 복사해 별도 타입으로 만드는 검토 폴더는 사용하지 않는다.
+
 ```text
 _Project/
 |-- Art/                 그래픽과 원본 이미지
