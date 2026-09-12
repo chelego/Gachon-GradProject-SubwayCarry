@@ -12,6 +12,7 @@ namespace SubwayCarry.TeamReview.KimJun.Gameplay
         [SerializeField] private Transform packageAnchorOverhead;
         [SerializeField] private Transform packageRoot;
         [SerializeField, Min(0f)] private float frontAnchorDistance = 0.75f;
+        [SerializeField, Min(0f)] private float sittingAnchorDistance = 0.35f;
         [SerializeField] private bool startWithPackage;
         [SerializeField] private bool hidePackageRenderersForSpriteAnimation = true;
 
@@ -188,9 +189,13 @@ namespace SubwayCarry.TeamReview.KimJun.Gameplay
             Vector3 localDirection3D = transform.InverseTransformDirection(
                 new Vector3(worldDirection.x, worldDirection.y, 0f));
             Vector2 localDirection = new Vector2(localDirection3D.x, localDirection3D.y).normalized;
+            float anchorDistance = carryStateProvider != null &&
+                carryStateProvider.CurrentCarryState.Posture == CarryPosture.Sitting
+                ? sittingAnchorDistance
+                : frontAnchorDistance;
             packageAnchorFront.localPosition = new Vector3(
-                localDirection.x * frontAnchorDistance,
-                localDirection.y * frontAnchorDistance,
+                localDirection.x * anchorDistance,
+                localDirection.y * anchorDistance,
                 0f);
 
             float facingAngle = Mathf.Atan2(localDirection.y, localDirection.x) * Mathf.Rad2Deg;

@@ -1,10 +1,11 @@
 using System.Collections.Generic;
+using SubwayCarry.Core.Contracts;
 using UnityEngine;
 
 namespace SubwayCarry.AI
 {
     [DisallowMultipleComponent]
-    public sealed class PassengerPrototypeAgent : MonoBehaviour
+    public sealed class PassengerPrototypeAgent : MonoBehaviour, IPackageImpactSource
     {
         [SerializeField] private GridNavigation2D navigation;
         [SerializeField] private Transform[] targets;
@@ -18,6 +19,9 @@ namespace SubwayCarry.AI
         private int targetIndex;
         private float nextRepathTime;
         private Vector3 lastTargetPosition;
+        private Vector2 impactVelocity;
+
+        public Vector2 ImpactVelocity => impactVelocity;
 
         public void Configure(
             GridNavigation2D gridNavigation,
@@ -43,6 +47,7 @@ namespace SubwayCarry.AI
 
         private void Update()
         {
+            impactVelocity = Vector2.zero;
             if (navigation == null || targets == null || targets.Length == 0)
             {
                 return;
@@ -73,10 +78,14 @@ namespace SubwayCarry.AI
 
             Vector3 waypoint = path[pathIndex];
             Vector3 direction = waypoint - transform.position;
+            Vector3 previousPosition = transform.position;
             transform.position = Vector3.MoveTowards(
                 transform.position,
                 waypoint,
                 moveSpeed * Time.deltaTime);
+            impactVelocity = Time.deltaTime > 0f
+                ? ((Vector2)(transform.position - previousPosition)) / Time.deltaTime
+                : Vector2.zero;
 
             if (direction.sqrMagnitude > 0.0001f)
             {

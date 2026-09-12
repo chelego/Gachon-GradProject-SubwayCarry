@@ -1,3 +1,4 @@
+using SubwayCarry.TeamReview.KimJun.Core.Contracts;
 using UnityEngine;
 
 namespace SubwayCarry.TeamReview.KimJun.Gameplay
@@ -28,6 +29,11 @@ namespace SubwayCarry.TeamReview.KimJun.Gameplay
         [Header("Sprites - Cake Package Overlay")]
         [SerializeField] private Sprite[] packageIdleSprites = new Sprite[DirectionCount];
         [SerializeField] private Sprite[] packageWalkSprites = new Sprite[DirectionCount * 3];
+
+        [Header("Sprites - Sitting (Front, Back)")]
+        [Tooltip("South/front and North/back. Side and diagonal facing use the nearest of these two views.")]
+        [SerializeField] private Sprite[] sittingBodySprites = new Sprite[2];
+        [SerializeField] private Sprite[] sittingPackageSprites = new Sprite[2];
 
         [Header("Playback")]
         [SerializeField, Min(1)] private int walkFramesPerDirection = 3;
@@ -86,6 +92,20 @@ namespace SubwayCarry.TeamReview.KimJun.Gameplay
                 ? controller.MoveInput
                 : controller.FacingDirection;
             int directionIndex = GetDirectionIndex(direction);
+
+            if (posture != null && posture.CurrentState == CarryPosture.Sitting)
+            {
+                walkElapsed = 0f;
+                int sittingDirectionIndex = GetSittingDirectionIndex(directionIndex);
+                SetSprites(
+                    GetSittingBodySprite(sittingDirectionIndex, directionIndex, isCarryingPackage),
+                    isCarryingPackage ? GetSittingPackageSprite(sittingDirectionIndex) : null,
+                    directionIndex);
+                wasMoving = false;
+                wasCarryingPackage = isCarryingPackage;
+                previousDirectionIndex = directionIndex;
+                return;
+            }
 
             if (!isMoving)
             {
@@ -192,6 +212,29 @@ namespace SubwayCarry.TeamReview.KimJun.Gameplay
                 : null;
         }
 
+        private Sprite GetSittingBodySprite(
+            int sittingDirectionIndex,
+            int directionIndex,
+            bool isCarryingPackage)
+        {
+            if (sittingBodySprites != null &&
+                sittingDirectionIndex < sittingBodySprites.Length &&
+                sittingBodySprites[sittingDirectionIndex] != null)
+            {
+                return sittingBodySprites[sittingDirectionIndex];
+            }
+
+            return GetIdleSprite(directionIndex, isCarryingPackage);
+        }
+
+        private Sprite GetSittingPackageSprite(int sittingDirectionIndex)
+        {
+            return sittingPackageSprites != null &&
+                sittingDirectionIndex < sittingPackageSprites.Length
+                ? sittingPackageSprites[sittingDirectionIndex]
+                : null;
+        }
+
         private void SetSprites(Sprite bodySprite, Sprite packageSprite, int directionIndex)
         {
             SetSprite(bodySprite);
@@ -253,6 +296,11 @@ namespace SubwayCarry.TeamReview.KimJun.Gameplay
         private static bool IsPackageBehindPlayer(int directionIndex)
         {
             return directionIndex >= 3 && directionIndex <= 5;
+        }
+
+        internal static int GetSittingDirectionIndex(int directionIndex)
+        {
+            return IsPackageBehindPlayer(directionIndex) ? 1 : 0;
         }
 
         internal static int GetDirectionIndex(Vector2 direction)

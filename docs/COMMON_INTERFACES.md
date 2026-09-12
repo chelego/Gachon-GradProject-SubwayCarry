@@ -148,14 +148,45 @@ event Action<StaminaStateSnapshot> StaminaStateChanged;
 - `Down`
 - `Right`
 
+### `BalanceInputAxis`
+
+- `None`
+- `Horizontal`
+- `Vertical`
+
+### `BalanceChallengePattern`
+
+- `None`
+- `CounterTap`
+- `CenterGauge`
+- `ImpactTiming`
+
+현재 1차 구현은 열차 관성의 반대 방향을 제한시간 안에 반복 입력하는 `CounterTap`을 사용한다. 나머지 패턴은 같은 상태 계약과 HUD를 재사용해 순차 구현한다.
+
+### `BalanceChallengePhase`
+
+- `Inactive`
+- `Warning`
+- `Active`
+- `Succeeded`
+- `Failed`
+- `Cancelled`
+
 ### `BalanceStateSnapshot`
 
 | 값 | 내용 |
 | --- | --- |
 | `SequenceId` | 같은 균형 이벤트를 구분하는 번호 |
-| `IsActive` | 균형잡기 진행 여부 |
+| `Pattern` | 현재 중심잡기 패턴 |
+| `Phase` | 예고, 입력, 성공, 실패 또는 취소 상태 |
+| `IsActive` | 예고 또는 입력 진행 여부 |
+| `InputAxis` | 게이지 조작에 사용하는 수평 또는 수직 축 |
 | `RequiredInput` | 현재 요구 방향 |
 | `RemainingSeconds` | 입력 제한시간 |
+| `Progress` | 현재 성공 게이지 0~1 |
+| `IndicatorValue` | 중심 또는 타이밍 표시 위치 -1~1 |
+| `TargetValue` | 안전 구간의 중심 위치 -1~1 |
+| `SafeZoneHalfWidth` | 안전 구간의 반너비 |
 | `HasFailed` | 실패 확정 여부 |
 
 ### `IBalanceStateProvider`
@@ -165,7 +196,14 @@ BalanceStateSnapshot CurrentBalanceState { get; }
 event Action<BalanceStateSnapshot> BalanceStateChanged;
 ```
 
-열차 움직임은 `ITrainMotionProvider`로 전달하고 균형 시스템이 요구 입력을 결정한다. UI는 `W!`, `A!`, `S!`, `D!` 표시와 남은 시간을 갱신한다. 실패 시 넘어짐과 운반물 피해는 Gameplay에서 처리한다.
+### `IPlayerBalanceParticipant`
+
+```csharp
+CarryPosture CurrentBalancePosture { get; }
+void FallFromBalance();
+```
+
+열차 움직임은 `ITrainMotionProvider`로 전달하고 균형 시스템이 관성의 반대 방향을 요구 입력으로 결정한다. `CounterTap`은 정답 방향을 연타해 게이지를 채우고, `CenterGauge`는 한 축의 두 방향키로 표시를 중앙에 유지하며, `ImpactTiming`은 표시가 안전 구간에 들어왔을 때 정답 방향을 누른다. 잘못 누른 입력은 진행도 감소나 안전 구간 축소로 처리하고 즉시 실패시키지 않는다. 실패 시 `IPlayerBalanceParticipant`로 넘어짐을 요청하고 운반물에는 한 번만 충격을 전달한다. 중심잡기 진행 중에는 같은 WASD가 플레이어 이동에 함께 적용되지 않는다.
 
 ## 케이크 충돌과 내구도
 
@@ -184,7 +222,15 @@ event Action<BalanceStateSnapshot> BalanceStateChanged;
 void ApplyImpact(in PackageImpactData impact);
 ```
 
-충돌을 감지한 승객, 벽, 문, 좌석과 바닥은 직접 내구도를 깎지 않고 `PackageImpactData`를 전달한다. 운반물 기능이 상자 보호량과 케이크 피해를 계산한다.
+### `IPackageImpactSource`
+
+```csharp
+Vector2 ImpactVelocity { get; }
+```
+
+운반물에 직접 충돌 피해를 줄 수 있는 승객이 이 계약을 구현한다. 운반물 충돌 감지기는 이 계약으로 승객 여부와 이동 속도를 읽으며, 벽, 문, 좌석, 바닥과 일반 사물은 직접 충돌 피해원으로 취급하지 않는다.
+
+승객 충돌 또는 승객이 관여한 압박을 감지하면 `PackageImpactData`를 전달한다. 균형 시스템도 실패가 확정된 시점에 한 번의 `PackageImpactData`를 전달한다. 운반물 기능이 상자 보호량과 케이크 피해를 계산한다.
 
 ### `PackageDurabilitySnapshot`
 
@@ -203,8 +249,25 @@ event Action<PackageDurabilitySnapshot> DurabilityChanged;
 
 HUD와 배송 정산은 Collider나 피해 계산 코드를 직접 읽지 않고 내구도 Snapshot을 사용한다.
 
+### `IPackageDurabilityResetter`
+
+```csharp
+void ResetToFull();
+```
+
+배송 수락을 소유한 시스템은 새 운반물을 지급하는 시점에 이 계약으로 내구도를 초기화한다. 이후 출발 교통비 결제가 실패하더라도 같은 운반물의 내구도를 다시 초기화하지 않는다. HUD와 정산 코드는 초기화를 호출하지 않고 `IPackageDurabilityProvider`만 읽는다.
+
+### `IPackageAvailabilityController`
+
+```csharp
+bool HasPackage { get; }
+void SetPackageAvailable(bool available);
+```
+
+배송 확인 화면만 연 단계에는 운반물을 표시하거나 충돌 피해 대상으로 취급하지 않는다. 배송 수락 시 운반물을 활성화하고, 배송 정산 또는 허브 복귀 흐름이 끝날 때 비활성화한다. 플레이어 애니메이션은 `HasPackage`에 따라 빈손 또는 운반 자세를 선택하며, 케이크 상자는 별도 SpriteRenderer에서 같은 방향·프레임으로 재생한다.
+
 ```text
-충돌 또는 압박 감지
+승객 충돌, 승객이 관여한 압박 또는 균형 실패
 -> PackageImpactData
 -> IPackageImpactReceiver.ApplyImpact
 -> 상자와 케이크 피해 계산
@@ -372,7 +435,7 @@ event Action<DeliveryStateSnapshot> DeliveryStateChanged;
 bool TryStartDelivery(string deliveryId);
 ```
 
-배송 선택 UI는 `TryStartDelivery`로 시작을 요청한다. 배송 가능 여부, 교통비 지불과 현재 진행 상태는 배송 기능이 결정한다.
+배송 선택 UI는 배송 수락 시 케이크 상자를 먼저 지급하고 운반 애니메이션으로 전환한다. 개찰구 상호작용은 `TryStartDelivery`로 출발을 요청하며, 배송 가능 여부, 교통비 지불과 현재 진행 상태는 배송 기능이 결정한다. 반환값이 `false`이면 개찰구 통과만 중단하고 이미 수락한 배송과 케이크 상자는 유지한다.
 
 ## 경제와 정산
 

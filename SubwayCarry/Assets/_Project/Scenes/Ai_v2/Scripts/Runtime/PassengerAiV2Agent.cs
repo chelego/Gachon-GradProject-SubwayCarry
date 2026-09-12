@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using SubwayCarry.Core.Contracts;
 using UnityEngine;
 
 namespace SubwayCarry.AI.V2
@@ -8,7 +9,7 @@ namespace SubwayCarry.AI.V2
     /// 물리 이동을 분리하고 인식은 승객별로 분산된 저주기로 실행한다.
     /// </summary>
     [RequireComponent(typeof(Rigidbody2D), typeof(CircleCollider2D), typeof(SpriteRenderer))]
-    public sealed class PassengerAiV2Agent : MonoBehaviour
+    public sealed class PassengerAiV2Agent : MonoBehaviour, IPackageImpactSource
     {
         [Header("Perception")]
         [SerializeField, Range(2f, 30f)] private float perceptionHz = 12f;
@@ -73,6 +74,7 @@ namespace SubwayCarry.AI.V2
 
         public Vector2 Position => body != null ? body.position : (Vector2)transform.position;
         public Vector2 Velocity => velocity;
+        public Vector2 ImpactVelocity => velocity;
         public Vector2 TravelDirection
         {
             get

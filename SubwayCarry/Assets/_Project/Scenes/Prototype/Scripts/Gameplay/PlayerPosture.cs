@@ -1,10 +1,11 @@
 using System;
+using SubwayCarry.Core.Contracts;
 using UnityEngine;
 
 namespace SubwayCarry.Prototype.Gameplay
 {
     [DisallowMultipleComponent]
-    public sealed class PlayerPosture : MonoBehaviour
+    public sealed class PlayerPosture : MonoBehaviour, IPlayerBalanceParticipant
     {
         [SerializeField] private float leaningTransitionTime = 0.3f;
         [SerializeField] private float sittingTransitionTime = 0.4f;
@@ -29,6 +30,28 @@ namespace SubwayCarry.Prototype.Gameplay
         public float StaminaRatio => maxStamina <= 0f ? 0f : currentStamina / maxStamina;
 
         public PostureState CurrentState => currentState;
+
+        public CarryPosture CurrentBalancePosture
+        {
+            get
+            {
+                switch (currentState)
+                {
+                    case PostureState.Leaning:
+                        return CarryPosture.Leaning;
+                    case PostureState.Sitting:
+                        return CarryPosture.Sitting;
+                    case PostureState.Holding:
+                        return CarryPosture.HoldingSupport;
+                    case PostureState.OverheadCarry:
+                        return CarryPosture.OverheadCarry;
+                    case PostureState.Fallen:
+                        return CarryPosture.Fallen;
+                    default:
+                        return CarryPosture.Standing;
+                }
+            }
+        }
 
         public bool CanMove => !IsTransitioning && (currentState == PostureState.Standing || currentState == PostureState.OverheadCarry);
 
@@ -59,6 +82,11 @@ namespace SubwayCarry.Prototype.Gameplay
             currentState = PostureState.Fallen;
             targetState = PostureState.Fallen;
             fallenTimer = fallenRecoveryTime;
+        }
+
+        public void FallFromBalance()
+        {
+            Fall();
         }
 
         private void Awake()

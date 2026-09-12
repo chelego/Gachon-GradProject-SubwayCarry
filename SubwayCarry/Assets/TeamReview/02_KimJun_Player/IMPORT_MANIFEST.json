@@ -2,7 +2,7 @@
   "member": "김준",
   "branch": "role/player-gameplay",
   "commit": "040c0f94f6ff85695a6d342c72c3374fdc93c045",
-  "importedAt": "2026-09-07",
+  "importedAt": "2026-09-08",
   "namespace": "SubwayCarry.TeamReview.KimJun",
   "scenes": [],
   "externalGuids": [
@@ -18,12 +18,28 @@
       "reviewSha256": "103D23E31EAB0A88342BA698B3C692CC6B4FE2EF615671AD1559C769D79C4A5B"
     },
     {
+      "path": "Art/Concepts/Characters/SubwayCarry_CakePackage_Sitting_FrontBack_v1.png",
+      "sourcePath": "_Project/Art/Concepts/Characters/SubwayCarry_CakePackage_Sitting_FrontBack_v1.png",
+      "sourceGuid": "ce1ad79169445044ba0d6d255c734a41",
+      "reviewGuid": "966eb71090b1e8f4ab4836ce49642095",
+      "sourceSha256": "E13BBF44D28AA5E3C53FBA10EB1B883E604ED78695ADC6D48A2694746463A20B",
+      "reviewSha256": "E13BBF44D28AA5E3C53FBA10EB1B883E604ED78695ADC6D48A2694746463A20B"
+    },
+    {
       "path": "Art/Concepts/Characters/SubwayCarry_Player_CarryingPose_8Dir_IdleWalk_v1.png",
       "sourcePath": "_Project/Art/Concepts/Characters/SubwayCarry_Player_CarryingPose_8Dir_IdleWalk_v1.png",
       "sourceGuid": "8a079427ab444e9296aabc059ba93fe9",
       "reviewGuid": "a173b31d40f3e42a93c8f1f8c1b82e22",
       "sourceSha256": "568C4A77B01CB91A6BD69197AECA757A1AC66D165CB8E500CDE24BE72637601E",
       "reviewSha256": "568C4A77B01CB91A6BD69197AECA757A1AC66D165CB8E500CDE24BE72637601E"
+    },
+    {
+      "path": "Art/Concepts/Characters/SubwayCarry_Player_Sitting_FrontBack_v1.png",
+      "sourcePath": "_Project/Art/Concepts/Characters/SubwayCarry_Player_Sitting_FrontBack_v1.png",
+      "sourceGuid": "a71adf8a60b32844ca45583ad71eb3b9",
+      "reviewGuid": "d63aa065765a8bb438f48e2d106aeb6e",
+      "sourceSha256": "4DE1250D8A425FFEE1AB416D8069FD1C468AF9B9E53B83A1FBF677D6F750451D",
+      "reviewSha256": "4DE1250D8A425FFEE1AB416D8069FD1C468AF9B9E53B83A1FBF677D6F750451D"
     },
     {
       "path": "Art/Concepts/Characters/SubwayCarry_Player_Unarmed_8Dir_IdleWalk_v1.png",
@@ -46,8 +62,8 @@
       "sourcePath": "_Project/Prefabs/Gameplay/Player.prefab",
       "sourceGuid": "c787f26dfbc934d4db897ede8b25d55e",
       "reviewGuid": "6e49769f3f3d6bc2ed1c1cf311bb87d4",
-      "sourceSha256": "AC98D1B12F65A6CFBBD4E5BE4258E7E8C58E30581E419AEA4449BF1A92E7D5EB",
-      "reviewSha256": "27FE500CB67B7007FC05CD5B08DEE22A39C5E3C578351863BD1D49DA97C74FD7"
+      "sourceSha256": "B082EAFE937562A6256971A27B7C07E26F746F12F2B28150C1B7ADF17EEC58EC",
+      "reviewSha256": "A660AEA87D7A5C248EC2FACF9159D3AB969990F36076460FF93207E0B561F8FF"
     },
     {
       "path": "Scripts/Core/Contracts/GameplayStateContracts.cs",
@@ -134,8 +150,8 @@
       "sourcePath": "_Project/Scripts/Gameplay/PlayerPackageCarrier.cs",
       "sourceGuid": "1a1c372bca6bd0142892016a00aeddeb",
       "reviewGuid": "3f6e7e0ede579131a344f1a06a9acb05",
-      "sourceSha256": "E5FC111E6CBEFF3A2BCC0322741B312626AB889EBBEF2CE0339B356D0349C193",
-      "reviewSha256": "0CC221B9CB09448DA251E43AED007FBDDFD9A9F42C781870FAC8185CDAD56FCD"
+      "sourceSha256": "1889F9764CA694A0206D0A5253E50AF50031DA29D97ABF1FBC85001BFDF982BB",
+      "reviewSha256": "AF451CA7D8992762B22FA5FDBF74CD08DBCBA2E3A5D4BF215D674BB02B92ADF7"
     },
     {
       "path": "Scripts/Gameplay/PlayerPosture.cs",
@@ -150,8 +166,8 @@
       "sourcePath": "_Project/Scripts/Gameplay/PlayerSpriteAnimator.cs",
       "sourceGuid": "414f5d91bcf55664ea896f5b2c26a962",
       "reviewGuid": "1649c558f6114e6aaf929f44f2aeb066",
-      "sourceSha256": "5ABE60667D390904E26BF31BDD556455AA60360A3453442419CA8DAA591872C8",
-      "reviewSha256": "809579A80AE8784453DB55044EBA1BD65D2DE526F870EB5DCB971A1832AAE33A"
+      "sourceSha256": "ACDC0FCCB3438DBF99B7788AF14CC6B8658FC90900A6368775F6550249C501C5",
+      "reviewSha256": "0BAD1D3A8CC6D9C7E40091679C44D4840BBB372D6C5FCC5A70D24D1A666BA32F"
     },
     {
       "path": "Scripts/Gameplay/PrototypeInteractionTarget.cs",

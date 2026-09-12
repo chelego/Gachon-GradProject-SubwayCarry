@@ -21,6 +21,49 @@ namespace SubwayCarry.Prototype.Editor
             "Assets/_Project/Art/PrototypeMaterials";
         private const string DeliveryDataPath =
             "Assets/_Project/Scenes/Prototype/Data/Delivery/DeliveryData_1-1.asset";
+        private const string PlayerUnarmedSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_Unarmed_8Dir_IdleWalk_v1.png";
+        private const string PlayerCarryingPoseSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_CarryingPose_8Dir_IdleWalk_v1.png";
+        private const string CakePackageSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_CakePackage_8Dir_IdleWalk_v1.png";
+        private const string PlayerSittingSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_Sitting_FrontBack_v1.png";
+        private const string CakePackageSittingSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_CakePackage_Sitting_FrontBack_v1.png";
+        private const string PlayerFallenSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_Fallen_FrontBack_5Frame_v1.png";
+        private const string CakePackageFallenSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_CakePackage_Fallen_FrontBack_5Frame_v1.png";
+        private const string PlayerFallenSideSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_Fallen_LeftRight_5Frame_v1.png";
+        private const string CakePackageFallenSideSpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_CakePackage_Fallen_LeftRight_5Frame_v1.png";
+
+        private const int PlayerDirectionCount = 8;
+        private const int PlayerWalkFrameCount = 3;
+        private const int PlayerFallenDirectionCount = 4;
+        private const int PlayerFallenFrameCount = 5;
+
+        private static readonly string[] PlayerDirectionNames =
+        {
+            "South",
+            "SouthWest",
+            "West",
+            "NorthWest",
+            "North",
+            "NorthEast",
+            "East",
+            "SouthEast"
+        };
+
+        private static readonly string[] PlayerFallenDirectionNames =
+        {
+            "South",
+            "West",
+            "North",
+            "East"
+        };
 
         private const float HubCenterX = -120f;
         private const float DepartureEscalatorCenterX = -80f;
@@ -197,6 +240,34 @@ namespace SubwayCarry.Prototype.Editor
             Debug.Log("[Gameplay Flow Prototype] Scene validation passed.");
         }
 
+        [MenuItem("SubwayCarry/Prototype/Apply Player Walking + Posture Sprites")]
+        public static void ApplyPlayerSpritesToSavedScene()
+        {
+            Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            PlayerController controller =
+                UnityEngine.Object.FindFirstObjectByType<PlayerController>();
+            if (controller == null)
+            {
+                throw new InvalidOperationException(
+                    "Gameplay Flow Prototype player is missing.");
+            }
+
+            PlayerPosture posture = controller.GetComponent<PlayerPosture>();
+            if (posture == null)
+            {
+                throw new InvalidOperationException(
+                    "Gameplay Flow Prototype player posture is missing.");
+            }
+
+            ConfigurePlayerSpriteVisual(controller.gameObject, controller, posture);
+            DisablePlayerPrototypeVisuals(controller.transform);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            ValidateScene(scene);
+            Debug.Log(
+                "[Gameplay Flow Prototype] Applied player walking and posture sprites.");
+        }
+
         private static PlayerBuildData CreatePlayer(
             Transform parent,
             Camera facingCamera)
@@ -235,6 +306,8 @@ namespace SubwayCarry.Prototype.Editor
                 "heldPackageSource",
                 durability);
 
+            ConfigurePlayerSpriteVisual(playerObject, controller, posture);
+
             GameObject package = CreateBlock(
                 "Cake Package",
                 (Vector2)playerObject.transform.position + new Vector2(0f, -0.58f),
@@ -244,6 +317,7 @@ namespace SubwayCarry.Prototype.Editor
                 false,
                 -0.2f);
             package.transform.localPosition = new Vector3(0f, -0.58f, -0.2f);
+            SetMeshRendererEnabled(package, false);
             CreateLabel(
                 "PLAYER",
                 (Vector2)playerObject.transform.position + Vector2.down * 0.9f,
@@ -260,6 +334,7 @@ namespace SubwayCarry.Prototype.Editor
                 -0.28f);
             facingIndicator.transform.localPosition =
                 new Vector3(0f, -0.56f, -0.28f);
+            SetMeshRendererEnabled(facingIndicator, false);
             controller.ConfigureFacing(facingCamera, facingIndicator.transform);
 
             return new PlayerBuildData
@@ -268,6 +343,269 @@ namespace SubwayCarry.Prototype.Editor
                 Posture = posture,
                 Durability = durability
             };
+        }
+
+        private static void ConfigurePlayerSpriteVisual(
+            GameObject playerObject,
+            PlayerController controller,
+            PlayerPosture posture)
+        {
+            int expectedSpriteCount =
+                PlayerDirectionCount * (PlayerWalkFrameCount + 1);
+            IReadOnlyDictionary<string, Sprite> unarmedSpritesByName =
+                LoadPlayerSprites(PlayerUnarmedSpriteSheetPath, expectedSpriteCount);
+            IReadOnlyDictionary<string, Sprite> carryingSpritesByName =
+                LoadPlayerSprites(PlayerCarryingPoseSpriteSheetPath, expectedSpriteCount);
+            IReadOnlyDictionary<string, Sprite> packageSpritesByName =
+                LoadPlayerSprites(CakePackageSpriteSheetPath, expectedSpriteCount);
+            IReadOnlyDictionary<string, Sprite> sittingBodySpritesByName =
+                LoadPlayerSprites(PlayerSittingSpriteSheetPath, 2);
+            IReadOnlyDictionary<string, Sprite> sittingPackageSpritesByName =
+                LoadPlayerSprites(CakePackageSittingSpriteSheetPath, 2);
+            IReadOnlyDictionary<string, Sprite> fallenBodyFrontBackSpritesByName =
+                LoadPlayerSprites(PlayerFallenSpriteSheetPath, 2 * PlayerFallenFrameCount);
+            IReadOnlyDictionary<string, Sprite> fallenPackageFrontBackSpritesByName =
+                LoadPlayerSprites(CakePackageFallenSpriteSheetPath, 2 * PlayerFallenFrameCount);
+            IReadOnlyDictionary<string, Sprite> fallenBodySideSpritesByName =
+                LoadPlayerSprites(PlayerFallenSideSpriteSheetPath, 2 * PlayerFallenFrameCount);
+            IReadOnlyDictionary<string, Sprite> fallenPackageSideSpritesByName =
+                LoadPlayerSprites(CakePackageFallenSideSpriteSheetPath, 2 * PlayerFallenFrameCount);
+
+            var idleSprites = new Sprite[PlayerDirectionCount];
+            var walkSprites =
+                new Sprite[PlayerDirectionCount * PlayerWalkFrameCount];
+            var carryingIdleSprites = new Sprite[PlayerDirectionCount];
+            var carryingWalkSprites =
+                new Sprite[PlayerDirectionCount * PlayerWalkFrameCount];
+            var packageIdleSprites = new Sprite[PlayerDirectionCount];
+            var packageWalkSprites =
+                new Sprite[PlayerDirectionCount * PlayerWalkFrameCount];
+            var sittingBodySprites = new[]
+            {
+                GetRequiredPlayerSprite(
+                    sittingBodySpritesByName,
+                    "Player_Sitting_South"),
+                GetRequiredPlayerSprite(
+                    sittingBodySpritesByName,
+                    "Player_Sitting_North")
+            };
+            var sittingPackageSprites = new[]
+            {
+                GetRequiredPlayerSprite(
+                    sittingPackageSpritesByName,
+                    "CakePackage_Sitting_South"),
+                GetRequiredPlayerSprite(
+                    sittingPackageSpritesByName,
+                    "CakePackage_Sitting_North")
+            };
+            var fallenBodySprites =
+                new Sprite[PlayerFallenDirectionCount * PlayerFallenFrameCount];
+            var fallenPackageSprites =
+                new Sprite[PlayerFallenDirectionCount * PlayerFallenFrameCount];
+            for (int direction = 0; direction < PlayerFallenDirectionNames.Length; direction++)
+            {
+                bool usesSideSheet = direction == 1 || direction == 3;
+                IReadOnlyDictionary<string, Sprite> bodySource = usesSideSheet
+                    ? fallenBodySideSpritesByName
+                    : fallenBodyFrontBackSpritesByName;
+                IReadOnlyDictionary<string, Sprite> packageSource = usesSideSheet
+                    ? fallenPackageSideSpritesByName
+                    : fallenPackageFrontBackSpritesByName;
+                for (int frame = 0; frame < PlayerFallenFrameCount; frame++)
+                {
+                    int spriteIndex = direction * PlayerFallenFrameCount + frame;
+                    fallenBodySprites[spriteIndex] = GetRequiredPlayerSprite(
+                        bodySource,
+                        $"Player_Fallen_{PlayerFallenDirectionNames[direction]}_{frame}");
+                    fallenPackageSprites[spriteIndex] = GetRequiredPlayerSprite(
+                        packageSource,
+                        $"CakePackage_Fallen_{PlayerFallenDirectionNames[direction]}_{frame}");
+                }
+            }
+            for (int direction = 0; direction < PlayerDirectionCount; direction++)
+            {
+                idleSprites[direction] = GetRequiredPlayerSprite(
+                    unarmedSpritesByName,
+                    direction,
+                    0,
+                    "Player_Unarmed");
+                carryingIdleSprites[direction] = GetRequiredPlayerSprite(
+                    carryingSpritesByName,
+                    direction,
+                    0,
+                    "Player_CarryingPose");
+                packageIdleSprites[direction] = GetRequiredPlayerSprite(
+                    packageSpritesByName,
+                    direction,
+                    0,
+                    "CakePackage");
+
+                for (int frame = 0; frame < PlayerWalkFrameCount; frame++)
+                {
+                    int spriteIndex = direction * PlayerWalkFrameCount + frame;
+                    walkSprites[spriteIndex] =
+                        GetRequiredPlayerSprite(
+                            unarmedSpritesByName,
+                            direction,
+                            frame + 1,
+                            "Player_Unarmed");
+                    carryingWalkSprites[spriteIndex] =
+                        GetRequiredPlayerSprite(
+                            carryingSpritesByName,
+                            direction,
+                            frame + 1,
+                            "Player_CarryingPose");
+                    packageWalkSprites[spriteIndex] =
+                        GetRequiredPlayerSprite(
+                            packageSpritesByName,
+                            direction,
+                            frame + 1,
+                            "CakePackage");
+                }
+            }
+
+            MeshRenderer placeholderRenderer =
+                playerObject.GetComponent<MeshRenderer>();
+            if (placeholderRenderer != null)
+            {
+                placeholderRenderer.enabled = false;
+            }
+            DisablePlayerPrototypeVisuals(playerObject.transform);
+
+            Transform visualTransform = playerObject.transform.Find("BodyVisual");
+            if (visualTransform == null)
+            {
+                var visualObject = new GameObject("BodyVisual");
+                visualTransform = visualObject.transform;
+                visualTransform.SetParent(playerObject.transform, false);
+            }
+
+            visualTransform.localPosition = Vector3.zero;
+            visualTransform.localRotation = Quaternion.identity;
+            Vector3 playerScale = playerObject.transform.localScale;
+            visualTransform.localScale = new Vector3(
+                Mathf.Approximately(playerScale.x, 0f) ? 1f : 1f / playerScale.x,
+                Mathf.Approximately(playerScale.y, 0f) ? 1f : 1f / playerScale.y,
+                1f);
+
+            SpriteRenderer spriteRenderer =
+                visualTransform.GetComponent<SpriteRenderer>();
+            if (spriteRenderer == null)
+            {
+                spriteRenderer = visualTransform.gameObject.AddComponent<SpriteRenderer>();
+            }
+            spriteRenderer.sprite = idleSprites[0];
+            spriteRenderer.color = Color.white;
+            spriteRenderer.drawMode = SpriteDrawMode.Simple;
+            spriteRenderer.sortingOrder = 1;
+
+            PrototypePlayerSpriteAnimator animator =
+                playerObject.GetComponent<PrototypePlayerSpriteAnimator>();
+            if (animator == null)
+            {
+                animator = playerObject.AddComponent<PrototypePlayerSpriteAnimator>();
+            }
+            animator.Configure(
+                controller,
+                posture,
+                spriteRenderer,
+                idleSprites,
+                walkSprites,
+                carryingIdleSprites,
+                carryingWalkSprites,
+                packageIdleSprites,
+                packageWalkSprites,
+                sittingBodySprites,
+                sittingPackageSprites,
+                PlayerWalkFrameCount,
+                8f);
+            animator.ConfigureFallenSprites(
+                fallenBodySprites,
+                fallenPackageSprites,
+                PlayerFallenFrameCount,
+                9f);
+        }
+
+        private static IReadOnlyDictionary<string, Sprite> LoadPlayerSprites(
+            string spriteSheetPath,
+            int expectedSpriteCount)
+        {
+            var spritesByName = new Dictionary<string, Sprite>();
+            foreach (UnityEngine.Object asset in
+                     AssetDatabase.LoadAllAssetsAtPath(spriteSheetPath))
+            {
+                if (asset is Sprite sprite)
+                {
+                    spritesByName[sprite.name] = sprite;
+                }
+            }
+
+            if (spritesByName.Count != expectedSpriteCount)
+            {
+                throw new InvalidOperationException(
+                    $"Expected {expectedSpriteCount} player sprites at " +
+                    $"{spriteSheetPath}, but found {spritesByName.Count}.");
+            }
+
+            return spritesByName;
+        }
+
+        private static Sprite GetRequiredPlayerSprite(
+            IReadOnlyDictionary<string, Sprite> spritesByName,
+            int direction,
+            int row,
+            string spritePrefix)
+        {
+            string spriteName = row == 0
+                ? $"{spritePrefix}_{PlayerDirectionNames[direction]}_Idle"
+                : $"{spritePrefix}_{PlayerDirectionNames[direction]}_Walk_{row - 1}";
+            if (!spritesByName.TryGetValue(spriteName, out Sprite sprite))
+            {
+                throw new InvalidOperationException(
+                    "Player sprite is missing: " + spriteName);
+            }
+
+            return sprite;
+        }
+
+        private static Sprite GetRequiredPlayerSprite(
+            IReadOnlyDictionary<string, Sprite> spritesByName,
+            string spriteName)
+        {
+            if (!spritesByName.TryGetValue(spriteName, out Sprite sprite))
+            {
+                throw new InvalidOperationException(
+                    "Player sprite is missing: " + spriteName);
+            }
+
+            return sprite;
+        }
+
+        private static void DisablePlayerPrototypeVisuals(Transform playerTransform)
+        {
+            foreach (string childName in new[]
+                     {
+                         "Cake Package",
+                         "Player Facing Indicator"
+                     })
+            {
+                Transform child = playerTransform.Find(childName);
+                if (child != null)
+                {
+                    SetMeshRendererEnabled(child.gameObject, false);
+                }
+            }
+        }
+
+        private static void SetMeshRendererEnabled(
+            GameObject gameObject,
+            bool isEnabled)
+        {
+            MeshRenderer meshRenderer = gameObject.GetComponent<MeshRenderer>();
+            if (meshRenderer != null)
+            {
+                meshRenderer.enabled = isEnabled;
+            }
         }
 
         private static ServiceBuildData CreateServices(
@@ -1384,6 +1722,8 @@ namespace SubwayCarry.Prototype.Editor
                 UnityEngine.Object.FindFirstObjectByType<PrototypeGameFlowController>();
             PlayerController player =
                 UnityEngine.Object.FindFirstObjectByType<PlayerController>();
+            PrototypePlayerSpriteAnimator playerSpriteAnimator =
+                UnityEngine.Object.FindFirstObjectByType<PrototypePlayerSpriteAnimator>();
             DeliveryService delivery =
                 UnityEngine.Object.FindFirstObjectByType<DeliveryService>();
             GeneralPassengerPrototype[] passengers =
@@ -1425,6 +1765,28 @@ namespace SubwayCarry.Prototype.Editor
                     serializedPlayer.FindProperty("facingIndicator")?.objectReferenceValue == null)
                 {
                     errors.Add("player mouse-facing camera or indicator is not wired");
+                }
+            }
+            if (playerSpriteAnimator == null || !playerSpriteAnimator.IsConfigured)
+            {
+                errors.Add("player walking/posture sprite animator is missing or not configured");
+            }
+            if (player != null && player.GetComponent<MeshRenderer>()?.enabled == true)
+            {
+                errors.Add("player placeholder renderer must be disabled");
+            }
+            foreach (string helperName in new[]
+                     {
+                         "Cake Package",
+                         "Player Facing Indicator"
+                     })
+            {
+                GameObject helper = FindSceneObject(scene, helperName);
+                if (helper?.GetComponent<MeshRenderer>()?.enabled == true)
+                {
+                    errors.Add(
+                        "player prototype helper renderer must be disabled: " +
+                        helperName);
                 }
             }
             if (delivery == null)
@@ -1483,7 +1845,9 @@ namespace SubwayCarry.Prototype.Editor
                 "Destination Long Fare Gate",
                 "Destination Long Fare Gate Blocker",
                 "Destination Gate Exit Trigger",
-                "Player Facing Indicator"
+                "Cake Package",
+                "Player Facing Indicator",
+                "BodyVisual"
             };
             foreach (string requiredName in requiredHierarchyNames)
             {
