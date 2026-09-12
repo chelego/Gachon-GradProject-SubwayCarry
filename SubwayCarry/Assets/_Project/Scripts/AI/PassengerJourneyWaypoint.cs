@@ -26,6 +26,9 @@ namespace SubwayCarry.AI
         [SerializeField, Min(1)] private int capacity = 2;
         [SerializeField] private Vector2 queueDirection = Vector2.down;
         [SerializeField, Min(0.1f)] private float queueSpacing = 0.62f;
+        [SerializeField] private Transform transitionArrival;
+        [SerializeField] private PassengerJourneyScreenSwitcherPrototype screenSwitcher;
+        [SerializeField] private GameObject transitionScreen;
 
         private readonly List<PassengerStationJourneyPrototype> activeUsers =
             new List<PassengerStationJourneyPrototype>();
@@ -35,6 +38,7 @@ namespace SubwayCarry.AI
         public PassengerJourneyWaypointAction Action => action;
         public float AcceptanceRadius => acceptanceRadius;
         public float DwellDuration => dwellDuration;
+        public Transform TransitionArrival => transitionArrival;
         public int CompletionCount { get; private set; }
 
         public void Configure(
@@ -49,6 +53,29 @@ namespace SubwayCarry.AI
             queueDirection = waitingDirection.sqrMagnitude > 0.001f
                 ? waitingDirection.normalized
                 : Vector2.down;
+        }
+
+        public void ConfigureTransition(Transform arrival)
+        {
+            transitionArrival = arrival;
+        }
+
+        public void ConfigureTransition(
+            Transform arrival,
+            PassengerJourneyScreenSwitcherPrototype switcher,
+            GameObject targetScreen)
+        {
+            transitionArrival = arrival;
+            screenSwitcher = switcher;
+            transitionScreen = targetScreen;
+        }
+
+        public void ActivateTransitionScreen()
+        {
+            if (screenSwitcher != null && transitionScreen != null)
+            {
+                screenSwitcher.Activate(transitionScreen);
+            }
         }
 
         public bool RequestAccess(PassengerStationJourneyPrototype passenger)

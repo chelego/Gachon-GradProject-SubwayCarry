@@ -21,6 +21,7 @@ namespace SubwayCarry.AI
     {
         [SerializeField] private PassengerJourneyWaypoint[] boardingRoute;
         [SerializeField] private PassengerJourneyWaypoint[] exitRoute;
+        [SerializeField] private PassengerJourneyWaypoint[] postTransferExitRoute;
         [SerializeField] private PassengerJourneyWaypoint[] transferRoute;
         [SerializeField] private GridNavigation2D[] navigationAreas;
         [SerializeField] private PassengerIntentCoordinator intentCoordinator;
@@ -30,6 +31,7 @@ namespace SubwayCarry.AI
 
         public PassengerJourneyWaypoint[] BoardingRoute => boardingRoute;
         public PassengerJourneyWaypoint[] ExitRoute => exitRoute;
+        public PassengerJourneyWaypoint[] PostTransferExitRoute => postTransferExitRoute;
         public PassengerJourneyWaypoint[] TransferRoute => transferRoute;
         public PassengerIntentCoordinator IntentCoordinator => intentCoordinator;
         public PassengerDoorway TransferBoardingDoorway => transferBoardingDoorway;
@@ -47,7 +49,8 @@ namespace SubwayCarry.AI
             PassengerIntentCoordinator coordinator,
             PassengerDoorway transferDoorway,
             TrainDoorCyclePrototype transferCycle,
-            Transform transferRoot)
+            Transform transferRoot,
+            PassengerJourneyWaypoint[] exitAfterTransfer = null)
         {
             boardingRoute = approach;
             exitRoute = stationExit;
@@ -57,6 +60,7 @@ namespace SubwayCarry.AI
             transferBoardingDoorway = transferDoorway;
             transferDoorCycle = transferCycle;
             transferMapRoot = transferRoot;
+            postTransferExitRoute = exitAfterTransfer;
         }
 
         public GridNavigation2D FindNavigation(Vector2 start, Vector2 destination)

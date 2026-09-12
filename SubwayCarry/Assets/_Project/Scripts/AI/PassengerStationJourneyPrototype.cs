@@ -72,9 +72,15 @@ namespace SubwayCarry.AI
             bool shouldTransfer =
                 postAlightingPlan == PassengerPostAlightingPlan.TransferOnceThenExit &&
                 transferCount == 0;
+            PassengerJourneyWaypoint[] stationExit =
+                transferCount > 0 &&
+                route?.PostTransferExitRoute != null &&
+                route.PostTransferExitRoute.Length > 0
+                    ? route.PostTransferExitRoute
+                    : route?.ExitRoute;
             return shouldTransfer
                 ? BeginLeg(PassengerJourneyLeg.TransferRoute, route?.TransferRoute)
-                : BeginLeg(PassengerJourneyLeg.ExitRoute, route?.ExitRoute);
+                : BeginLeg(PassengerJourneyLeg.ExitRoute, stationExit);
         }
 
         private void Awake()
@@ -134,9 +140,17 @@ namespace SubwayCarry.AI
                 return;
             }
 
+            Transform transitionArrival = waypoint.TransitionArrival;
             waypoint.Complete(this);
             reservedWaypoint = null;
             dwellUntil = -1f;
+            if (transitionArrival != null)
+            {
+                body.linearVelocity = Vector2.zero;
+                waypoint.ActivateTransitionScreen();
+                body.position = transitionArrival.position;
+                transform.position = transitionArrival.position;
+            }
             waypointIndex++;
             ClearPath();
         }

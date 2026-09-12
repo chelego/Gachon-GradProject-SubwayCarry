@@ -12,7 +12,7 @@ namespace SubwayCarry.AI.V2
         public const string ScenePurpose = "Queue / card tag / one-way gate / same-lane passage";
 
         [Header("Scenario")]
-        [SerializeField, Range(2, 12)] private int passengersPerDirection = 6;
+        [SerializeField, Range(2, 20)] private int passengersPerDirection = 15;
         [SerializeField] private PassengerAiV2PersonalityProfile baselineProfile;
 
         private readonly Rect worldBounds = Rect.MinMaxRect(-14f, -8.8f, 14f, 8.8f);

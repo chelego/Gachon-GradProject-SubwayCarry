@@ -1,6 +1,8 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
+using SubwayCarry.Gameplay;
+using SubwayCarry.Prototype;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -13,6 +15,8 @@ namespace SubwayCarry.AI
         private const string ScenePath = "Assets/_Project/Scenes/Prototype_AI.unity";
         public const string JourneyScenePath =
             "Assets/_Project/Scenes/Prototype/PassengerJourney_AI.unity";
+        public const string JourneySketchScenePath =
+            "Assets/_Project/Scenes/Prototype/StationDirection_PlayerPrototype.unity";
         private const string MaterialFolder = "Assets/_Project/Art/PrototypeMaterials";
         private const float CarWidth = 24.6f;
         private const float CarHeight = 4.6f;
@@ -168,6 +172,714 @@ namespace SubwayCarry.AI
             Debug.Log(
                 "[AI Prototype] Passenger journey scene created: " +
                 JourneyScenePath);
+        }
+
+        [MenuItem("SubwayCarry/Prototype/Build Directional Station Player Scene")]
+        public static void BuildJourneySketch()
+        {
+            EnsureFolder("Assets/_Project/Scenes", "Prototype");
+            EnsureFolder("Assets/_Project/Art", "PrototypeMaterials");
+
+            Scene scene = EditorSceneManager.NewScene(
+                NewSceneSetup.EmptyScene,
+                NewSceneMode.Single);
+            GameObject root = new GameObject("Station Direction Player Prototype");
+            GameObject concourseScreen = new GameObject("MAP 1 - Concourse");
+            concourseScreen.transform.SetParent(root.transform);
+            GameObject upboundStairsScreen = new GameObject("MAP 2A - Upbound Stairs");
+            upboundStairsScreen.transform.SetParent(root.transform);
+            GameObject downboundStairsScreen = new GameObject("MAP 2B - Downbound Stairs");
+            downboundStairsScreen.transform.SetParent(root.transform);
+            GameObject platformScreen = new GameObject("MAP 3 - Platform");
+            platformScreen.transform.SetParent(root.transform);
+            GameObject screenFlowObject = new GameObject("Station Map Screen Flow");
+            screenFlowObject.transform.SetParent(root.transform);
+            StationMapScreenSwitcherPrototype screenSwitcher =
+                screenFlowObject.AddComponent<StationMapScreenSwitcherPrototype>();
+
+            TrainCarCameraController cameraController = CreateCamera(root.transform);
+            Camera camera = cameraController.GetComponent<Camera>();
+            camera.orthographicSize = 10.8f;
+            cameraController.transform.position = new Vector3(0f, 0f, -10f);
+
+            Vector2 upperTrainPosition = new Vector2(0f, 3.15f);
+            Vector2 lowerTrainPosition = new Vector2(0f, -3.15f);
+            TrainCarBuildData upperTrain = CreateTrainCar(
+                "Upbound Train",
+                upperTrainPosition,
+                false,
+                false,
+                platformScreen.transform,
+                false,
+                1f);
+            TrainCarBuildData lowerTrain = CreateTrainCar(
+                "Downbound Train",
+                lowerTrainPosition,
+                false,
+                false,
+                platformScreen.transform,
+                false,
+                -1f);
+
+            TrainDoorCyclePrototype upperDoorCycle = CreateJourneyDoorCycle(
+                "Upbound Door Cycle",
+                upperTrain,
+                platformScreen.transform,
+                14.4f);
+            TrainDoorCyclePrototype lowerDoorCycle = CreateJourneyDoorCycle(
+                "Downbound Door Cycle",
+                lowerTrain,
+                platformScreen.transform,
+                14.4f);
+
+            BuildDirectionalPlayerStation(
+                screenSwitcher,
+                concourseScreen,
+                upboundStairsScreen,
+                downboundStairsScreen,
+                platformScreen);
+
+            CreateStationPlayer(
+                root.transform,
+                camera,
+                new Vector2(-10.5f, 1.05f));
+
+            upperTrain.Center.gameObject
+                .AddComponent<StationTrainArrivalPrototype>()
+                .Configure(new Vector2(0f, 3.15f), -34f, 3.5f, 0.25f);
+            lowerTrain.Center.gameObject
+                .AddComponent<StationTrainArrivalPrototype>()
+                .Configure(new Vector2(0f, -3.15f), 34f, 3.5f, 0.25f);
+            SetFloatValue(upperDoorCycle, "initialDelay", 4.2f);
+            SetFloatValue(lowerDoorCycle, "initialDelay", 4.2f);
+
+            screenSwitcher.Configure(
+                concourseScreen,
+                new[]
+                {
+                    concourseScreen,
+                    upboundStairsScreen,
+                    downboundStairsScreen,
+                    platformScreen
+                });
+
+            EditorSceneManager.SaveScene(scene, JourneySketchScenePath);
+            ValidateDirectionalPlayerScene(scene);
+            Selection.activeGameObject = root;
+            if (SceneView.lastActiveSceneView != null)
+            {
+                SceneView.lastActiveSceneView.FrameSelected();
+            }
+
+            Debug.Log(
+                "[Prototype] Directional station player scene created: " +
+                JourneySketchScenePath);
+        }
+
+        private static PlayerController CreateStationPlayer(
+            Transform parent,
+            Camera facingCamera,
+            Vector2 spawnPosition)
+        {
+            GameObject playerObject = CreateBlock(
+                "Player",
+                spawnPosition,
+                new Vector2(0.72f, 0.88f),
+                new Color(0.35f, 0.95f, 0.65f),
+                parent,
+                false,
+                "JourneyPlayer",
+                -0.5f);
+            playerObject.tag = "Player";
+
+            Rigidbody2D body = playerObject.AddComponent<Rigidbody2D>();
+            body.bodyType = RigidbodyType2D.Dynamic;
+            body.gravityScale = 0f;
+            body.mass = 8f;
+            body.linearDamping = 8f;
+            body.freezeRotation = true;
+            body.interpolation = RigidbodyInterpolation2D.Interpolate;
+            body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+
+            CapsuleCollider2D collider = playerObject.AddComponent<CapsuleCollider2D>();
+            collider.direction = CapsuleDirection2D.Vertical;
+            collider.size = new Vector2(0.7f, 0.84f);
+
+            playerObject.AddComponent<PlayerPosture>();
+            PlayerController controller = playerObject.AddComponent<PlayerController>();
+            playerObject.AddComponent<PlayerInteraction>();
+
+            GameObject facingIndicator = CreateBlock(
+                "Player Facing Indicator",
+                spawnPosition + Vector2.down * 0.56f,
+                new Vector2(0.42f, 0.13f),
+                new Color(0.2f, 0.9f, 0.95f),
+                playerObject.transform,
+                false,
+                "JourneyPlayerFacing",
+                -0.28f);
+            facingIndicator.transform.localPosition =
+                new Vector3(0f, -0.56f, -0.28f);
+            controller.ConfigureFacing(facingCamera, facingIndicator.transform);
+            return controller;
+        }
+
+        private static void BuildDirectionalPlayerStation(
+            StationMapScreenSwitcherPrototype screenSwitcher,
+            GameObject concourseScreen,
+            GameObject upboundStairsScreen,
+            GameObject downboundStairsScreen,
+            GameObject platformScreen)
+        {
+            Color floorColor = new Color(0.11f, 0.15f, 0.2f);
+            Color boundaryColor = new Color(0.28f, 0.35f, 0.43f);
+            Color gateHousingColor = new Color(0.2f, 0.25f, 0.31f);
+            Color fareGateOrange = new Color(1f, 0.32f, 0.035f);
+            Color stairColor = new Color(0.42f, 0.5f, 0.58f);
+            Color stairTreadColor = new Color(0.72f, 0.78f, 0.83f);
+            Color platformColor = new Color(0.34f, 0.37f, 0.4f);
+            Color trackColor = new Color(0.025f, 0.035f, 0.05f);
+
+            CreateStationScreenFrame(
+                "Concourse",
+                new Vector2(28f, 16f),
+                floorColor,
+                boundaryColor,
+                concourseScreen.transform);
+
+            float[] housingY = { -7f, -4.7f, -2.4f, -0.1f, 2.2f, 4.5f, 7f };
+            foreach (float y in housingY)
+            {
+                CreateBlock(
+                    "Fare Gate Housing",
+                    new Vector2(0f, y),
+                    new Vector2(1.8f, 0.45f),
+                    gateHousingColor,
+                    concourseScreen.transform,
+                    true,
+                    "JourneyFareGateHousing");
+            }
+
+            float[] gateY = { -5.85f, -3.55f, -1.25f, 1.05f, 3.35f, 5.75f };
+            for (int index = 0; index < gateY.Length; index++)
+            {
+                GameObject barrier = CreateBlock(
+                    index == 3 ? "Interactive Fare Gate" : "Closed Fare Gate",
+                    new Vector2(0f, gateY[index]),
+                    new Vector2(0.2f, 1.25f),
+                    fareGateOrange,
+                    concourseScreen.transform,
+                    true,
+                    "JourneyFareGateOrange",
+                    -0.08f);
+                if (index == 3)
+                {
+                    barrier.AddComponent<StationFareGatePrototype>().Configure(
+                        barrier.GetComponent<Collider2D>(),
+                        barrier.GetComponent<Renderer>(),
+                        2.5f);
+                }
+            }
+
+            CreateStairLanding(
+                "Upbound Concourse Stairs",
+                new Vector2(10.4f, 4.45f),
+                stairColor,
+                stairTreadColor,
+                concourseScreen.transform);
+            CreateStairLanding(
+                "Downbound Concourse Stairs",
+                new Vector2(10.4f, -4.45f),
+                stairColor,
+                stairTreadColor,
+                concourseScreen.transform);
+            CreateStationSketchLabel(
+                "Upbound Concourse Sign",
+                "UPBOUND STAIRS",
+                new Vector2(9.8f, 6.2f),
+                Color.white,
+                concourseScreen.transform,
+                0.055f);
+            CreateStationSketchLabel(
+                "Downbound Concourse Sign",
+                "DOWNBOUND STAIRS",
+                new Vector2(9.8f, -6.2f),
+                Color.white,
+                concourseScreen.transform,
+                0.055f);
+            CreateStationSketchLabel(
+                "Fare Gate Sign",
+                "FARE GATES",
+                new Vector2(0f, 0f),
+                Color.white,
+                concourseScreen.transform,
+                0.05f);
+
+            CreateStairPassageScreen(
+                "Upbound",
+                upboundStairsScreen.transform,
+                stairColor,
+                stairTreadColor,
+                boundaryColor);
+            CreateStairPassageScreen(
+                "Downbound",
+                downboundStairsScreen.transform,
+                stairColor,
+                stairTreadColor,
+                boundaryColor);
+
+            CreateStationScreenFrame(
+                "Platform",
+                new Vector2(30f, 21f),
+                floorColor,
+                boundaryColor,
+                platformScreen.transform);
+            CreateBlock(
+                "Upbound Platform",
+                new Vector2(0f, 8f),
+                new Vector2(28f, 4f),
+                platformColor,
+                platformScreen.transform,
+                false,
+                "JourneySketchPlatform",
+                0.9f);
+            CreateBlock(
+                "Upbound Track",
+                new Vector2(0f, 3.15f),
+                new Vector2(28f, 5.7f),
+                trackColor,
+                platformScreen.transform,
+                false,
+                "JourneySketchTrack",
+                1.2f);
+            CreateBlock(
+                "Downbound Track",
+                new Vector2(0f, -3.15f),
+                new Vector2(28f, 5.7f),
+                trackColor,
+                platformScreen.transform,
+                false,
+                "JourneySketchTrack",
+                1.2f);
+            CreateBlock(
+                "Downbound Platform",
+                new Vector2(0f, -8f),
+                new Vector2(28f, 4f),
+                platformColor,
+                platformScreen.transform,
+                false,
+                "JourneySketchPlatform",
+                0.9f);
+            CreateStairLanding(
+                "Upbound Platform Stairs",
+                new Vector2(0f, 9.2f),
+                stairColor,
+                stairTreadColor,
+                platformScreen.transform);
+            CreateStairLanding(
+                "Downbound Platform Stairs",
+                new Vector2(0f, -9.2f),
+                stairColor,
+                stairTreadColor,
+                platformScreen.transform);
+            CreateStationSketchLabel(
+                "Upbound Platform Sign",
+                "UPBOUND PLATFORM",
+                new Vector2(8.5f, 8f),
+                Color.white,
+                platformScreen.transform,
+                0.055f);
+            CreateStationSketchLabel(
+                "Downbound Platform Sign",
+                "DOWNBOUND PLATFORM",
+                new Vector2(8.5f, -8f),
+                Color.white,
+                platformScreen.transform,
+                0.055f);
+
+            Transform concourseUpArrival = CreatePoint(
+                "Concourse Upbound Stair Arrival",
+                new Vector2(8.2f, 4.45f),
+                concourseScreen.transform);
+            Transform concourseDownArrival = CreatePoint(
+                "Concourse Downbound Stair Arrival",
+                new Vector2(8.2f, -4.45f),
+                concourseScreen.transform);
+            Transform upStairsLeftArrival = CreatePoint(
+                "Upbound Stairs Concourse Arrival",
+                new Vector2(-10.5f, 0f),
+                upboundStairsScreen.transform);
+            Transform upStairsRightArrival = CreatePoint(
+                "Upbound Stairs Platform Arrival",
+                new Vector2(10.5f, 0f),
+                upboundStairsScreen.transform);
+            Transform downStairsLeftArrival = CreatePoint(
+                "Downbound Stairs Concourse Arrival",
+                new Vector2(-10.5f, 0f),
+                downboundStairsScreen.transform);
+            Transform downStairsRightArrival = CreatePoint(
+                "Downbound Stairs Platform Arrival",
+                new Vector2(10.5f, 0f),
+                downboundStairsScreen.transform);
+            Transform upPlatformArrival = CreatePoint(
+                "Upbound Platform Stair Arrival",
+                new Vector2(0f, 7.7f),
+                platformScreen.transform);
+            Transform downPlatformArrival = CreatePoint(
+                "Downbound Platform Stair Arrival",
+                new Vector2(0f, -7.7f),
+                platformScreen.transform);
+
+            CreateStationPortal(
+                "Concourse To Upbound Stairs",
+                new Vector2(12.2f, 4.45f),
+                new Vector2(1.2f, 2.5f),
+                concourseScreen.transform,
+                screenSwitcher,
+                upboundStairsScreen,
+                upStairsLeftArrival);
+            CreateStationPortal(
+                "Concourse To Downbound Stairs",
+                new Vector2(12.2f, -4.45f),
+                new Vector2(1.2f, 2.5f),
+                concourseScreen.transform,
+                screenSwitcher,
+                downboundStairsScreen,
+                downStairsLeftArrival);
+            CreateStationPortal(
+                "Upbound Stairs To Concourse",
+                new Vector2(-12.4f, 0f),
+                new Vector2(1.2f, 6f),
+                upboundStairsScreen.transform,
+                screenSwitcher,
+                concourseScreen,
+                concourseUpArrival);
+            CreateStationPortal(
+                "Upbound Stairs To Platform",
+                new Vector2(12.4f, 0f),
+                new Vector2(1.2f, 6f),
+                upboundStairsScreen.transform,
+                screenSwitcher,
+                platformScreen,
+                upPlatformArrival);
+            CreateStationPortal(
+                "Downbound Stairs To Concourse",
+                new Vector2(-12.4f, 0f),
+                new Vector2(1.2f, 6f),
+                downboundStairsScreen.transform,
+                screenSwitcher,
+                concourseScreen,
+                concourseDownArrival);
+            CreateStationPortal(
+                "Downbound Stairs To Platform",
+                new Vector2(12.4f, 0f),
+                new Vector2(1.2f, 6f),
+                downboundStairsScreen.transform,
+                screenSwitcher,
+                platformScreen,
+                downPlatformArrival);
+            CreateStationPortal(
+                "Upbound Platform To Stairs",
+                new Vector2(0f, 9.45f),
+                new Vector2(4.6f, 1.2f),
+                platformScreen.transform,
+                screenSwitcher,
+                upboundStairsScreen,
+                upStairsRightArrival);
+            CreateStationPortal(
+                "Downbound Platform To Stairs",
+                new Vector2(0f, -9.45f),
+                new Vector2(4.6f, 1.2f),
+                platformScreen.transform,
+                screenSwitcher,
+                downboundStairsScreen,
+                downStairsRightArrival);
+        }
+
+        private static void CreateStationScreenFrame(
+            string prefix,
+            Vector2 size,
+            Color floorColor,
+            Color boundaryColor,
+            Transform parent)
+        {
+            CreateBlock(
+                prefix + " Floor",
+                Vector2.zero,
+                size,
+                floorColor,
+                parent,
+                false,
+                "JourneySketchFloor",
+                1.3f);
+            float halfWidth = size.x * 0.5f;
+            float halfHeight = size.y * 0.5f;
+            CreateBlock(prefix + " Top Wall", new Vector2(0f, halfHeight), new Vector2(size.x, 0.22f), boundaryColor, parent, true, "JourneySketchBoundary");
+            CreateBlock(prefix + " Bottom Wall", new Vector2(0f, -halfHeight), new Vector2(size.x, 0.22f), boundaryColor, parent, true, "JourneySketchBoundary");
+            CreateBlock(prefix + " Left Wall", new Vector2(-halfWidth, 0f), new Vector2(0.22f, size.y), boundaryColor, parent, true, "JourneySketchBoundary");
+            CreateBlock(prefix + " Right Wall", new Vector2(halfWidth, 0f), new Vector2(0.22f, size.y), boundaryColor, parent, true, "JourneySketchBoundary");
+        }
+
+        private static void CreateStairPassageScreen(
+            string direction,
+            Transform parent,
+            Color stairColor,
+            Color treadColor,
+            Color boundaryColor)
+        {
+            CreateBlock(
+                direction + " Stair Passage",
+                Vector2.zero,
+                new Vector2(28f, 8f),
+                stairColor,
+                parent,
+                false,
+                "JourneyStairs",
+                0.9f);
+            for (int index = -10; index <= 10; index += 2)
+            {
+                CreateBlock(
+                    direction + " Stair Tread",
+                    new Vector2(index, 0f),
+                    new Vector2(0.18f, 6.8f),
+                    treadColor,
+                    parent,
+                    false,
+                    "JourneyStairTread",
+                    0.4f);
+            }
+
+            CreateBlock(direction + " Stair Top Wall", new Vector2(0f, 4f), new Vector2(28f, 0.22f), boundaryColor, parent, true, "JourneySketchBoundary");
+            CreateBlock(direction + " Stair Bottom Wall", new Vector2(0f, -4f), new Vector2(28f, 0.22f), boundaryColor, parent, true, "JourneySketchBoundary");
+            CreateBlock(direction + " Stair Left Wall", new Vector2(-14f, 0f), new Vector2(0.22f, 8f), boundaryColor, parent, true, "JourneySketchBoundary");
+            CreateBlock(direction + " Stair Right Wall", new Vector2(14f, 0f), new Vector2(0.22f, 8f), boundaryColor, parent, true, "JourneySketchBoundary");
+            CreateStationSketchLabel(
+                direction + " Stair Sign",
+                direction.ToUpperInvariant() + " STAIRS",
+                new Vector2(0f, 3.25f),
+                Color.white,
+                parent,
+                0.06f);
+        }
+
+        private static void CreateStairLanding(
+            string name,
+            Vector2 center,
+            Color stairColor,
+            Color treadColor,
+            Transform parent)
+        {
+            CreateBlock(
+                name,
+                center,
+                new Vector2(5.2f, 2.7f),
+                stairColor,
+                parent,
+                false,
+                "JourneyStairs",
+                0.25f);
+            for (int index = -2; index <= 2; index++)
+            {
+                CreateBlock(
+                    name + " Tread",
+                    center + Vector2.right * index * 0.9f,
+                    new Vector2(0.15f, 2.35f),
+                    treadColor,
+                    parent,
+                    false,
+                    "JourneyStairTread",
+                    0.12f);
+            }
+        }
+
+        private static StationMapPortalPrototype CreateStationPortal(
+            string name,
+            Vector2 position,
+            Vector2 size,
+            Transform parent,
+            StationMapScreenSwitcherPrototype screenSwitcher,
+            GameObject targetScreen,
+            Transform arrivalPoint)
+        {
+            GameObject portalObject = new GameObject(name);
+            portalObject.transform.SetParent(parent);
+            portalObject.transform.position = position;
+            BoxCollider2D trigger = portalObject.AddComponent<BoxCollider2D>();
+            trigger.isTrigger = true;
+            trigger.size = size;
+            StationMapPortalPrototype portal =
+                portalObject.AddComponent<StationMapPortalPrototype>();
+            portal.Configure(screenSwitcher, targetScreen, arrivalPoint);
+            return portal;
+        }
+
+        private static void ValidateDirectionalPlayerScene(Scene scene)
+        {
+            var players = new List<PlayerController>();
+            var screenSwitchers = new List<StationMapScreenSwitcherPrototype>();
+            var portals = new List<StationMapPortalPrototype>();
+            var fareGates = new List<StationFareGatePrototype>();
+            var passengers = new List<GeneralPassengerPrototype>();
+            var journeys = new List<PassengerStationJourneyPrototype>();
+            var trainArrivals = new List<StationTrainArrivalPrototype>();
+            foreach (GameObject sceneRoot in scene.GetRootGameObjects())
+            {
+                players.AddRange(sceneRoot.GetComponentsInChildren<PlayerController>(true));
+                screenSwitchers.AddRange(sceneRoot.GetComponentsInChildren<StationMapScreenSwitcherPrototype>(true));
+                portals.AddRange(sceneRoot.GetComponentsInChildren<StationMapPortalPrototype>(true));
+                fareGates.AddRange(sceneRoot.GetComponentsInChildren<StationFareGatePrototype>(true));
+                passengers.AddRange(sceneRoot.GetComponentsInChildren<GeneralPassengerPrototype>(true));
+                journeys.AddRange(sceneRoot.GetComponentsInChildren<PassengerStationJourneyPrototype>(true));
+                trainArrivals.AddRange(sceneRoot.GetComponentsInChildren<StationTrainArrivalPrototype>(true));
+            }
+
+            var errors = new List<string>();
+            if (!scene.IsValid() || !scene.isLoaded) errors.Add("player station scene is not loaded");
+            if (players.Count != 1) errors.Add("expected one controllable player");
+            if (screenSwitchers.Count != 1 || screenSwitchers[0].ScreenCount != 4) errors.Add("expected four exclusive map screens");
+            if (portals.Count != 8) errors.Add("expected eight bidirectional stair portals");
+            if (fareGates.Count != 1) errors.Add("expected one interactive fare gate");
+            if (passengers.Count != 0 || journeys.Count != 0) errors.Add("passenger AI must not exist in player scene");
+            if (trainArrivals.Count != 2) errors.Add("expected one train per direction");
+            if (errors.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    "Directional player scene validation failed: " +
+                    string.Join(", ", errors));
+            }
+        }
+
+        private static void PartitionJourneySketchScreens(
+            Transform routeRoot,
+            Transform concourseScreen,
+            Transform escalatorScreen,
+            Transform platformScreen)
+        {
+            var children = new List<Transform>();
+            foreach (Transform child in routeRoot)
+            {
+                children.Add(child);
+            }
+
+            foreach (Transform child in children)
+            {
+                float x = child.position.x;
+                Transform targetScreen;
+                float horizontalOffset;
+                if (x < 30f)
+                {
+                    targetScreen = concourseScreen;
+                    horizontalOffset = 0f;
+                }
+                else if (x < 90f)
+                {
+                    targetScreen = escalatorScreen;
+                    horizontalOffset = 55f;
+                }
+                else
+                {
+                    targetScreen = platformScreen;
+                    horizontalOffset = 120f;
+                }
+
+                child.SetParent(targetScreen, true);
+                child.position -= Vector3.right * horizontalOffset;
+            }
+        }
+
+        private static void MoveTrainToPlatformScreen(
+            TrainCarBuildData train,
+            Transform platformScreen,
+            float verticalPosition)
+        {
+            train.Center.SetParent(platformScreen, true);
+            train.Center.position = new Vector3(0f, verticalPosition, 0f);
+        }
+
+        private static void ConfigureJourneySketchScreenTransitions(
+            PassengerStationRoutePrototype route,
+            PassengerJourneyScreenSwitcherPrototype switcher,
+            GameObject concourseScreen,
+            GameObject escalatorScreen,
+            GameObject platformScreen)
+        {
+            var waypoints = new HashSet<PassengerJourneyWaypoint>();
+            AddJourneyWaypoints(waypoints, route.BoardingRoute);
+            AddJourneyWaypoints(waypoints, route.ExitRoute);
+            AddJourneyWaypoints(waypoints, route.TransferRoute);
+            AddJourneyWaypoints(waypoints, route.PostTransferExitRoute);
+
+            foreach (PassengerJourneyWaypoint waypoint in waypoints)
+            {
+                if (waypoint == null || waypoint.TransitionArrival == null)
+                {
+                    continue;
+                }
+
+                GameObject targetScreen = null;
+                switch (waypoint.gameObject.name)
+                {
+                    case "Enter Down Escalator Screen":
+                    case "Enter Top Platform Escalator":
+                    case "Enter Bottom Platform Escalator":
+                        targetScreen = escalatorScreen;
+                        break;
+
+                    case "Leave Down Escalator Screen":
+                    case "Enter Transfer Escalator":
+                        targetScreen = platformScreen;
+                        break;
+
+                    case "Leave Up Escalator Screen":
+                    case "Leave Post Transfer Up Escalator":
+                        targetScreen = concourseScreen;
+                        break;
+                }
+
+                if (targetScreen != null)
+                {
+                    waypoint.ConfigureTransition(
+                        waypoint.TransitionArrival,
+                        switcher,
+                        targetScreen);
+                }
+            }
+        }
+
+        private static void AddJourneyWaypoints(
+            HashSet<PassengerJourneyWaypoint> destination,
+            PassengerJourneyWaypoint[] source)
+        {
+            if (source == null)
+            {
+                return;
+            }
+
+            foreach (PassengerJourneyWaypoint waypoint in source)
+            {
+                if (waypoint != null)
+                {
+                    destination.Add(waypoint);
+                }
+            }
+        }
+
+        private static TrainDoorCyclePrototype CreateJourneyDoorCycle(
+            string name,
+            TrainCarBuildData car,
+            Transform parent,
+            float initialDelay)
+        {
+            GameObject cycleObject = new GameObject(name);
+            cycleObject.transform.SetParent(parent);
+            TrainDoorCyclePrototype cycle =
+                cycleObject.AddComponent<TrainDoorCyclePrototype>();
+            cycle.Configure(car.Doors.ToArray());
+            SetFloatValue(cycle, "initialDelay", initialDelay);
+            SetFloatValue(cycle, "openDuration", 9f);
+            SetFloatValue(cycle, "boardingClearanceDelay", 0.25f);
+            SetFloatValue(cycle, "travelDuration", 2f);
+            return cycle;
         }
 
         [MenuItem("SubwayCarry/Prototype/Validate A* Pathfinding")]
@@ -444,6 +1156,1183 @@ namespace SubwayCarry.AI
             return route;
         }
 
+        private static PassengerStationRoutePrototype CreateJourneySketchStation(
+            TrainCarBuildData car,
+            TrainDoorCyclePrototype doorCycle,
+            Transform parent)
+        {
+            GameObject stationRoot = new GameObject("Station Sketch Route");
+            stationRoot.transform.SetParent(parent);
+
+            Color floorColor = new Color(0.11f, 0.15f, 0.2f);
+            Color boundaryColor = new Color(0.28f, 0.35f, 0.43f);
+            Color gateHousingColor = new Color(0.2f, 0.25f, 0.31f);
+            Color fareGateOrange = new Color(1f, 0.32f, 0.035f);
+            Color escalatorYellow = new Color(1f, 0.88f, 0.035f);
+            Color platformColor = new Color(0.34f, 0.37f, 0.4f);
+            Color trackColor = new Color(0.035f, 0.045f, 0.06f);
+
+            CreateBlock(
+                "Concourse Floor",
+                new Vector2(-22f, -1.5f),
+                new Vector2(20f, 13f),
+                floorColor,
+                stationRoot.transform,
+                false,
+                "JourneySketchFloor",
+                1.15f);
+            CreateBlock(
+                "Escalator Hall Background",
+                new Vector2(-3f, -1.5f),
+                new Vector2(18f, 10f),
+                new Color(0.025f, 0.035f, 0.05f),
+                stationRoot.transform,
+                false,
+                "JourneySketchVoid",
+                1.15f);
+            CreateBlock(
+                "Platform Area Background",
+                new Vector2(18f, -1.5f),
+                new Vector2(24f, 13f),
+                floorColor,
+                stationRoot.transform,
+                false,
+                "JourneySketchFloor",
+                1.15f);
+
+            CreateBlock(
+                "Concourse Top Wall Left",
+                new Vector2(-30.8f, 5.1f),
+                new Vector2(2.4f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Concourse Top Wall Right",
+                new Vector2(-19.6f, 5.1f),
+                new Vector2(15.2f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Concourse Left Wall Upper",
+                new Vector2(-32.1f, 0.2f),
+                new Vector2(0.22f, 9.8f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Concourse Left Wall Lower",
+                new Vector2(-32.1f, -7.35f),
+                new Vector2(0.22f, 1.3f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Concourse Bottom Wall",
+                new Vector2(-22f, -8.1f),
+                new Vector2(20.2f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+
+            CreateBlock(
+                "Concourse Right Wall Bottom",
+                new Vector2(-11.9f, -7.2f),
+                new Vector2(0.22f, 1.8f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Concourse Right Wall Middle",
+                new Vector2(-11.9f, -2f),
+                new Vector2(0.22f, 4.4f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Concourse Right Wall Top",
+                new Vector2(-11.9f, 3.95f),
+                new Vector2(0.22f, 2.3f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+
+            float[] gateHousingY =
+            {
+                -7.7f,
+                -5.5f,
+                -3.3f,
+                -1.1f,
+                1.1f,
+                3.3f,
+                4.85f
+            };
+            foreach (float y in gateHousingY)
+            {
+                CreateBlock(
+                    "Fare Gate Housing",
+                    new Vector2(-22f, y),
+                    new Vector2(1.8f, 0.46f),
+                    gateHousingColor,
+                    stationRoot.transform,
+                    true,
+                    "JourneyFareGateHousing");
+            }
+
+            float[] fareGateY = { -6.6f, -4.4f, -2.2f, 0f, 2.2f, 4.05f };
+            foreach (float y in fareGateY)
+            {
+                CreateBlock(
+                    "Orange Fare Gate",
+                    new Vector2(-22f, y),
+                    new Vector2(0.2f, 1.34f),
+                    fareGateOrange,
+                    stationRoot.transform,
+                    false,
+                    "JourneyFareGateOrange",
+                    -0.08f);
+            }
+
+            CreateBlock(
+                "Concourse Down Escalator",
+                new Vector2(-14f, 1.5f),
+                new Vector2(4f, 2.35f),
+                escalatorYellow,
+                stationRoot.transform,
+                false,
+                "JourneyEscalatorYellow",
+                0.25f);
+            CreateBlock(
+                "Concourse Up Escalator",
+                new Vector2(-14f, -5.3f),
+                new Vector2(4f, 2.15f),
+                escalatorYellow,
+                stationRoot.transform,
+                false,
+                "JourneyEscalatorYellow",
+                0.25f);
+
+            CreateBlock(
+                "Down Escalator Lane",
+                new Vector2(-3f, 1.5f),
+                new Vector2(18f, 2.35f),
+                escalatorYellow,
+                stationRoot.transform,
+                false,
+                "JourneyEscalatorYellow",
+                0.25f);
+            CreateBlock(
+                "Up Escalator Lane",
+                new Vector2(-3f, -5.3f),
+                new Vector2(18f, 2.15f),
+                escalatorYellow,
+                stationRoot.transform,
+                false,
+                "JourneyEscalatorYellow",
+                0.25f);
+            CreateBlock(
+                "Escalator Hall Top Wall",
+                new Vector2(-3f, 3.6f),
+                new Vector2(18f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Escalator Hall Divider",
+                new Vector2(-3.3f, -1.55f),
+                new Vector2(17.4f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Escalator Hall Bottom Wall",
+                new Vector2(-3f, -6.6f),
+                new Vector2(18f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+
+            CreateBlock(
+                "Platform Connector Middle Wall",
+                new Vector2(6.1f, -1.8f),
+                new Vector2(0.22f, 4.4f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Platform Connector Top Wall",
+                new Vector2(6.1f, 4.05f),
+                new Vector2(0.22f, 2.3f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Platform Connector Bottom Wall",
+                new Vector2(6.1f, -7.3f),
+                new Vector2(0.22f, 1.4f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+
+            CreateBlock(
+                "Top Platform",
+                new Vector2(18f, 3.65f),
+                new Vector2(24f, 3f),
+                platformColor,
+                stationRoot.transform,
+                false,
+                "JourneySketchPlatform",
+                0.75f);
+            CreateBlock(
+                "Upper Track",
+                new Vector2(18.5f, 0.95f),
+                new Vector2(20.4f, 1.8f),
+                trackColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchTrack",
+                0.65f);
+            CreateBlock(
+                "Lower Track",
+                new Vector2(18.5f, -1.25f),
+                new Vector2(20.4f, 1.8f),
+                trackColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchTrack",
+                0.65f);
+            CreateBlock(
+                "Bottom Platform",
+                new Vector2(18f, -5.1f),
+                new Vector2(24f, 5.8f),
+                platformColor,
+                stationRoot.transform,
+                false,
+                "JourneySketchPlatform",
+                0.75f);
+            CreateBlock(
+                "Top Platform Escalator",
+                new Vector2(7.15f, 3.65f),
+                new Vector2(1.85f, 2.35f),
+                escalatorYellow,
+                stationRoot.transform,
+                false,
+                "JourneyEscalatorYellow",
+                0.2f);
+            CreateBlock(
+                "Bottom Platform Escalator",
+                new Vector2(7.15f, -5.3f),
+                new Vector2(1.85f, 2.15f),
+                escalatorYellow,
+                stationRoot.transform,
+                false,
+                "JourneyEscalatorYellow",
+                0.2f);
+            CreateBlock(
+                "Platform Right Wall",
+                new Vector2(30.2f, -1.5f),
+                new Vector2(0.22f, 13.2f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Platform Bottom Wall",
+                new Vector2(18.1f, -8.1f),
+                new Vector2(24.2f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+
+            CreateStationSketchLabel(
+                "Station Entrance Top Label",
+                "STATION ENTRANCE",
+                new Vector2(-28.5f, 4.45f),
+                Color.white,
+                stationRoot.transform);
+            CreateStationSketchLabel(
+                "Station Exit Bottom Label",
+                "STATION EXIT",
+                new Vector2(-29.3f, -6.1f),
+                Color.white,
+                stationRoot.transform);
+            CreateStationSketchLabel(
+                "Fare Gate Label",
+                "FARE GATES",
+                new Vector2(-22f, -0.1f),
+                Color.white,
+                stationRoot.transform,
+                0.055f);
+            CreateStationSketchLabel(
+                "Down Escalator Label",
+                "DOWN ESCALATOR",
+                new Vector2(-3f, 1.5f),
+                new Color(0.08f, 0.08f, 0.05f),
+                stationRoot.transform);
+            CreateStationSketchLabel(
+                "Up Escalator Label",
+                "UP ESCALATOR",
+                new Vector2(-3f, -5.3f),
+                new Color(0.08f, 0.08f, 0.05f),
+                stationRoot.transform);
+            CreateStationSketchLabel(
+                "Platform Label",
+                "PLATFORM",
+                new Vector2(18f, 3.4f),
+                Color.white,
+                stationRoot.transform);
+            CreateStationSketchLabel(
+                "Upper Track Label",
+                "TRACK",
+                new Vector2(18.5f, 0.95f),
+                new Color(0.72f, 0.75f, 0.8f),
+                stationRoot.transform);
+            CreateStationSketchLabel(
+                "Lower Track Label",
+                "TRACK",
+                new Vector2(18.5f, -1.25f),
+                new Color(0.72f, 0.75f, 0.8f),
+                stationRoot.transform);
+            CreateStationSketchLabel(
+                "Bottom Platform Label",
+                "PLATFORM",
+                new Vector2(18f, -5.2f),
+                Color.white,
+                stationRoot.transform);
+
+            GameObject navigationObject = new GameObject("Station Sketch Navigation");
+            navigationObject.transform.SetParent(stationRoot.transform);
+            navigationObject.transform.position = new Vector2(-1f, -1.5f);
+            GridNavigation2D stationNavigation =
+                navigationObject.AddComponent<GridNavigation2D>();
+            stationNavigation.ConfigureDimensions(184, 44, 0.35f);
+
+            PassengerIntentCoordinator coordinator =
+                car.Center.GetComponent<PassengerIntentCoordinator>();
+            if (coordinator == null)
+            {
+                coordinator = car.Center.gameObject.AddComponent<PassengerIntentCoordinator>();
+            }
+
+            PassengerJourneyWaypoint[] boardingRoute =
+            {
+                CreateJourneyWaypoint(
+                    "Approach Sketch Entry Gate",
+                    new Vector2(-26.4f, 2.2f),
+                    PassengerJourneyWaypointAction.Walk,
+                    0f,
+                    4,
+                    Vector2.left,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Tap Sketch Entry Fare Gate",
+                    new Vector2(-22f, 2.2f),
+                    PassengerJourneyWaypointAction.TapEntryGate,
+                    0.35f,
+                    1,
+                    Vector2.left,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Cross Paid Concourse",
+                    new Vector2(-17.2f, 2.2f),
+                    PassengerJourneyWaypointAction.Walk,
+                    0f,
+                    4,
+                    Vector2.left,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Enter Sketch Down Escalator",
+                    new Vector2(-13.4f, 1.5f),
+                    PassengerJourneyWaypointAction.EnterVerticalConnector,
+                    0.15f,
+                    2,
+                    Vector2.left,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Leave Sketch Down Escalator",
+                    new Vector2(5.2f, 1.5f),
+                    PassengerJourneyWaypointAction.LeaveVerticalConnector,
+                    0f,
+                    2,
+                    Vector2.left,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Reach Platform Escalator Landing",
+                    new Vector2(7.2f, 3.65f),
+                    PassengerJourneyWaypointAction.Walk,
+                    0f,
+                    4,
+                    Vector2.left,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Reach Sketch Boarding Platform",
+                    new Vector2(9.6f, 4.55f),
+                    PassengerJourneyWaypointAction.ReachPlatform,
+                    0f,
+                    4,
+                    Vector2.left,
+                    stationRoot.transform)
+            };
+
+            PassengerJourneyWaypoint[] exitRoute =
+            {
+                CreateJourneyWaypoint(
+                    "Clear Sketch Arrival Platform",
+                    new Vector2(26.4f, 4.55f),
+                    PassengerJourneyWaypointAction.ClearPlatform,
+                    0f,
+                    4,
+                    Vector2.right,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Enter Sketch Up Escalator",
+                    new Vector2(7.2f, -5.3f),
+                    PassengerJourneyWaypointAction.EnterVerticalConnector,
+                    0.15f,
+                    2,
+                    Vector2.right,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Leave Sketch Up Escalator",
+                    new Vector2(-13.4f, -5.3f),
+                    PassengerJourneyWaypointAction.LeaveVerticalConnector,
+                    0f,
+                    2,
+                    Vector2.right,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Approach Sketch Exit Gate",
+                    new Vector2(-17.2f, -4.4f),
+                    PassengerJourneyWaypointAction.Walk,
+                    0f,
+                    4,
+                    Vector2.right,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Tap Sketch Exit Fare Gate",
+                    new Vector2(-22f, -4.4f),
+                    PassengerJourneyWaypointAction.TapExitGate,
+                    0.35f,
+                    1,
+                    Vector2.right,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Leave Sketch Station",
+                    new Vector2(-31.1f, -5.7f),
+                    PassengerJourneyWaypointAction.LeaveStation,
+                    0f,
+                    4,
+                    Vector2.right,
+                    stationRoot.transform)
+            };
+
+            PassengerDoorway transferDoorway =
+                car.Doorways[Mathf.Min(3, car.Doorways.Count - 1)];
+            PassengerJourneyWaypoint[] transferRoute =
+            {
+                CreateJourneyWaypoint(
+                    "Clear Sketch Transfer Platform",
+                    new Vector2(26.4f, 4.55f),
+                    PassengerJourneyWaypointAction.ClearPlatform,
+                    0f,
+                    4,
+                    Vector2.left,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Enter Sketch Transfer Passage",
+                    new Vector2(29.35f, 3.6f),
+                    PassengerJourneyWaypointAction.EnterTransferPassage,
+                    0.2f,
+                    2,
+                    Vector2.left,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Reach Lower Transfer Landing",
+                    new Vector2(29.35f, -5f),
+                    PassengerJourneyWaypointAction.Walk,
+                    0f,
+                    2,
+                    Vector2.up,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Cross Lower Transfer Platform",
+                    new Vector2(18f, -5f),
+                    PassengerJourneyWaypointAction.Walk,
+                    0f,
+                    4,
+                    Vector2.right,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Reach Sketch Transfer Platform",
+                    new Vector2(9.6f, 4.55f),
+                    PassengerJourneyWaypointAction.ReachTransferPlatform,
+                    0f,
+                    4,
+                    Vector2.right,
+                    stationRoot.transform)
+            };
+
+            PassengerStationRoutePrototype route =
+                stationRoot.AddComponent<PassengerStationRoutePrototype>();
+            route.Configure(
+                boardingRoute,
+                exitRoute,
+                transferRoute,
+                new[] { stationNavigation },
+                coordinator,
+                transferDoorway,
+                doorCycle,
+                car.Center);
+            return route;
+        }
+
+        private static PassengerStationRoutePrototype CreateSeparatedJourneySketchStation(
+            TrainCarBuildData upperTrain,
+            TrainDoorCyclePrototype upperDoorCycle,
+            TrainCarBuildData lowerTrain,
+            TrainDoorCyclePrototype lowerDoorCycle,
+            Transform parent)
+        {
+            GameObject stationRoot = new GameObject("Separated Station Screens");
+            stationRoot.transform.SetParent(parent);
+
+            Color floorColor = new Color(0.11f, 0.15f, 0.2f);
+            Color boundaryColor = new Color(0.28f, 0.35f, 0.43f);
+            Color gateHousingColor = new Color(0.2f, 0.25f, 0.31f);
+            Color fareGateOrange = new Color(1f, 0.32f, 0.035f);
+            Color escalatorYellow = new Color(1f, 0.88f, 0.035f);
+            Color platformColor = new Color(0.34f, 0.37f, 0.4f);
+            Color trackColor = new Color(0.025f, 0.035f, 0.05f);
+
+            CreateBlock(
+                "Concourse Screen Floor",
+                Vector2.zero,
+                new Vector2(26f, 14f),
+                floorColor,
+                stationRoot.transform,
+                false,
+                "JourneySketchFloor",
+                1.15f);
+            CreateBlock(
+                "Concourse Top Wall Left",
+                new Vector2(-11.8f, 7.1f),
+                new Vector2(2.4f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Concourse Top Wall Right",
+                new Vector2(1.8f, 7.1f),
+                new Vector2(22.4f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Concourse Bottom Wall",
+                new Vector2(0f, -7.1f),
+                new Vector2(26.2f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Concourse Left Wall Upper",
+                new Vector2(-13.1f, 1.2f),
+                new Vector2(0.22f, 11.8f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Concourse Left Wall Lower",
+                new Vector2(-13.1f, -6.5f),
+                new Vector2(0.22f, 1.2f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Concourse Right Wall Center",
+                new Vector2(13.1f, 0f),
+                new Vector2(0.22f, 3.8f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Concourse Right Wall Top",
+                new Vector2(13.1f, 6.2f),
+                new Vector2(0.22f, 1.8f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Concourse Right Wall Bottom",
+                new Vector2(13.1f, -6.2f),
+                new Vector2(0.22f, 1.8f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+
+            float[] gateHousingY = { -6.8f, -4.7f, -2.6f, -0.5f, 1.6f, 3.7f, 5.8f, 6.85f };
+            foreach (float y in gateHousingY)
+            {
+                CreateBlock(
+                    "Fare Gate Housing",
+                    new Vector2(0f, y),
+                    new Vector2(1.8f, 0.45f),
+                    gateHousingColor,
+                    stationRoot.transform,
+                    true,
+                    "JourneyFareGateHousing");
+            }
+
+            float[] fareGateY = { -5.75f, -3.65f, -1.55f, 0.55f, 2.65f, 4.75f };
+            foreach (float y in fareGateY)
+            {
+                CreateBlock(
+                    "Orange Fare Gate",
+                    new Vector2(0f, y),
+                    new Vector2(0.2f, 1.25f),
+                    fareGateOrange,
+                    stationRoot.transform,
+                    false,
+                    "JourneyFareGateOrange",
+                    -0.08f);
+            }
+
+            CreateBlock(
+                "Concourse Down Escalator",
+                new Vector2(11f, 3.6f),
+                new Vector2(4f, 2.7f),
+                escalatorYellow,
+                stationRoot.transform,
+                false,
+                "JourneyEscalatorYellow",
+                0.2f);
+            CreateBlock(
+                "Concourse Up Escalator",
+                new Vector2(11f, -3.6f),
+                new Vector2(4f, 2.7f),
+                escalatorYellow,
+                stationRoot.transform,
+                false,
+                "JourneyEscalatorYellow",
+                0.2f);
+
+            Vector2 escalatorCenter = new Vector2(55f, 0f);
+            CreateBlock(
+                "Escalator Screen Background",
+                escalatorCenter,
+                new Vector2(28f, 14f),
+                new Color(0.025f, 0.035f, 0.05f),
+                stationRoot.transform,
+                false,
+                "JourneySketchVoid",
+                1.15f);
+            CreateBlock(
+                "Down Escalator Lane",
+                escalatorCenter + Vector2.up * 3.2f,
+                new Vector2(24f, 2.8f),
+                escalatorYellow,
+                stationRoot.transform,
+                false,
+                "JourneyEscalatorYellow",
+                0.2f);
+            CreateBlock(
+                "Up Escalator Lane",
+                escalatorCenter + Vector2.down * 3.2f,
+                new Vector2(24f, 2.8f),
+                escalatorYellow,
+                stationRoot.transform,
+                false,
+                "JourneyEscalatorYellow",
+                0.2f);
+            CreateBlock(
+                "Escalator Screen Top Wall",
+                escalatorCenter + Vector2.up * 7.1f,
+                new Vector2(28.2f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Escalator Screen Divider",
+                escalatorCenter,
+                new Vector2(28.2f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Escalator Screen Bottom Wall",
+                escalatorCenter + Vector2.down * 7.1f,
+                new Vector2(28.2f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+
+            Vector2 platformCenter = new Vector2(120f, 0f);
+            CreateBlock(
+                "Platform Screen Background",
+                platformCenter,
+                new Vector2(30f, 21f),
+                floorColor,
+                stationRoot.transform,
+                false,
+                "JourneySketchFloor",
+                1.3f);
+            CreateBlock(
+                "Top Platform",
+                platformCenter + Vector2.up * 8f,
+                new Vector2(28f, 4f),
+                platformColor,
+                stationRoot.transform,
+                false,
+                "JourneySketchPlatform",
+                0.9f);
+            CreateBlock(
+                "Upper Direction Track",
+                platformCenter + Vector2.up * 3.15f,
+                new Vector2(28f, 5.7f),
+                trackColor,
+                stationRoot.transform,
+                false,
+                "JourneySketchTrack",
+                1.2f);
+            CreateBlock(
+                "Lower Direction Track",
+                platformCenter + Vector2.down * 3.15f,
+                new Vector2(28f, 5.7f),
+                trackColor,
+                stationRoot.transform,
+                false,
+                "JourneySketchTrack",
+                1.2f);
+            CreateBlock(
+                "Bottom Platform",
+                platformCenter + Vector2.down * 8f,
+                new Vector2(28f, 4f),
+                platformColor,
+                stationRoot.transform,
+                false,
+                "JourneySketchPlatform",
+                0.9f);
+            CreateBlock(
+                "Top Platform Escalator Exit",
+                platformCenter + Vector2.up * 8f,
+                new Vector2(5f, 1.7f),
+                escalatorYellow,
+                stationRoot.transform,
+                false,
+                "JourneyEscalatorYellow",
+                0.15f);
+            CreateBlock(
+                "Bottom Platform Escalator Exit",
+                platformCenter + Vector2.down * 8f,
+                new Vector2(5f, 1.7f),
+                escalatorYellow,
+                stationRoot.transform,
+                false,
+                "JourneyEscalatorYellow",
+                0.15f);
+            CreateBlock(
+                "Platform Screen Top Wall",
+                platformCenter + Vector2.up * 10.1f,
+                new Vector2(28.2f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Platform Screen Bottom Wall",
+                platformCenter + Vector2.down * 10.1f,
+                new Vector2(28.2f, 0.22f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Platform Screen Left Wall",
+                platformCenter + Vector2.left * 14.1f,
+                new Vector2(0.22f, 20.2f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+            CreateBlock(
+                "Platform Screen Right Wall",
+                platformCenter + Vector2.right * 14.1f,
+                new Vector2(0.22f, 20.2f),
+                boundaryColor,
+                stationRoot.transform,
+                true,
+                "JourneySketchBoundary");
+
+            CreateStationSketchLabel(
+                "Concourse Label",
+                "CONCOURSE",
+                new Vector2(-6f, 5.7f),
+                Color.white,
+                stationRoot.transform);
+            CreateStationSketchLabel(
+                "Fare Gate Label",
+                "FARE GATES",
+                new Vector2(0f, -0.5f),
+                Color.white,
+                stationRoot.transform,
+                0.055f);
+            CreateStationSketchLabel(
+                "Down Escalator Label",
+                "DOWN ESCALATOR",
+                escalatorCenter + Vector2.up * 3.2f,
+                new Color(0.08f, 0.08f, 0.05f),
+                stationRoot.transform);
+            CreateStationSketchLabel(
+                "Up Escalator Label",
+                "UP ESCALATOR",
+                escalatorCenter + Vector2.down * 3.2f,
+                new Color(0.08f, 0.08f, 0.05f),
+                stationRoot.transform);
+            CreateStationSketchLabel(
+                "Top Platform Label",
+                "PLATFORM",
+                platformCenter + Vector2.up * 8f,
+                Color.white,
+                stationRoot.transform);
+            CreateStationSketchLabel(
+                "Bottom Platform Label",
+                "PLATFORM",
+                platformCenter + Vector2.down * 8f,
+                Color.white,
+                stationRoot.transform);
+            CreateStationSketchLabel(
+                "Upper Direction Label",
+                "DIRECTION A",
+                platformCenter + Vector2.up * 3.15f,
+                new Color(0.72f, 0.75f, 0.8f),
+                stationRoot.transform);
+            CreateStationSketchLabel(
+                "Lower Direction Label",
+                "DIRECTION B",
+                platformCenter + Vector2.down * 3.15f,
+                new Color(0.72f, 0.75f, 0.8f),
+                stationRoot.transform);
+
+            GridNavigation2D concourseNavigation = CreateJourneyNavigation(
+                "Concourse Navigation",
+                Vector2.zero,
+                80,
+                44,
+                0.35f,
+                stationRoot.transform);
+            GridNavigation2D escalatorNavigation = CreateJourneyNavigation(
+                "Escalator Navigation",
+                escalatorCenter,
+                84,
+                44,
+                0.35f,
+                stationRoot.transform);
+            GridNavigation2D platformNavigation = CreateJourneyNavigation(
+                "Platform Navigation",
+                platformCenter,
+                88,
+                64,
+                0.35f,
+                stationRoot.transform);
+
+            Transform downEscalatorArrival = CreatePoint(
+                "Down Escalator Screen Arrival",
+                new Vector2(43.5f, 3.2f),
+                stationRoot.transform);
+            Transform platformTopArrival = CreatePoint(
+                "Top Platform Center Arrival",
+                new Vector2(120f, 8f),
+                stationRoot.transform);
+            Transform platformBottomArrival = CreatePoint(
+                "Bottom Platform Center Arrival",
+                new Vector2(120f, -8f),
+                stationRoot.transform);
+            Transform upEscalatorArrival = CreatePoint(
+                "Up Escalator Screen Arrival",
+                new Vector2(66.5f, -3.2f),
+                stationRoot.transform);
+            Transform concourseExitArrival = CreatePoint(
+                "Concourse Up Escalator Arrival",
+                new Vector2(11f, -3.6f),
+                stationRoot.transform);
+
+            PassengerJourneyWaypoint enterDownEscalator = CreateJourneyWaypoint(
+                "Enter Down Escalator Screen",
+                new Vector2(11f, 3.6f),
+                PassengerJourneyWaypointAction.EnterVerticalConnector,
+                0.15f,
+                2,
+                Vector2.left,
+                stationRoot.transform);
+            enterDownEscalator.ConfigureTransition(downEscalatorArrival);
+            PassengerJourneyWaypoint leaveDownEscalator = CreateJourneyWaypoint(
+                "Leave Down Escalator Screen",
+                new Vector2(66.5f, 3.2f),
+                PassengerJourneyWaypointAction.LeaveVerticalConnector,
+                0f,
+                2,
+                Vector2.left,
+                stationRoot.transform);
+            leaveDownEscalator.ConfigureTransition(platformTopArrival);
+
+            PassengerJourneyWaypoint enterTopPlatformEscalator = CreateJourneyWaypoint(
+                "Enter Top Platform Escalator",
+                new Vector2(120f, 8f),
+                PassengerJourneyWaypointAction.EnterVerticalConnector,
+                0.15f,
+                2,
+                Vector2.right,
+                stationRoot.transform);
+            enterTopPlatformEscalator.ConfigureTransition(upEscalatorArrival);
+            PassengerJourneyWaypoint leaveUpperEscalator = CreateJourneyWaypoint(
+                "Leave Up Escalator Screen",
+                new Vector2(43.5f, -3.2f),
+                PassengerJourneyWaypointAction.LeaveVerticalConnector,
+                0f,
+                2,
+                Vector2.right,
+                stationRoot.transform);
+            leaveUpperEscalator.ConfigureTransition(concourseExitArrival);
+
+            PassengerJourneyWaypoint enterTransferEscalator = CreateJourneyWaypoint(
+                "Enter Transfer Escalator",
+                new Vector2(120f, 8f),
+                PassengerJourneyWaypointAction.EnterTransferPassage,
+                0.2f,
+                2,
+                Vector2.up,
+                stationRoot.transform);
+            enterTransferEscalator.ConfigureTransition(platformBottomArrival);
+
+            PassengerJourneyWaypoint enterBottomPlatformEscalator = CreateJourneyWaypoint(
+                "Enter Bottom Platform Escalator",
+                new Vector2(120f, -8f),
+                PassengerJourneyWaypointAction.EnterVerticalConnector,
+                0.15f,
+                2,
+                Vector2.left,
+                stationRoot.transform);
+            enterBottomPlatformEscalator.ConfigureTransition(upEscalatorArrival);
+            PassengerJourneyWaypoint leavePostTransferEscalator = CreateJourneyWaypoint(
+                "Leave Post Transfer Up Escalator",
+                new Vector2(43.5f, -3.2f),
+                PassengerJourneyWaypointAction.LeaveVerticalConnector,
+                0f,
+                2,
+                Vector2.right,
+                stationRoot.transform);
+            leavePostTransferEscalator.ConfigureTransition(concourseExitArrival);
+
+            PassengerJourneyWaypoint[] boardingRoute =
+            {
+                CreateJourneyWaypoint(
+                    "Approach Entry Gate",
+                    new Vector2(-5f, 2.65f),
+                    PassengerJourneyWaypointAction.Walk,
+                    0f,
+                    4,
+                    Vector2.left,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Tap Entry Fare Gate",
+                    new Vector2(0f, 2.65f),
+                    PassengerJourneyWaypointAction.TapEntryGate,
+                    0.35f,
+                    1,
+                    Vector2.left,
+                    stationRoot.transform),
+                CreateJourneyWaypoint(
+                    "Cross Paid Concourse",
+                    new Vector2(6f, 2.65f),
+                    PassengerJourneyWaypointAction.Walk,
+                    0f,
+                    4,
+                    Vector2.left,
+                    stationRoot.transform),
+                enterDownEscalator,
+                leaveDownEscalator,
+                CreateJourneyWaypoint(
+                    "Reach Upper Direction Platform",
+                    upperTrain.Doorways[0].OutsidePoint.position,
+                    PassengerJourneyWaypointAction.ReachPlatform,
+                    0f,
+                    4,
+                    Vector2.up,
+                    stationRoot.transform)
+            };
+
+            PassengerJourneyWaypoint[] exitRoute = CreateSeparatedExitRoute(
+                "Upper",
+                new Vector2(128f, 8f),
+                enterTopPlatformEscalator,
+                leaveUpperEscalator,
+                stationRoot.transform);
+
+            PassengerDoorway transferDoorway =
+                lowerTrain.Doorways[Mathf.Min(3, lowerTrain.Doorways.Count - 1)];
+            PassengerJourneyWaypoint[] transferRoute =
+            {
+                CreateJourneyWaypoint(
+                    "Clear Upper Transfer Platform",
+                    new Vector2(128f, 8f),
+                    PassengerJourneyWaypointAction.ClearPlatform,
+                    0f,
+                    4,
+                    Vector2.left,
+                    stationRoot.transform),
+                enterTransferEscalator,
+                CreateJourneyWaypoint(
+                    "Reach Lower Direction Platform",
+                    transferDoorway.OutsidePoint.position,
+                    PassengerJourneyWaypointAction.ReachTransferPlatform,
+                    0f,
+                    4,
+                    Vector2.down,
+                    stationRoot.transform)
+            };
+
+            PassengerJourneyWaypoint[] postTransferExitRoute = CreateSeparatedExitRoute(
+                "Lower",
+                new Vector2(112f, -8f),
+                enterBottomPlatformEscalator,
+                leavePostTransferEscalator,
+                stationRoot.transform);
+
+            PassengerIntentCoordinator coordinator =
+                upperTrain.Center.GetComponent<PassengerIntentCoordinator>();
+            if (coordinator == null)
+            {
+                coordinator =
+                    upperTrain.Center.gameObject.AddComponent<PassengerIntentCoordinator>();
+            }
+
+            PassengerStationRoutePrototype route =
+                stationRoot.AddComponent<PassengerStationRoutePrototype>();
+            route.Configure(
+                boardingRoute,
+                exitRoute,
+                transferRoute,
+                new[] { concourseNavigation, escalatorNavigation, platformNavigation },
+                coordinator,
+                transferDoorway,
+                lowerDoorCycle,
+                lowerTrain.Center,
+                postTransferExitRoute);
+            return route;
+        }
+
+        private static PassengerJourneyWaypoint[] CreateSeparatedExitRoute(
+            string prefix,
+            Vector2 clearPlatformPosition,
+            PassengerJourneyWaypoint enterEscalator,
+            PassengerJourneyWaypoint leaveEscalator,
+            Transform parent)
+        {
+            return new[]
+            {
+                CreateJourneyWaypoint(
+                    "Clear " + prefix + " Arrival Platform",
+                    clearPlatformPosition,
+                    PassengerJourneyWaypointAction.ClearPlatform,
+                    0f,
+                    4,
+                    Vector2.right,
+                    parent),
+                enterEscalator,
+                leaveEscalator,
+                CreateJourneyWaypoint(
+                    "Approach " + prefix + " Exit Gate",
+                    new Vector2(6f, -3.65f),
+                    PassengerJourneyWaypointAction.Walk,
+                    0f,
+                    4,
+                    Vector2.right,
+                    parent),
+                CreateJourneyWaypoint(
+                    "Tap " + prefix + " Exit Fare Gate",
+                    new Vector2(0f, -3.65f),
+                    PassengerJourneyWaypointAction.TapExitGate,
+                    0.35f,
+                    1,
+                    Vector2.right,
+                    parent),
+                CreateJourneyWaypoint(
+                    "Leave Station After " + prefix + " Route",
+                    new Vector2(-12f, -5.5f),
+                    PassengerJourneyWaypointAction.LeaveStation,
+                    0f,
+                    4,
+                    Vector2.right,
+                    parent)
+            };
+        }
+
+        private static GridNavigation2D CreateJourneyNavigation(
+            string name,
+            Vector2 position,
+            int columns,
+            int rows,
+            float cellSize,
+            Transform parent)
+        {
+            GameObject navigationObject = new GameObject(name);
+            navigationObject.transform.SetParent(parent);
+            navigationObject.transform.position = position;
+            GridNavigation2D navigation =
+                navigationObject.AddComponent<GridNavigation2D>();
+            navigation.ConfigureDimensions(columns, rows, cellSize);
+            return navigation;
+        }
+
+        private static TextMesh CreateStationSketchLabel(
+            string name,
+            string text,
+            Vector2 position,
+            Color color,
+            Transform parent,
+            float characterSize = 0.08f)
+        {
+            GameObject labelObject = new GameObject(name);
+            labelObject.transform.SetParent(parent);
+            labelObject.transform.position = new Vector3(position.x, position.y, -0.42f);
+
+            TextMesh label = labelObject.AddComponent<TextMesh>();
+            label.text = text;
+            label.anchor = TextAnchor.MiddleCenter;
+            label.alignment = TextAlignment.Center;
+            label.characterSize = characterSize;
+            label.fontSize = 48;
+            label.color = color;
+            return label;
+        }
+
         private static PassengerJourneyWaypoint CreateJourneyWaypoint(
             string name,
             Vector2 position,
@@ -453,22 +2342,16 @@ namespace SubwayCarry.AI
             Vector2 queueDirection,
             Transform parent)
         {
-            GameObject marker = CreateBlock(
-                name,
-                position,
-                new Vector2(0.34f, 0.34f),
-                new Color(0.25f, 0.85f, 1f),
-                parent,
-                false,
-                "JourneyWaypoint",
-                -0.18f);
+            GameObject marker = new GameObject(name);
+            marker.transform.SetParent(parent);
+            marker.transform.position = position;
             PassengerJourneyWaypoint waypoint =
                 marker.AddComponent<PassengerJourneyWaypoint>();
             waypoint.Configure(action, dwellDuration, capacity, queueDirection);
             return waypoint;
         }
 
-        private static void CreateJourneyPassenger(
+        private static Transform CreateJourneyPassenger(
             string name,
             Vector2 spawnPosition,
             TrainCarBuildData car,
@@ -484,7 +2367,7 @@ namespace SubwayCarry.AI
                 plan == PassengerPostAlightingPlan.ExitStation
                     ? new Color(0.95f, 0.55f, 0.18f)
                     : new Color(0.72f, 0.4f, 0.95f),
-                car.Center,
+                route != null ? route.transform : car.Center,
                 false,
                 plan == PassengerPostAlightingPlan.ExitStation
                     ? "JourneyPassengerExit"
@@ -505,18 +2388,30 @@ namespace SubwayCarry.AI
             passenger.ConfigureRideStops(1, 1);
             passenger.ConfigureStationJourney(journey);
             journey.Configure(route, plan, 3f);
+            return passengerObject.transform;
         }
 
-        private static void ValidateJourneyScene(Scene scene)
+        private static void ValidateJourneyScene(
+            Scene scene,
+            int expectedWaypointCount = 14,
+            int expectedJourneyCount = 4)
         {
             PassengerStationRoutePrototype route =
                 UnityEngine.Object.FindFirstObjectByType<PassengerStationRoutePrototype>();
-            PassengerStationJourneyPrototype[] journeys =
-                UnityEngine.Object.FindObjectsByType<PassengerStationJourneyPrototype>(
-                    FindObjectsSortMode.None);
-            PassengerJourneyWaypoint[] waypoints =
-                UnityEngine.Object.FindObjectsByType<PassengerJourneyWaypoint>(
-                    FindObjectsSortMode.None);
+            var journeyList = new List<PassengerStationJourneyPrototype>();
+            var waypointList = new List<PassengerJourneyWaypoint>();
+            GameObject[] sceneRoots = scene.GetRootGameObjects();
+            for (int index = 0; index < sceneRoots.Length; index++)
+            {
+                journeyList.AddRange(
+                    sceneRoots[index].GetComponentsInChildren<PassengerStationJourneyPrototype>(
+                        true));
+                waypointList.AddRange(
+                    sceneRoots[index].GetComponentsInChildren<PassengerJourneyWaypoint>(true));
+            }
+
+            PassengerStationJourneyPrototype[] journeys = journeyList.ToArray();
+            PassengerJourneyWaypoint[] waypoints = waypointList.ToArray();
 
             var errors = new List<string>();
             if (!scene.IsValid() || !scene.isLoaded)
@@ -527,13 +2422,17 @@ namespace SubwayCarry.AI
             {
                 errors.Add("station route is missing");
             }
-            if (journeys.Length != 4)
+            if (journeys.Length != expectedJourneyCount)
             {
-                errors.Add("expected four journey passengers");
+                errors.Add(
+                    "expected " + expectedJourneyCount +
+                    " journey passengers");
             }
-            if (waypoints.Length != 14)
+            if (waypoints.Length != expectedWaypointCount)
             {
-                errors.Add("expected fourteen station journey waypoints");
+                errors.Add(
+                    "expected " + expectedWaypointCount +
+                    " station journey waypoints");
             }
             if (route != null &&
                 (route.TransferBoardingDoorway == null ||
@@ -556,7 +2455,9 @@ namespace SubwayCarry.AI
             Vector2 center,
             bool openLeft,
             bool openRight,
-            Transform parent)
+            Transform parent,
+            bool createExteriorPlatform = true,
+            float serviceSide = -1f)
         {
             GameObject carRoot = new GameObject(name);
             carRoot.transform.SetParent(parent);
@@ -587,7 +2488,10 @@ namespace SubwayCarry.AI
                 false,
                 "Floor",
                 1f);
-            CreatePlatforms(carRoot.transform, center);
+            if (createExteriorPlatform)
+            {
+                CreatePlatforms(carRoot.transform, center);
+            }
 
             Color wallColor = new Color(0.24f, 0.31f, 0.4f);
             CreateSideWallSegments(
@@ -637,7 +2541,8 @@ namespace SubwayCarry.AI
                 data.Seats,
                 data.ActivityPoints,
                 openLeft,
-                openRight);
+                openRight,
+                serviceSide);
 
             if (openLeft)
             {
@@ -765,7 +2670,8 @@ namespace SubwayCarry.AI
             List<PassengerSeatPrototype> seats,
             List<PassengerActivityPoint> activityPoints,
             bool openLeft,
-            bool openRight)
+            bool openRight,
+            float serviceSide)
         {
             bool mirrorLayout = openLeft;
             float[] doorX = GetDoorPositions(mirrorLayout);
@@ -782,14 +2688,14 @@ namespace SubwayCarry.AI
 
             foreach (float localX in doorX)
             {
-                CreateDoorway(
+                PassengerDoorway topDoorway = CreateDoorway(
                     parent,
                     center,
                     localX,
                     1f,
                     navigation,
                     doorColor,
-                    false);
+                    serviceSide > 0f);
                 PassengerDoorway bottomDoorway = CreateDoorway(
                     parent,
                     center,
@@ -797,9 +2703,12 @@ namespace SubwayCarry.AI
                     -1f,
                     navigation,
                     doorColor,
-                    true);
-                doorways.Add(bottomDoorway);
-                doors.Add(bottomDoorway.Door);
+                    serviceSide <= 0f);
+                PassengerDoorway serviceDoorway = serviceSide > 0f
+                    ? topDoorway
+                    : bottomDoorway;
+                doorways.Add(serviceDoorway);
+                doors.Add(serviceDoorway.Door);
             }
 
             foreach (float localX in seatX)

@@ -262,7 +262,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8e7066e45adf5e64495504ed3c202451, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.AI.V2.PassengerAiV2FareGateScenario
-  passengersPerDirection: 6
+  passengersPerDirection: 15
   baselineProfile: {fileID: 11400000, guid: 70e2a0e43da5a3d499d2590981fac6cc, type: 2}
 --- !u!4 &1109682805
 Transform:
