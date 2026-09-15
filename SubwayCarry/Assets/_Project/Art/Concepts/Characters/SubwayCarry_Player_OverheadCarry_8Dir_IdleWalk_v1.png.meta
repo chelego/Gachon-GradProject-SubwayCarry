@@ -1,0 +1,1105 @@
+fileFormatVersion: 2
+guid: 3805c31d86327004d9dcb436dad7174d
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 4665196177521029736
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_0
+  - first:
+      213: 7062938475409275802
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_1
+  - first:
+      213: 8241562352529459799
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_2
+  - first:
+      213: 8419011575200152176
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_3
+  - first:
+      213: -35628872112754891
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_4
+  - first:
+      213: 8856189326888121168
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_5
+  - first:
+      213: -8986529020959139694
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_6
+  - first:
+      213: 887747459006842983
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_7
+  - first:
+      213: -988177163930218423
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_8
+  - first:
+      213: -8070798524532598316
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_9
+  - first:
+      213: 4374904031114750068
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_10
+  - first:
+      213: 4336805131274771879
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_11
+  - first:
+      213: 9137685362428733575
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_12
+  - first:
+      213: 6130852556216082832
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_13
+  - first:
+      213: -6637000903404568148
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_14
+  - first:
+      213: -1755960952270151315
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_15
+  - first:
+      213: 4219448095292179191
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_16
+  - first:
+      213: -5427883990607945679
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_17
+  - first:
+      213: 1205606950475098357
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_18
+  - first:
+      213: 6606868553046858084
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_19
+  - first:
+      213: 5366592603373226443
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_20
+  - first:
+      213: 6340869697338667609
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_21
+  - first:
+      213: -524040851485920290
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_22
+  - first:
+      213: 8058544452008359419
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_23
+  - first:
+      213: -5960394210865687418
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_24
+  - first:
+      213: -2714371463308133179
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_25
+  - first:
+      213: 2370224694052606372
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_26
+  - first:
+      213: -5384369617406804174
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_27
+  - first:
+      213: -3830680358758670257
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_28
+  - first:
+      213: -1774478838203078728
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_29
+  - first:
+      213: 8737159148060280728
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_30
+  - first:
+      213: -5505446586047548446
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_31
+  - first:
+      213: 3966493684505983167
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_32
+  - first:
+      213: -6483700834945991940
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_33
+  - first:
+      213: 7700821465570926962
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_34
+  - first:
+      213: 2299932885716542079
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_35
+  - first:
+      213: -5738285390445055591
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_36
+  - first:
+      213: -7728999872188482931
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_37
+  - first:
+      213: -6119807697111944854
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_38
+  - first:
+      213: -4326018979060020638
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_39
+  - first:
+      213: 955032676166708026
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_40
+  - first:
+      213: 8682419451038860469
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_41
+  - first:
+      213: 607405168569664844
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_42
+  - first:
+      213: 1359547727555427801
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_43
+  - first:
+      213: 1007661139505409982
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_44
+  - first:
+      213: -8596250490661210071
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_45
+  - first:
+      213: 4753301882461669172
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_46
+  - first:
+      213: 8767978129373610801
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_47
+  - first:
+      213: -5652749230544727965
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_48
+  - first:
+      213: 6963783510545303412
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_49
+  - first:
+      213: -5117267436206633192
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_50
+  - first:
+      213: -4617361603823598922
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_51
+  - first:
+      213: 4254598896393617120
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_52
+  - first:
+      213: -1710663736593008686
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_53
+  - first:
+      213: 3719751596991192989
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_54
+  - first:
+      213: -8328284130881817942
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_55
+  - first:
+      213: -5641596337892552779
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_56
+  - first:
+      213: -8044459159448368291
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_57
+  - first:
+      213: -6693051162518894543
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_58
+  - first:
+      213: -9218718421031138377
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_59
+  - first:
+      213: 3237676665288476452
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_60
+  - first:
+      213: -1294176420772446178
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_61
+  - first:
+      213: -4760466365758806816
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_62
+  - first:
+      213: -7366251801202777126
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_63
+  - first:
+      213: 599702378228993292
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_64
+  - first:
+      213: 430441460617858933
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_65
+  - first:
+      213: -1020549879345738998
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_66
+  - first:
+      213: -6150985417334326419
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_67
+  - first:
+      213: -5916824023129728852
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_68
+  - first:
+      213: 3948838644755238986
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_69
+  - first:
+      213: -20558002172168406
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_70
+  - first:
+      213: -6297713715072684348
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_71
+  - first:
+      213: 1128957983278716492
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_72
+  - first:
+      213: -9094996497577869021
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_73
+  - first:
+      213: 8453768062342196215
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_74
+  - first:
+      213: 5295195870445792470
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_75
+  - first:
+      213: -8342128284346211756
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_76
+  - first:
+      213: -1089810983818102793
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_77
+  - first:
+      213: -1168223656647441786
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_78
+  - first:
+      213: 6036712840612472303
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_79
+  - first:
+      213: -1104768577918423972
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_80
+  - first:
+      213: -2321709506372516000
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_81
+  - first:
+      213: -328541318661061595
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_82
+  - first:
+      213: -462976641110757073
+    second: SubwayCarry_Player_OverheadCarry_8Dir_IdleWalk_v1_83
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 160
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Player_OverheadCarry_South_Idle
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 1152
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.5182292, y: 0.08802083}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 971dbb4e01221f641b6170211ff3ae73
+      internalID: -1574956047
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_SouthWest_Idle
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 1152
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.515625, y: 0.090624996}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8873cdbd846a97246b2a491b33dd72bd
+      internalID: 911369389
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_West_Idle
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 1152
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.5520833, y: 0.08802083}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 877513e38afed2a498ca8c982869ceab
+      internalID: -169298137
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_NorthWest_Idle
+      rect:
+        serializedVersion: 2
+        x: 576
+        y: 1152
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.5234375, y: 0.08802083}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8bd86d6da85a4fa4d878581e8734cad9
+      internalID: 686737411
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_North_Idle
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 1152
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.46875, y: 0.090624996}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 459574b700a199b47b1559d2ee105c54
+      internalID: 1455277193
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_NorthEast_Idle
+      rect:
+        serializedVersion: 2
+        x: 960
+        y: 1152
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.45052084, y: 0.08802083}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a8dab0f3b159cc64e91f95a481b79174
+      internalID: 1142778119
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_East_Idle
+      rect:
+        serializedVersion: 2
+        x: 1152
+        y: 1152
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.42447916, y: 0.090624996}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c191b7ed46b1c924ebf6a564f59069df
+      internalID: 1626949249
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_SouthEast_Idle
+      rect:
+        serializedVersion: 2
+        x: 1344
+        y: 1152
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.45052084, y: 0.08802083}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3aadd1ba65f8e0c47b696ce360a60a51
+      internalID: 32704868
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_South_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 768
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.5104167, y: 0.10885417}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d2f09c500114ad7478adc3377f2d1f75
+      internalID: 1605960941
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_SouthWest_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 768
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.5104167, y: 0.10364583}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2f5338c2ab49dab4694cfac80cfbfa81
+      internalID: 1731709614
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_West_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 768
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.4765625, y: 0.10104167}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d6ea9dd9a08699442a9a470bdc2f40d8
+      internalID: -1205688564
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_NorthWest_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 576
+        y: 768
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.47395834, y: 0.10364583}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6d6a73b46f7441a46b801f0af0966af5
+      internalID: -1509094487
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_North_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 768
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.47916666, y: 0.10364583}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 561495b362c28e444bbcbd5ba62a0505
+      internalID: 1983813065
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_NorthEast_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 960
+        y: 768
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.46354166, y: 0.10364583}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 22030d63a92bb4d45881dc21207e3766
+      internalID: 191021923
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_East_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 1152
+        y: 768
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.45833334, y: 0.10885417}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4931c1603e7b53a44a62fca9bc828e53
+      internalID: -1953951528
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_SouthEast_Walk_0
+      rect:
+        serializedVersion: 2
+        x: 1344
+        y: 768
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.4453125, y: 0.10364583}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 931bb4db78921fc4dbad6567b067a8bf
+      internalID: -1038019952
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_South_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 384
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.5208333, y: 0.10885417}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a809ee56c65c342499868ed84c5756cb
+      internalID: -1039079033
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_SouthWest_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 384
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.5, y: 0.106249996}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 81afce0207a2721488ca06e4675fe38e
+      internalID: -481972010
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_West_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 384
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.4765625, y: 0.11666667}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 278bcee492c83a14386c5ff3537585b6
+      internalID: -1567874687
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_NorthWest_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 576
+        y: 384
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.4609375, y: 0.11145833}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9a2ec45ca8c81df44970efd825272be8
+      internalID: -414946935
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_North_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 384
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.47135416, y: 0.114062496}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 519f27661be1db247960f48e7387aadf
+      internalID: 2112670588
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_NorthEast_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 960
+        y: 384
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.49479166, y: 0.12708333}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 60a5de30187aa6e409920fa4ed840da9
+      internalID: 1911537449
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_East_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 1152
+        y: 384
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.46354166, y: 0.11927083}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 595676bf3b974ef4db22356e4980433d
+      internalID: -1497846833
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_SouthEast_Walk_1
+      rect:
+        serializedVersion: 2
+        x: 1344
+        y: 384
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.4609375, y: 0.11145833}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1e3d914427f616d40912935c8f530946
+      internalID: 1724005983
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_South_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.5286458, y: 0.12708333}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3d40b4084bb239f4ab6734fe0252e3c1
+      internalID: -426960551
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_SouthWest_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 0
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.48177084, y: 0.11927083}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ad7f8e93922c75b489b2fafe3c647d9d
+      internalID: -1569218056
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_West_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 384
+        y: 0
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.47395834, y: 0.11927083}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 41309d8d7620cd54782f58e8c22d2057
+      internalID: 410657068
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_NorthWest_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 576
+        y: 0
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.47135416, y: 0.121874996}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a6f1e14c06a3d3b439246ae46581cefe
+      internalID: -1499925981
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_North_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 0
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.4765625, y: 0.121874996}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 27efc5b03eb127044b1d7f07f48ada02
+      internalID: -1466945438
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_NorthEast_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 960
+        y: 0
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.48177084, y: 0.11666667}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2830a18686405ba448d05158cb1227ac
+      internalID: -737493814
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_East_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 1152
+        y: 0
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.484375, y: 0.11927083}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e2142ab9644678145b6062af4e289c21
+      internalID: 124686405
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_OverheadCarry_SouthEast_Walk_2
+      rect:
+        serializedVersion: 2
+        x: 1344
+        y: 0
+        width: 192
+        height: 384
+      alignment: 9
+      pivot: {x: 0.46614584, y: 0.121874996}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5d63989828bc2bb43afb4d2a9feb86f7
+      internalID: 276495485
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 07f9925870e7e7e4e9dfeb96a19e4665
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Player_OverheadCarry_East_Idle: 1626949249
+      Player_OverheadCarry_East_Walk_0: -1953951528
+      Player_OverheadCarry_East_Walk_1: -1497846833
+      Player_OverheadCarry_East_Walk_2: 124686405
+      Player_OverheadCarry_NorthEast_Idle: 1142778119
+      Player_OverheadCarry_NorthEast_Walk_0: 191021923
+      Player_OverheadCarry_NorthEast_Walk_1: 1911537449
+      Player_OverheadCarry_NorthEast_Walk_2: -737493814
+      Player_OverheadCarry_NorthWest_Idle: 686737411
+      Player_OverheadCarry_NorthWest_Walk_0: -1509094487
+      Player_OverheadCarry_NorthWest_Walk_1: -414946935
+      Player_OverheadCarry_NorthWest_Walk_2: -1499925981
+      Player_OverheadCarry_North_Idle: 1455277193
+      Player_OverheadCarry_North_Walk_0: 1983813065
+      Player_OverheadCarry_North_Walk_1: 2112670588
+      Player_OverheadCarry_North_Walk_2: -1466945438
+      Player_OverheadCarry_SouthEast_Idle: 32704868
+      Player_OverheadCarry_SouthEast_Walk_0: -1038019952
+      Player_OverheadCarry_SouthEast_Walk_1: 1724005983
+      Player_OverheadCarry_SouthEast_Walk_2: 276495485
+      Player_OverheadCarry_SouthWest_Idle: 911369389
+      Player_OverheadCarry_SouthWest_Walk_0: 1731709614
+      Player_OverheadCarry_SouthWest_Walk_1: -481972010
+      Player_OverheadCarry_SouthWest_Walk_2: -1569218056
+      Player_OverheadCarry_South_Idle: -1574956047
+      Player_OverheadCarry_South_Walk_0: 1605960941
+      Player_OverheadCarry_South_Walk_1: -1039079033
+      Player_OverheadCarry_South_Walk_2: -426960551
+      Player_OverheadCarry_West_Idle: -169298137
+      Player_OverheadCarry_West_Walk_0: -1205688564
+      Player_OverheadCarry_West_Walk_1: -1567874687
+      Player_OverheadCarry_West_Walk_2: 410657068
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

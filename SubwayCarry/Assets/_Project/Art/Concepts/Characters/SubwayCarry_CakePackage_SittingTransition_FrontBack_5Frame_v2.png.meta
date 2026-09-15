@@ -1,0 +1,440 @@
+fileFormatVersion: 2
+guid: d936db3d89715164c909aadd6be64eb9
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 7439621793312628267
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_0
+  - first:
+      213: 6955607711231519764
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_1
+  - first:
+      213: -7305586514639370938
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_2
+  - first:
+      213: 4459309438522784517
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_3
+  - first:
+      213: 7054671299815582025
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_4
+  - first:
+      213: -5969585373869008098
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_5
+  - first:
+      213: -7005850549334234959
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_6
+  - first:
+      213: 8870458243379522939
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_7
+  - first:
+      213: -652873229775276657
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_8
+  - first:
+      213: 2609901859510343474
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_9
+  - first:
+      213: -4935778146610973431
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_10
+  - first:
+      213: 7843328441039127900
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_11
+  - first:
+      213: 1531934655436457762
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_12
+  - first:
+      213: -8556718747962273912
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_13
+  - first:
+      213: -413267617059503735
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_14
+  - first:
+      213: 5507410775790247667
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_15
+  - first:
+      213: 1977617729883347312
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_16
+  - first:
+      213: -6988099613716612647
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_17
+  - first:
+      213: 6846598820072720180
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_18
+  - first:
+      213: 5770950059839759041
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_19
+  - first:
+      213: -8008691051726870557
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_20
+  - first:
+      213: 7049192605280800020
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_21
+  - first:
+      213: -7916214241375947400
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_22
+  - first:
+      213: 5035513126505857403
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_23
+  - first:
+      213: -8423827070595364195
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_24
+  - first:
+      213: -658776960217633135
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_25
+  - first:
+      213: -7053642256139727408
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_26
+  - first:
+      213: -1339224694342464305
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_27
+  - first:
+      213: 4470696303227713033
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_28
+  - first:
+      213: 7282932151792492917
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_29
+  - first:
+      213: 5983521297499579348
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v2_30
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 221.75
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: CakePackage_SittingTransition_South_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 443
+        width: 355
+        height: 444
+      alignment: 9
+      pivot: {x: 0.5253521, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7fe1fa968e8a58641a0588aac1824d28
+      internalID: -1952575886
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SittingTransition_South_1
+      rect:
+        serializedVersion: 2
+        x: 355
+        y: 443
+        width: 355
+        height: 444
+      alignment: 9
+      pivot: {x: 0.5140845, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 58e3bc38d6035bf4da2bd4ef31e905cb
+      internalID: 705264846
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SittingTransition_South_2
+      rect:
+        serializedVersion: 2
+        x: 710
+        y: 443
+        width: 354
+        height: 444
+      alignment: 9
+      pivot: {x: 0.47175142, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 61392055a10e251449c174df5f0fc333
+      internalID: 684176341
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SittingTransition_South_3
+      rect:
+        serializedVersion: 2
+        x: 1064
+        y: 443
+        width: 355
+        height: 444
+      alignment: 9
+      pivot: {x: 0.42676055, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f2cb11e6a604037498950b9005658834
+      internalID: 800671132
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SittingTransition_South_4
+      rect:
+        serializedVersion: 2
+        x: 1419
+        y: 443
+        width: 355
+        height: 444
+      alignment: 9
+      pivot: {x: 0.37887323, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 62e61fcff54cf1f4facc1b29c15f4d93
+      internalID: 723296950
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SittingTransition_North_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 355
+        height: 443
+      alignment: 9
+      pivot: {x: 0.5253521, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d90bb4b2397a31b4c982c32cd41f8c11
+      internalID: 622833707
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SittingTransition_North_1
+      rect:
+        serializedVersion: 2
+        x: 355
+        y: 0
+        width: 355
+        height: 443
+      alignment: 9
+      pivot: {x: 0.51690143, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d17fd3fba25498d41b083c4a91d29e9b
+      internalID: 609518039
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SittingTransition_North_2
+      rect:
+        serializedVersion: 2
+        x: 710
+        y: 0
+        width: 354
+        height: 443
+      alignment: 9
+      pivot: {x: 0.47740114, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e3018f3acbf105d4ea0e772ad1eb1dd7
+      internalID: 1137181521
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SittingTransition_North_3
+      rect:
+        serializedVersion: 2
+        x: 1064
+        y: 0
+        width: 355
+        height: 443
+      alignment: 9
+      pivot: {x: 0.42394367, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d4db7c8951aad9d448a33e8619cdede7
+      internalID: -665140551
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SittingTransition_North_4
+      rect:
+        serializedVersion: 2
+        x: 1419
+        y: 0
+        width: 355
+        height: 443
+      alignment: 9
+      pivot: {x: 0.37887323, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fc99ee3f0420bb14f824abc64173abd4
+      internalID: 877039964
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: ecdda53820bac5a428cfac47ded447f8
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      CakePackage_SittingTransition_North_0: 622833707
+      CakePackage_SittingTransition_North_1: 609518039
+      CakePackage_SittingTransition_North_2: 1137181521
+      CakePackage_SittingTransition_North_3: -665140551
+      CakePackage_SittingTransition_North_4: 877039964
+      CakePackage_SittingTransition_South_0: -1952575886
+      CakePackage_SittingTransition_South_1: 705264846
+      CakePackage_SittingTransition_South_2: 684176341
+      CakePackage_SittingTransition_South_3: 800671132
+      CakePackage_SittingTransition_South_4: 723296950
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

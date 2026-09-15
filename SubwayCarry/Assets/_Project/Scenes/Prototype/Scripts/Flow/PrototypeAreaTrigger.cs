@@ -1,4 +1,3 @@
-using SubwayCarry.Prototype.Gameplay;
 using UnityEngine;
 
 namespace SubwayCarry.Prototype
@@ -21,7 +20,7 @@ namespace SubwayCarry.Prototype
         private void OnTriggerEnter2D(Collider2D other)
         {
             if (flowController == null ||
-                other.GetComponentInParent<PlayerController>() == null)
+                !IsPlayer(other))
             {
                 return;
             }
@@ -72,6 +71,12 @@ namespace SubwayCarry.Prototype
                     flowController.NotifyExitedDestinationGate();
                     break;
             }
+        }
+
+        private static bool IsPlayer(Collider2D other)
+        {
+            return other.GetComponentInParent<SubwayCarry.Gameplay.PlayerController>() != null ||
+                   other.GetComponentInParent<SubwayCarry.Prototype.Gameplay.PlayerController>() != null;
         }
     }
 }

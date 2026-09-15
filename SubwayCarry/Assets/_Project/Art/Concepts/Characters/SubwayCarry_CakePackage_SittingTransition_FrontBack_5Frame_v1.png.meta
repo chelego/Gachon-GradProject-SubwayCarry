@@ -1,37 +1,37 @@
 fileFormatVersion: 2
-guid: b4c284d4e4d14ae587aeefcc688c3901
+guid: fb25c871a6353d743959e988c4a24021
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 213101001
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_0
+      213: 5542678737708493815
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v1_0
   - first:
-      213: 213101002
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_1
+      213: 4129499054855292926
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v1_1
   - first:
-      213: 213101003
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_2
+      213: -2441486088664636318
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v1_2
   - first:
-      213: 213101004
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_3
+      213: 306294844099654196
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v1_3
   - first:
-      213: 213101005
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_4
+      213: -9193592732389844156
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v1_4
   - first:
-      213: 213101006
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_5
+      213: -7945914548710165203
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v1_5
   - first:
-      213: 213101007
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_6
+      213: -2937104147822003169
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v1_6
   - first:
-      213: 213101008
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_7
+      213: -7283844717790253010
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v1_7
   - first:
-      213: 213101009
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_8
+      213: 8911757396900992969
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v1_8
   - first:
-      213: 213101010
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_9
+      213: -7572434842238624721
+    second: SubwayCarry_CakePackage_SittingTransition_FrontBack_5Frame_v1_9
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -78,7 +78,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 256
+  spritePixelsToUnits: 221.75
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -127,13 +127,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Player_Fallen_South_0
+      name: CakePackage_SittingTransition_South_0
       rect:
         serializedVersion: 2
         x: 0
-        y: 1156
-        width: 512
-        height: 380
+        y: 443
+        width: 355
+        height: 444
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -142,20 +142,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: a1010000000000000000000000000000
-      internalID: 213101001
+      spriteID: 9e3661bc046d3b343b05b7db9806e7e9
+      internalID: 619747891
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Player_Fallen_South_1
+      name: CakePackage_SittingTransition_South_1
       rect:
         serializedVersion: 2
-        x: 0
-        y: 823
-        width: 512
-        height: 333
+        x: 355
+        y: 443
+        width: 355
+        height: 444
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -164,20 +164,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: a1020000000000000000000000000000
-      internalID: 213101002
+      spriteID: 93e08daa9d3d831489b5b8cee391ca33
+      internalID: 964387642
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Player_Fallen_South_2
+      name: CakePackage_SittingTransition_South_2
       rect:
         serializedVersion: 2
-        x: 0
-        y: 507
-        width: 512
-        height: 316
+        x: 710
+        y: 443
+        width: 354
+        height: 444
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -186,20 +186,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: a1030000000000000000000000000000
-      internalID: 213101003
+      spriteID: 311f189964ab98c42936228d47eef040
+      internalID: 1664203351
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Player_Fallen_South_3
+      name: CakePackage_SittingTransition_South_3
       rect:
         serializedVersion: 2
-        x: 0
-        y: 231
-        width: 512
-        height: 276
+        x: 1064
+        y: 443
+        width: 355
+        height: 444
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -208,20 +208,42 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: a1040000000000000000000000000000
-      internalID: 213101004
+      spriteID: 251a6e2f8e75039479cbb63125ab76dd
+      internalID: 2106906683
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Player_Fallen_South_4
+      name: CakePackage_SittingTransition_South_4
+      rect:
+        serializedVersion: 2
+        x: 1419
+        y: 443
+        width: 355
+        height: 444
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: b6aa321b8ef8b544b90b04e7303e319c
+      internalID: -622322109
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SittingTransition_North_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 512
-        height: 231
+        width: 355
+        height: 443
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -230,108 +252,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: a1050000000000000000000000000000
-      internalID: 213101005
+      spriteID: 57bb6bbf66261c14f85ea48d8b46fdbb
+      internalID: 405253996
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Player_Fallen_North_0
+      name: CakePackage_SittingTransition_North_1
       rect:
         serializedVersion: 2
-        x: 512
-        y: 1156
-        width: 512
-        height: 380
-      alignment: 9
-      pivot: {x: 0.5, y: 0.14}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: a1060000000000000000000000000000
-      internalID: 213101006
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Player_Fallen_North_1
-      rect:
-        serializedVersion: 2
-        x: 512
-        y: 823
-        width: 512
-        height: 333
-      alignment: 9
-      pivot: {x: 0.5, y: 0.14}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: a1070000000000000000000000000000
-      internalID: 213101007
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Player_Fallen_North_2
-      rect:
-        serializedVersion: 2
-        x: 512
-        y: 507
-        width: 512
-        height: 316
-      alignment: 9
-      pivot: {x: 0.5, y: 0.14}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: a1080000000000000000000000000000
-      internalID: 213101008
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Player_Fallen_North_3
-      rect:
-        serializedVersion: 2
-        x: 512
-        y: 231
-        width: 512
-        height: 276
-      alignment: 9
-      pivot: {x: 0.5, y: 0.14}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: a1090000000000000000000000000000
-      internalID: 213101009
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Player_Fallen_North_4
-      rect:
-        serializedVersion: 2
-        x: 512
+        x: 355
         y: 0
-        width: 512
-        height: 231
+        width: 355
+        height: 443
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -340,8 +274,74 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: a10a0000000000000000000000000000
-      internalID: 213101010
+      spriteID: 4717e5ef05d534f49b68276f92bf9c6d
+      internalID: 595810896
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SittingTransition_North_2
+      rect:
+        serializedVersion: 2
+        x: 710
+        y: 0
+        width: 354
+        height: 443
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5e3cc75ff218e364f9c3ec3a40a786ba
+      internalID: 904908177
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SittingTransition_North_3
+      rect:
+        serializedVersion: 2
+        x: 1064
+        y: 0
+        width: 355
+        height: 443
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 6f952a3e30c806f4db81af102809e1f8
+      internalID: 1724591766
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: CakePackage_SittingTransition_North_4
+      rect:
+        serializedVersion: 2
+        x: 1419
+        y: 0
+        width: 355
+        height: 443
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 80e74a483505e1847a68d4a062752ab1
+      internalID: -1610476834
       vertices: []
       indices: 
       edges: []
@@ -350,7 +350,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: a1ff0000000000000000000000000000
+    spriteID: 18b95673036b1f3479e862bc7811a1cc
     internalID: 0
     vertices: []
     indices: 
@@ -360,16 +360,16 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Player_Fallen_North_0: 213101006
-      Player_Fallen_North_1: 213101007
-      Player_Fallen_North_2: 213101008
-      Player_Fallen_North_3: 213101009
-      Player_Fallen_North_4: 213101010
-      Player_Fallen_South_0: 213101001
-      Player_Fallen_South_1: 213101002
-      Player_Fallen_South_2: 213101003
-      Player_Fallen_South_3: 213101004
-      Player_Fallen_South_4: 213101005
+      CakePackage_SittingTransition_North_0: 405253996
+      CakePackage_SittingTransition_North_1: 595810896
+      CakePackage_SittingTransition_North_2: 904908177
+      CakePackage_SittingTransition_North_3: 1724591766
+      CakePackage_SittingTransition_North_4: -1610476834
+      CakePackage_SittingTransition_South_0: 619747891
+      CakePackage_SittingTransition_South_1: 964387642
+      CakePackage_SittingTransition_South_2: 1664203351
+      CakePackage_SittingTransition_South_3: 2106906683
+      CakePackage_SittingTransition_South_4: -622322109
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

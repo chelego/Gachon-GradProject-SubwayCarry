@@ -113,7 +113,7 @@ TextureImporter:
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData:
+      customData: 
       outline: []
       physicsShape: []
       tessellationDetail: 0
@@ -121,7 +121,7 @@ TextureImporter:
       spriteID: 140c8c5cd37f39e4aa858aba9ea47b44
       internalID: -1448767685
       vertices: []
-      indices:
+      indices: 
       edges: []
       weights: []
     - serializedVersion: 2
@@ -135,7 +135,7 @@ TextureImporter:
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData:
+      customData: 
       outline: []
       physicsShape: []
       tessellationDetail: 0
@@ -143,17 +143,17 @@ TextureImporter:
       spriteID: 42897e028f0791b429113df5a08075f9
       internalID: -1271852068
       vertices: []
-      indices:
+      indices: 
       edges: []
       weights: []
     outline: []
-    customData:
+    customData: 
     physicsShape: []
     bones: []
     spriteID: 10ba7cb651a3d9d4ebdf402f67f2c756
     internalID: 0
     vertices: []
-    indices:
+    indices: 
     edges: []
     weights: []
     secondaryTextures: []
@@ -162,8 +162,8 @@ TextureImporter:
     nameFileIdTable:
       CakePackage_Sitting_North: -1271852068
       CakePackage_Sitting_South: -1448767685
-  mipmapLimitGroupName:
+  mipmapLimitGroupName: 
   pSDRemoveMatte: 0
-  userData:
-  assetBundleName:
-  assetBundleVariant:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

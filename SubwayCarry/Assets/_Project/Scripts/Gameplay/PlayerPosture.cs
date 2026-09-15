@@ -23,6 +23,7 @@ namespace SubwayCarry.Gameplay
         private CarryPosture currentState = CarryPosture.Standing;
         private CarryPosture targetState = CarryPosture.Standing;
         private float transitionTimer = 0f;
+        private float transitionDuration = 0f;
 
         private float currentStamina;
         private float recoverDelayTimer;
@@ -31,6 +32,12 @@ namespace SubwayCarry.Gameplay
         public float StaminaRatio => maxStamina <= 0f ? 0f : currentStamina / maxStamina;
 
         public CarryPosture CurrentState => currentState;
+
+        public CarryPosture TargetState => targetState;
+
+        public float TransitionProgress => !IsTransitioning || transitionDuration <= 0f
+            ? 1f
+            : Mathf.Clamp01(1f - transitionTimer / transitionDuration);
 
         public CarryPosture CurrentBalancePosture => currentState;
 
@@ -61,7 +68,8 @@ namespace SubwayCarry.Gameplay
             }
 
             targetState = target;
-            transitionTimer = GetTransitionTime(target);
+            transitionDuration = GetTransitionTime(target);
+            transitionTimer = transitionDuration;
             IsTransitioning = true;
             NotifyCarryStateChanged();
             return true;
@@ -77,6 +85,8 @@ namespace SubwayCarry.Gameplay
             IsTransitioning = false;
             currentState = CarryPosture.Fallen;
             targetState = CarryPosture.Fallen;
+            transitionDuration = 0f;
+            transitionTimer = 0f;
             fallenTimer = fallenRecoveryTime;
             NotifyCarryStateChanged();
         }
@@ -100,6 +110,8 @@ namespace SubwayCarry.Gameplay
                 {
                     currentState = targetState;
                     IsTransitioning = false;
+                    transitionTimer = 0f;
+                    transitionDuration = 0f;
                     NotifyCarryStateChanged();
                 }
             }

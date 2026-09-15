@@ -1,37 +1,61 @@
 fileFormatVersion: 2
-guid: b4c284d4e4d14ae587aeefcc688c3901
+guid: e8e4daee6c54509438c78b0a9213f02a
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 213101001
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_0
+      213: 825214382267222593
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_0
   - first:
-      213: 213101002
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_1
+      213: 5415315746868426415
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_1
   - first:
-      213: 213101003
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_2
+      213: -8876851726692343014
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_2
   - first:
-      213: 213101004
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_3
+      213: -6731301547991545554
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_3
   - first:
-      213: 213101005
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_4
+      213: 7320806628869631839
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_4
   - first:
-      213: 213101006
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_5
+      213: -1255476276615061650
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_5
   - first:
-      213: 213101007
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_6
+      213: -1544862691269967890
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_6
   - first:
-      213: 213101008
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_7
+      213: 8693312583905571383
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_7
   - first:
-      213: 213101009
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_8
+      213: 3121953327521815702
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_8
   - first:
-      213: 213101010
-    second: SubwayCarry_Player_Fallen_FrontBack_5Frame_v1_9
+      213: -645600931234615944
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_9
+  - first:
+      213: -1210929739136363758
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_10
+  - first:
+      213: -8931865761192463955
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_11
+  - first:
+      213: -2301060314008923326
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_12
+  - first:
+      213: 4393792894269158497
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_13
+  - first:
+      213: -7823432353128466068
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_14
+  - first:
+      213: 9012071414226221055
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_15
+  - first:
+      213: 2545397513804920433
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_16
+  - first:
+      213: -4413521102955411987
+    second: SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v1_17
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -78,7 +102,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 256
+  spritePixelsToUnits: 221.75
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -127,13 +151,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Player_Fallen_South_0
+      name: Player_SittingTransition_South_0
       rect:
         serializedVersion: 2
         x: 0
-        y: 1156
-        width: 512
-        height: 380
+        y: 443
+        width: 355
+        height: 444
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -142,20 +166,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: a1010000000000000000000000000000
-      internalID: 213101001
+      spriteID: 4a39d172173b5264ebc529dd05c57b26
+      internalID: -919018365
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Player_Fallen_South_1
+      name: Player_SittingTransition_South_1
       rect:
         serializedVersion: 2
-        x: 0
-        y: 823
-        width: 512
-        height: 333
+        x: 355
+        y: 443
+        width: 355
+        height: 444
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -164,20 +188,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: a1020000000000000000000000000000
-      internalID: 213101002
+      spriteID: 8604b96061e268043be0e1b343935dba
+      internalID: -758399419
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Player_Fallen_South_2
+      name: Player_SittingTransition_South_2
       rect:
         serializedVersion: 2
-        x: 0
-        y: 507
-        width: 512
-        height: 316
+        x: 710
+        y: 443
+        width: 354
+        height: 444
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -186,20 +210,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: a1030000000000000000000000000000
-      internalID: 213101003
+      spriteID: f4de4204963cd99469f02e0c06604d83
+      internalID: 883954308
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Player_Fallen_South_3
+      name: Player_SittingTransition_South_3
       rect:
         serializedVersion: 2
-        x: 0
-        y: 231
-        width: 512
-        height: 276
+        x: 1064
+        y: 443
+        width: 355
+        height: 444
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -208,20 +232,42 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: a1040000000000000000000000000000
-      internalID: 213101004
+      spriteID: a293ed4abfdbeb04d8b79d5886360857
+      internalID: -773049600
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Player_Fallen_South_4
+      name: Player_SittingTransition_South_4
+      rect:
+        serializedVersion: 2
+        x: 1419
+        y: 443
+        width: 355
+        height: 444
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4e9def65f84623448a0658fbc324636e
+      internalID: -931775049
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_SittingTransition_North_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 512
-        height: 231
+        width: 355
+        height: 443
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -230,108 +276,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: a1050000000000000000000000000000
-      internalID: 213101005
+      spriteID: 99c65777bb2f4794bb82fd1bcec559e5
+      internalID: 69078229
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Player_Fallen_North_0
+      name: Player_SittingTransition_North_1
       rect:
         serializedVersion: 2
-        x: 512
-        y: 1156
-        width: 512
-        height: 380
-      alignment: 9
-      pivot: {x: 0.5, y: 0.14}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: a1060000000000000000000000000000
-      internalID: 213101006
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Player_Fallen_North_1
-      rect:
-        serializedVersion: 2
-        x: 512
-        y: 823
-        width: 512
-        height: 333
-      alignment: 9
-      pivot: {x: 0.5, y: 0.14}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: a1070000000000000000000000000000
-      internalID: 213101007
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Player_Fallen_North_2
-      rect:
-        serializedVersion: 2
-        x: 512
-        y: 507
-        width: 512
-        height: 316
-      alignment: 9
-      pivot: {x: 0.5, y: 0.14}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: a1080000000000000000000000000000
-      internalID: 213101008
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Player_Fallen_North_3
-      rect:
-        serializedVersion: 2
-        x: 512
-        y: 231
-        width: 512
-        height: 276
-      alignment: 9
-      pivot: {x: 0.5, y: 0.14}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: a1090000000000000000000000000000
-      internalID: 213101009
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Player_Fallen_North_4
-      rect:
-        serializedVersion: 2
-        x: 512
+        x: 355
         y: 0
-        width: 512
-        height: 231
+        width: 355
+        height: 443
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -340,8 +298,74 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: a10a0000000000000000000000000000
-      internalID: 213101010
+      spriteID: be24d27c03789fe4a86094bf95bd0901
+      internalID: 1908843996
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_SittingTransition_North_2
+      rect:
+        serializedVersion: 2
+        x: 710
+        y: 0
+        width: 354
+        height: 443
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4078f8f9d471ce441ad15bb8452f0aa3
+      internalID: -1534023584
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_SittingTransition_North_3
+      rect:
+        serializedVersion: 2
+        x: 1064
+        y: 0
+        width: 355
+        height: 443
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3acbec0577d56ea4e90c8f75c861c8ff
+      internalID: -560905958
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_SittingTransition_North_4
+      rect:
+        serializedVersion: 2
+        x: 1419
+        y: 0
+        width: 355
+        height: 443
+      alignment: 9
+      pivot: {x: 0.5, y: 0.14}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 1b387a5bef33edb44868001b461683d0
+      internalID: 1588898467
       vertices: []
       indices: 
       edges: []
@@ -350,7 +374,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: a1ff0000000000000000000000000000
+    spriteID: 1f8a5c7511ad98147b7ff8cc1cd1c14a
     internalID: 0
     vertices: []
     indices: 
@@ -360,16 +384,16 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Player_Fallen_North_0: 213101006
-      Player_Fallen_North_1: 213101007
-      Player_Fallen_North_2: 213101008
-      Player_Fallen_North_3: 213101009
-      Player_Fallen_North_4: 213101010
-      Player_Fallen_South_0: 213101001
-      Player_Fallen_South_1: 213101002
-      Player_Fallen_South_2: 213101003
-      Player_Fallen_South_3: 213101004
-      Player_Fallen_South_4: 213101005
+      Player_SittingTransition_North_0: 69078229
+      Player_SittingTransition_North_1: 1908843996
+      Player_SittingTransition_North_2: -1534023584
+      Player_SittingTransition_North_3: -560905958
+      Player_SittingTransition_North_4: 1588898467
+      Player_SittingTransition_South_0: -919018365
+      Player_SittingTransition_South_1: -758399419
+      Player_SittingTransition_South_2: 883954308
+      Player_SittingTransition_South_3: -773049600
+      Player_SittingTransition_South_4: -931775049
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

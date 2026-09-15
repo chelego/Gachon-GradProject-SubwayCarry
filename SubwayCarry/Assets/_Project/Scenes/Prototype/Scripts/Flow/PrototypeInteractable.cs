@@ -1,5 +1,4 @@
 using SubwayCarry.Core.Contracts;
-using SubwayCarry.Prototype.Gameplay;
 using UnityEngine;
 
 namespace SubwayCarry.Prototype
@@ -48,7 +47,7 @@ namespace SubwayCarry.Prototype
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            if (other.GetComponentInParent<PlayerController>() != null)
+            if (IsPlayer(other))
             {
                 flowController?.SetNearbyInteraction(this, true);
             }
@@ -56,7 +55,7 @@ namespace SubwayCarry.Prototype
 
         private void OnTriggerExit2D(Collider2D other)
         {
-            if (other.GetComponentInParent<PlayerController>() != null)
+            if (IsPlayer(other))
             {
                 flowController?.SetNearbyInteraction(this, false);
             }
@@ -65,6 +64,12 @@ namespace SubwayCarry.Prototype
         private void OnDisable()
         {
             flowController?.SetNearbyInteraction(this, false);
+        }
+
+        private static bool IsPlayer(Collider2D other)
+        {
+            return other.GetComponentInParent<SubwayCarry.Gameplay.PlayerController>() != null ||
+                   other.GetComponentInParent<SubwayCarry.Prototype.Gameplay.PlayerController>() != null;
         }
     }
 }

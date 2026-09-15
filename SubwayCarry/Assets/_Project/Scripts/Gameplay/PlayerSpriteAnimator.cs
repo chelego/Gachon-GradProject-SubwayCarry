@@ -8,6 +8,8 @@ namespace SubwayCarry.Gameplay
     public sealed class PlayerSpriteAnimator : MonoBehaviour
     {
         private const int DirectionCount = 8;
+        private const int SittingDirectionCount = 2;
+        private const int OverheadTransitionDirectionCount = 2;
         private const int FallenDirectionCount = 4;
 
         [Header("References")]
@@ -36,6 +38,26 @@ namespace SubwayCarry.Gameplay
         [SerializeField] private Sprite[] sittingBodySprites = new Sprite[2];
         [SerializeField] private Sprite[] sittingPackageSprites = new Sprite[2];
 
+        [Header("Sprites - Sitting Transition (South, North)")]
+        [Tooltip("Direction-major order. Each direction contains sittingTransitionFramesPerDirection consecutive frames from standing to sitting.")]
+        [SerializeField] private Sprite[] sittingTransitionBodySprites =
+            new Sprite[SittingDirectionCount * 5];
+        [SerializeField] private Sprite[] sittingTransitionPackageSprites =
+            new Sprite[SittingDirectionCount * 5];
+
+        [Header("Sprites - Overhead Carry")]
+        [SerializeField] private Sprite[] overheadIdleSprites = new Sprite[DirectionCount];
+        [SerializeField] private Sprite[] overheadWalkSprites = new Sprite[DirectionCount * 3];
+        [SerializeField] private Sprite[] overheadPackageIdleSprites = new Sprite[DirectionCount];
+        [SerializeField] private Sprite[] overheadPackageWalkSprites = new Sprite[DirectionCount * 3];
+
+        [Header("Sprites - Overhead Transition (South, North)")]
+        [Tooltip("Direction-major order. Each direction contains overheadTransitionFramesPerDirection consecutive frames from standing carry to overhead carry.")]
+        [SerializeField] private Sprite[] overheadTransitionBodySprites =
+            new Sprite[OverheadTransitionDirectionCount * 5];
+        [SerializeField] private Sprite[] overheadTransitionPackageSprites =
+            new Sprite[OverheadTransitionDirectionCount * 5];
+
         [Header("Sprites - Fallen (South, West, North, East)")]
         [Tooltip("Direction-major order. Each cardinal direction contains fallenFramesPerDirection consecutive frames.")]
         [SerializeField] private Sprite[] fallenBodySprites = new Sprite[FallenDirectionCount * 5];
@@ -44,6 +66,8 @@ namespace SubwayCarry.Gameplay
         [Header("Playback")]
         [SerializeField, Min(1)] private int walkFramesPerDirection = 3;
         [SerializeField, Min(0.1f)] private float walkFramesPerSecond = 8f;
+        [SerializeField, Min(1)] private int sittingTransitionFramesPerDirection = 5;
+        [SerializeField, Min(1)] private int overheadTransitionFramesPerDirection = 5;
         [SerializeField, Min(1)] private int fallenFramesPerDirection = 5;
         [SerializeField, Min(0.1f)] private float fallenFramesPerSecond = 9f;
         [SerializeField] private bool useMovementDirectionWhileMoving = true;
@@ -56,6 +80,35 @@ namespace SubwayCarry.Gameplay
         private int previousDirectionIndex = -1;
         private int lockedFallenDirectionIndex = -1;
         private PackageDamageVisual packageDamageVisual;
+
+        public bool IsConfigured =>
+            controller != null &&
+            posture != null &&
+            packageCarrier != null &&
+            spriteRenderer != null &&
+            HasAssignedSprites(idleSprites, DirectionCount) &&
+            HasAssignedSprites(walkSprites, DirectionCount * walkFramesPerDirection) &&
+            HasAssignedSprites(carryingIdleSprites, DirectionCount) &&
+            HasAssignedSprites(carryingWalkSprites, DirectionCount * walkFramesPerDirection) &&
+            HasAssignedSprites(packageIdleSprites, DirectionCount) &&
+            HasAssignedSprites(packageWalkSprites, DirectionCount * walkFramesPerDirection) &&
+            HasAssignedSprites(sittingTransitionBodySprites,
+                SittingDirectionCount * sittingTransitionFramesPerDirection) &&
+            HasAssignedSprites(sittingTransitionPackageSprites,
+                SittingDirectionCount * sittingTransitionFramesPerDirection) &&
+            HasAssignedSprites(overheadIdleSprites, DirectionCount) &&
+            HasAssignedSprites(overheadWalkSprites, DirectionCount * walkFramesPerDirection) &&
+            HasAssignedSprites(overheadPackageIdleSprites, DirectionCount) &&
+            HasAssignedSprites(overheadPackageWalkSprites,
+                DirectionCount * walkFramesPerDirection) &&
+            HasAssignedSprites(overheadTransitionBodySprites,
+                OverheadTransitionDirectionCount * overheadTransitionFramesPerDirection) &&
+            HasAssignedSprites(overheadTransitionPackageSprites,
+                OverheadTransitionDirectionCount * overheadTransitionFramesPerDirection) &&
+            HasAssignedSprites(fallenBodySprites,
+                FallenDirectionCount * fallenFramesPerDirection) &&
+            HasAssignedSprites(fallenPackageSprites,
+                FallenDirectionCount * fallenFramesPerDirection);
 
         private void Awake()
         {
@@ -146,6 +199,35 @@ namespace SubwayCarry.Gameplay
             fallenElapsed = 0f;
             lockedFallenDirectionIndex = -1;
 
+            if (IsSittingTransition())
+            {
+                walkElapsed = 0f;
+                int sittingDirectionIndex = GetSittingDirectionIndex(directionIndex);
+                int sittingFrameIndex = GetSittingTransitionFrameIndex(
+                    posture.TransitionProgress,
+                    posture.TargetState == CarryPosture.Sitting,
+                    sittingTransitionFramesPerDirection);
+                bool startsSeated = posture.CurrentState == CarryPosture.Sitting;
+                SetSprites(
+                    GetSittingTransitionBodySprite(
+                        sittingDirectionIndex,
+                        sittingFrameIndex,
+                        directionIndex,
+                        isCarryingPackage,
+                        startsSeated),
+                    isCarryingPackage
+                        ? GetSittingTransitionPackageSprite(
+                            sittingDirectionIndex,
+                            sittingFrameIndex,
+                            startsSeated)
+                        : null,
+                    directionIndex);
+                wasMoving = false;
+                wasCarryingPackage = isCarryingPackage;
+                previousDirectionIndex = directionIndex;
+                return;
+            }
+
             if (posture != null && posture.CurrentState == CarryPosture.Sitting)
             {
                 walkElapsed = 0f;
@@ -160,12 +242,51 @@ namespace SubwayCarry.Gameplay
                 return;
             }
 
+            if (IsOverheadTransition())
+            {
+                walkElapsed = 0f;
+                int overheadDirectionIndex = GetSittingDirectionIndex(directionIndex);
+                int overheadFrameIndex = GetSittingTransitionFrameIndex(
+                    posture.TransitionProgress,
+                    posture.TargetState == CarryPosture.OverheadCarry,
+                    overheadTransitionFramesPerDirection);
+                bool startsOverhead = posture.CurrentState == CarryPosture.OverheadCarry;
+                SetSprites(
+                    GetOverheadTransitionBodySprite(
+                        overheadDirectionIndex,
+                        overheadFrameIndex,
+                        directionIndex,
+                        isCarryingPackage,
+                        startsOverhead),
+                    isCarryingPackage
+                        ? GetOverheadTransitionPackageSprite(
+                            overheadDirectionIndex,
+                            overheadFrameIndex,
+                            directionIndex,
+                            startsOverhead)
+                        : null,
+                    directionIndex);
+                wasMoving = false;
+                wasCarryingPackage = isCarryingPackage;
+                previousDirectionIndex = directionIndex;
+                return;
+            }
+
+            bool isOverhead = posture != null &&
+                posture.CurrentState == CarryPosture.OverheadCarry;
+
             if (!isMoving)
             {
                 walkElapsed = 0f;
                 SetSprites(
-                    GetIdleSprite(directionIndex, isCarryingPackage),
-                    isCarryingPackage ? GetPackageIdleSprite(directionIndex) : null,
+                    isOverhead
+                        ? GetOverheadIdleSprite(directionIndex, isCarryingPackage)
+                        : GetIdleSprite(directionIndex, isCarryingPackage),
+                    isCarryingPackage
+                        ? isOverhead
+                            ? GetOverheadPackageIdleSprite(directionIndex)
+                            : GetPackageIdleSprite(directionIndex)
+                        : null,
                     directionIndex);
             }
             else
@@ -183,9 +304,13 @@ namespace SubwayCarry.Gameplay
 
                 int frameIndex = Mathf.FloorToInt(walkElapsed * walkFramesPerSecond) % walkFramesPerDirection;
                 SetSprites(
-                    GetWalkSprite(directionIndex, frameIndex, isCarryingPackage),
+                    isOverhead
+                        ? GetOverheadWalkSprite(directionIndex, frameIndex, isCarryingPackage)
+                        : GetWalkSprite(directionIndex, frameIndex, isCarryingPackage),
                     isCarryingPackage
-                        ? GetPackageWalkSprite(directionIndex, frameIndex)
+                        ? isOverhead
+                            ? GetOverheadPackageWalkSprite(directionIndex, frameIndex)
+                            : GetPackageWalkSprite(directionIndex, frameIndex)
                         : null,
                     directionIndex);
             }
@@ -265,11 +390,87 @@ namespace SubwayCarry.Gameplay
                 : null;
         }
 
+        private Sprite GetOverheadIdleSprite(int directionIndex, bool isCarryingPackage)
+        {
+            if (overheadIdleSprites != null &&
+                directionIndex >= 0 &&
+                directionIndex < overheadIdleSprites.Length &&
+                overheadIdleSprites[directionIndex] != null)
+            {
+                return overheadIdleSprites[directionIndex];
+            }
+
+            return GetIdleSprite(directionIndex, isCarryingPackage);
+        }
+
+        private Sprite GetOverheadWalkSprite(
+            int directionIndex,
+            int frameIndex,
+            bool isCarryingPackage)
+        {
+            if (walkFramesPerDirection <= 0)
+            {
+                return null;
+            }
+
+            int spriteIndex = directionIndex * walkFramesPerDirection + frameIndex;
+            if (overheadWalkSprites != null &&
+                spriteIndex >= 0 &&
+                spriteIndex < overheadWalkSprites.Length &&
+                overheadWalkSprites[spriteIndex] != null)
+            {
+                return overheadWalkSprites[spriteIndex];
+            }
+
+            return GetWalkSprite(directionIndex, frameIndex, isCarryingPackage);
+        }
+
+        private Sprite GetOverheadPackageIdleSprite(int directionIndex)
+        {
+            if (overheadPackageIdleSprites != null &&
+                directionIndex >= 0 &&
+                directionIndex < overheadPackageIdleSprites.Length &&
+                overheadPackageIdleSprites[directionIndex] != null)
+            {
+                return overheadPackageIdleSprites[directionIndex];
+            }
+
+            return GetPackageIdleSprite(directionIndex);
+        }
+
+        private Sprite GetOverheadPackageWalkSprite(int directionIndex, int frameIndex)
+        {
+            if (walkFramesPerDirection <= 0)
+            {
+                return null;
+            }
+
+            int spriteIndex = directionIndex * walkFramesPerDirection + frameIndex;
+            if (overheadPackageWalkSprites != null &&
+                spriteIndex >= 0 &&
+                spriteIndex < overheadPackageWalkSprites.Length &&
+                overheadPackageWalkSprites[spriteIndex] != null)
+            {
+                return overheadPackageWalkSprites[spriteIndex];
+            }
+
+            return GetPackageWalkSprite(directionIndex, frameIndex);
+        }
+
         private Sprite GetSittingBodySprite(
             int sittingDirectionIndex,
             int directionIndex,
             bool isCarryingPackage)
         {
+            Sprite transitionEndSprite = GetSittingTransitionSprite(
+                sittingTransitionBodySprites,
+                sittingDirectionIndex,
+                Mathf.Max(0, sittingTransitionFramesPerDirection - 1));
+            if (transitionEndSprite != null)
+            {
+                return transitionEndSprite;
+            }
+
             if (sittingBodySprites != null &&
                 sittingDirectionIndex < sittingBodySprites.Length &&
                 sittingBodySprites[sittingDirectionIndex] != null)
@@ -282,6 +483,15 @@ namespace SubwayCarry.Gameplay
 
         private Sprite GetSittingPackageSprite(int sittingDirectionIndex)
         {
+            Sprite transitionEndSprite = GetSittingTransitionSprite(
+                sittingTransitionPackageSprites,
+                sittingDirectionIndex,
+                Mathf.Max(0, sittingTransitionFramesPerDirection - 1));
+            if (transitionEndSprite != null)
+            {
+                return transitionEndSprite;
+            }
+
             return sittingPackageSprites != null &&
                 sittingDirectionIndex < sittingPackageSprites.Length
                 ? sittingPackageSprites[sittingDirectionIndex]
@@ -316,6 +526,137 @@ namespace SubwayCarry.Gameplay
                 spriteIndex < fallenPackageSprites.Length
                     ? fallenPackageSprites[spriteIndex]
                     : null;
+        }
+
+        private bool IsSittingTransition()
+        {
+            return posture != null &&
+                   posture.IsTransitioning &&
+                   (posture.CurrentState == CarryPosture.Sitting ||
+                    posture.TargetState == CarryPosture.Sitting);
+        }
+
+        private bool IsOverheadTransition()
+        {
+            return posture != null &&
+                   posture.IsTransitioning &&
+                   (posture.CurrentState == CarryPosture.OverheadCarry ||
+                    posture.TargetState == CarryPosture.OverheadCarry);
+        }
+
+        private Sprite GetOverheadTransitionBodySprite(
+            int overheadDirectionIndex,
+            int frameIndex,
+            int directionIndex,
+            bool isCarryingPackage,
+            bool startsOverhead)
+        {
+            Sprite sprite = GetOverheadTransitionSprite(
+                overheadTransitionBodySprites,
+                overheadDirectionIndex,
+                frameIndex);
+            if (sprite != null)
+            {
+                return sprite;
+            }
+
+            return startsOverhead
+                ? GetOverheadIdleSprite(directionIndex, isCarryingPackage)
+                : GetIdleSprite(directionIndex, isCarryingPackage);
+        }
+
+        private Sprite GetOverheadTransitionPackageSprite(
+            int overheadDirectionIndex,
+            int frameIndex,
+            int directionIndex,
+            bool startsOverhead)
+        {
+            Sprite sprite = GetOverheadTransitionSprite(
+                overheadTransitionPackageSprites,
+                overheadDirectionIndex,
+                frameIndex);
+            if (sprite != null)
+            {
+                return sprite;
+            }
+
+            return startsOverhead
+                ? GetOverheadPackageIdleSprite(directionIndex)
+                : GetPackageIdleSprite(directionIndex);
+        }
+
+        private Sprite GetOverheadTransitionSprite(
+            Sprite[] sprites,
+            int overheadDirectionIndex,
+            int frameIndex)
+        {
+            if (sprites == null || overheadTransitionFramesPerDirection <= 0)
+            {
+                return null;
+            }
+
+            int spriteIndex =
+                overheadDirectionIndex * overheadTransitionFramesPerDirection + frameIndex;
+            return spriteIndex >= 0 && spriteIndex < sprites.Length
+                ? sprites[spriteIndex]
+                : null;
+        }
+
+        private Sprite GetSittingTransitionBodySprite(
+            int sittingDirectionIndex,
+            int frameIndex,
+            int directionIndex,
+            bool isCarryingPackage,
+            bool startsSeated)
+        {
+            Sprite sprite = GetSittingTransitionSprite(
+                sittingTransitionBodySprites,
+                sittingDirectionIndex,
+                frameIndex);
+            if (sprite != null)
+            {
+                return sprite;
+            }
+
+            return startsSeated
+                ? GetSittingBodySprite(sittingDirectionIndex, directionIndex, isCarryingPackage)
+                : GetIdleSprite(directionIndex, isCarryingPackage);
+        }
+
+        private Sprite GetSittingTransitionPackageSprite(
+            int sittingDirectionIndex,
+            int frameIndex,
+            bool startsSeated)
+        {
+            Sprite sprite = GetSittingTransitionSprite(
+                sittingTransitionPackageSprites,
+                sittingDirectionIndex,
+                frameIndex);
+            if (sprite != null)
+            {
+                return sprite;
+            }
+
+            return startsSeated
+                ? GetSittingPackageSprite(sittingDirectionIndex)
+                : GetPackageIdleSprite(sittingDirectionIndex == 1 ? 4 : 0);
+        }
+
+        private Sprite GetSittingTransitionSprite(
+            Sprite[] sprites,
+            int sittingDirectionIndex,
+            int frameIndex)
+        {
+            if (sprites == null || sittingTransitionFramesPerDirection <= 0)
+            {
+                return null;
+            }
+
+            int spriteIndex =
+                sittingDirectionIndex * sittingTransitionFramesPerDirection + frameIndex;
+            return spriteIndex >= 0 && spriteIndex < sprites.Length
+                ? sprites[spriteIndex]
+                : null;
         }
 
         private void SetSprites(Sprite bodySprite, Sprite packageSprite, int directionIndex)
@@ -407,6 +748,37 @@ namespace SubwayCarry.Gameplay
         internal static int GetFallenDirectionIndex(int directionIndex)
         {
             return ((directionIndex + 1) / 2) % FallenDirectionCount;
+        }
+
+        internal static int GetSittingTransitionFrameIndex(
+            float transitionProgress,
+            bool sittingDown,
+            int frameCount)
+        {
+            int safeFrameCount = Mathf.Max(1, frameCount);
+            int frameIndex = Mathf.Clamp(
+                Mathf.FloorToInt(Mathf.Clamp01(transitionProgress) * safeFrameCount),
+                0,
+                safeFrameCount - 1);
+            return sittingDown ? frameIndex : safeFrameCount - 1 - frameIndex;
+        }
+
+        private static bool HasAssignedSprites(Sprite[] sprites, int expectedCount)
+        {
+            if (sprites == null || sprites.Length != expectedCount)
+            {
+                return false;
+            }
+
+            foreach (Sprite sprite in sprites)
+            {
+                if (sprite == null)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         internal static int GetDirectionIndex(Vector2 direction)

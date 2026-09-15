@@ -4,10 +4,13 @@ using SubwayCarry.AI;
 using SubwayCarry.Core.Contracts;
 using SubwayCarry.Prototype.Delivery;
 using SubwayCarry.Prototype.Delivery.Mocks;
-using SubwayCarry.Prototype.Gameplay;
 using SubwayCarry.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using PackageDurability = SubwayCarry.Gameplay.PackageDurability;
+using PlayerController = SubwayCarry.Gameplay.PlayerController;
+using PlayerPackageCarrier = SubwayCarry.Gameplay.PlayerPackageCarrier;
+using PlayerPosture = SubwayCarry.Gameplay.PlayerPosture;
 using RuntimePlayerBalance = SubwayCarry.Gameplay.PlayerBalance;
 
 namespace SubwayCarry.Prototype
@@ -30,7 +33,7 @@ namespace SubwayCarry.Prototype
         [SerializeField] private PackageDurability packageDurability;
         [SerializeField] private PrototypeCameraFollow cameraFollow;
 
-        private PrototypePlayerSpriteAnimator playerSpriteAnimator;
+        private PlayerPackageCarrier playerPackageCarrier;
 
         [Header("Services")]
         [SerializeField] private DeliveryService deliveryService;
@@ -129,10 +132,9 @@ namespace SubwayCarry.Prototype
             playerController = controller;
             playerPosture = posture;
             packageDurability = durability;
-            playerSpriteAnimator = controller != null
-                ? controller.GetComponent<PrototypePlayerSpriteAnimator>()
+            playerPackageCarrier = controller != null
+                ? controller.GetComponent<PlayerPackageCarrier>()
                 : null;
-            playerSpriteAnimator?.SetPackageDurabilityProvider(durability);
             cameraFollow = followCamera;
             deliveryService = deliveries;
             economyService = economy;
@@ -371,8 +373,7 @@ namespace SubwayCarry.Prototype
 
         private void Awake()
         {
-            ResolvePlayerSpriteAnimator();
-            playerSpriteAnimator?.SetPackageDurabilityProvider(packageDurability);
+            ResolvePlayerPackageCarrier();
             EnsureBalanceSystem();
             uiFont = Font.CreateDynamicFontFromOSFont(
                 new[] { "Malgun Gothic", "맑은 고딕", "Arial" },
@@ -439,8 +440,8 @@ namespace SubwayCarry.Prototype
                 rideRemaining <= rideDuration * 0.5f &&
                 playerBalance != null && !playerBalance.IsActive &&
                 playerPosture != null &&
-                (playerPosture.CurrentState == PostureState.Standing ||
-                 playerPosture.CurrentState == PostureState.OverheadCarry))
+                (playerPosture.CurrentState == CarryPosture.Standing ||
+                 playerPosture.CurrentState == CarryPosture.OverheadCarry))
             {
                 midRideBalanceEmitted = true;
                 trainMotionProvider?.Emit(
@@ -653,31 +654,23 @@ namespace SubwayCarry.Prototype
 
         private void SetPackageCarrying(bool carrying)
         {
-            ResolvePlayerSpriteAnimator();
-            playerSpriteAnimator?.SetCarryingPackage(carrying);
-
-            PlayerCollisionImpact collisionImpact = playerController != null
-                ? playerController.GetComponent<PlayerCollisionImpact>()
-                : null;
-            if (collisionImpact != null)
-            {
-                collisionImpact.enabled = carrying;
-            }
+            ResolvePlayerPackageCarrier();
+            playerPackageCarrier?.SetPackageAvailable(carrying);
         }
 
         private bool IsPackageCarrying()
         {
-            ResolvePlayerSpriteAnimator();
-            return playerSpriteAnimator != null &&
-                   playerSpriteAnimator.IsCarryingPackage;
+            ResolvePlayerPackageCarrier();
+            return playerPackageCarrier != null &&
+                   playerPackageCarrier.HasPackage;
         }
 
-        private void ResolvePlayerSpriteAnimator()
+        private void ResolvePlayerPackageCarrier()
         {
-            if (playerSpriteAnimator == null && playerController != null)
+            if (playerPackageCarrier == null && playerController != null)
             {
-                playerSpriteAnimator =
-                    playerController.GetComponent<PrototypePlayerSpriteAnimator>();
+                playerPackageCarrier =
+                    playerController.GetComponent<PlayerPackageCarrier>();
             }
         }
 
@@ -707,7 +700,6 @@ namespace SubwayCarry.Prototype
                 trainMotionProvider,
                 playerPosture,
                 packageDurability);
-            playerController.SetBalanceController(playerBalance);
 
             BalanceHudPresenter balanceHud =
                 GetComponent<BalanceHudPresenter>();

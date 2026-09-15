@@ -9,6 +9,11 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using RuntimePackageDurability = SubwayCarry.Gameplay.PackageDurability;
+using RuntimePlayerController = SubwayCarry.Gameplay.PlayerController;
+using RuntimePlayerPackageCarrier = SubwayCarry.Gameplay.PlayerPackageCarrier;
+using RuntimePlayerPosture = SubwayCarry.Gameplay.PlayerPosture;
+using RuntimePlayerSpriteAnimator = SubwayCarry.Gameplay.PlayerSpriteAnimator;
 
 namespace SubwayCarry.Prototype.Editor
 {
@@ -16,6 +21,9 @@ namespace SubwayCarry.Prototype.Editor
     {
         public const string ScenePath =
             "Assets/_Project/Scenes/Prototype/GameplayFlow_Prototype.unity";
+
+        private const string PlayerPrefabPath =
+            "Assets/_Project/Prefabs/Gameplay/Player.prefab";
 
         private const string MaterialFolder =
             "Assets/_Project/Art/PrototypeMaterials";
@@ -243,46 +251,63 @@ namespace SubwayCarry.Prototype.Editor
         [MenuItem("SubwayCarry/Prototype/Apply Player Walking + Posture Sprites")]
         public static void ApplyPlayerSpritesToSavedScene()
         {
+            SubwayCarry.Gameplay.Editor.PlayerSpriteSetupUtility.ApplyPlayerSprites();
             Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
-            PlayerController controller =
-                UnityEngine.Object.FindFirstObjectByType<PlayerController>();
+            RuntimePlayerController controller =
+                UnityEngine.Object.FindFirstObjectByType<RuntimePlayerController>();
             if (controller == null)
             {
                 throw new InvalidOperationException(
-                    "Gameplay Flow Prototype player is missing.");
+                    "Gameplay Flow Prototype runtime player is missing.");
             }
 
-            PlayerPosture posture = controller.GetComponent<PlayerPosture>();
-            if (posture == null)
+            RuntimePlayerSpriteAnimator animator =
+                controller.GetComponent<RuntimePlayerSpriteAnimator>();
+            if (animator == null || !animator.IsConfigured)
             {
                 throw new InvalidOperationException(
-                    "Gameplay Flow Prototype player posture is missing.");
+                    "Gameplay Flow Prototype runtime player sprites are not configured.");
             }
 
-            ConfigurePlayerSpriteVisual(controller.gameObject, controller, posture);
-            DisablePlayerPrototypeVisuals(controller.transform);
-            EditorSceneManager.MarkSceneDirty(scene);
-            EditorSceneManager.SaveScene(scene, ScenePath);
             ValidateScene(scene);
             Debug.Log(
-                "[Gameplay Flow Prototype] Applied player walking and posture sprites.");
+                "[Gameplay Flow Prototype] Runtime player sprites are inherited from Player.prefab.");
         }
 
         private static PlayerBuildData CreatePlayer(
             Transform parent,
             Camera facingCamera)
         {
-            GameObject playerObject = CreateBlock(
-                "Player",
-                new Vector2(HubCenterX - 9f, -3.8f),
-                new Vector2(0.72f, 0.88f),
-                "Player",
-                parent,
-                false,
-                -0.5f);
-            playerObject.tag = "Player";
+            GameObject playerPrefab =
+                AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
+            if (playerPrefab == null)
+            {
+                throw new InvalidOperationException(
+                    "Runtime player prefab is missing: " + PlayerPrefabPath);
+            }
 
-            Rigidbody2D body = playerObject.AddComponent<Rigidbody2D>();
+            GameObject playerObject = PrefabUtility.InstantiatePrefab(
+                playerPrefab,
+                parent) as GameObject;
+            if (playerObject == null)
+            {
+                throw new InvalidOperationException(
+                    "Runtime player prefab could not be instantiated.");
+            }
+
+            playerObject.name = "Player";
+            playerObject.tag = "Player";
+            playerObject.transform.position =
+                new Vector3(HubCenterX - 9f, -3.8f, -0.5f);
+            playerObject.transform.rotation = Quaternion.identity;
+            playerObject.transform.localScale = Vector3.one;
+
+            Rigidbody2D body = playerObject.GetComponent<Rigidbody2D>();
+            if (body == null)
+            {
+                throw new InvalidOperationException(
+                    "Runtime player prefab requires a Rigidbody2D.");
+            }
             body.bodyType = RigidbodyType2D.Dynamic;
             body.gravityScale = 0f;
             body.mass = 8f;
@@ -291,51 +316,31 @@ namespace SubwayCarry.Prototype.Editor
             body.interpolation = RigidbodyInterpolation2D.Interpolate;
             body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
 
-            CapsuleCollider2D collider = playerObject.AddComponent<CapsuleCollider2D>();
-            collider.direction = CapsuleDirection2D.Vertical;
-            collider.size = new Vector2(0.7f, 0.84f);
+            RuntimePlayerPosture posture =
+                playerObject.GetComponent<RuntimePlayerPosture>();
+            RuntimePlayerController controller =
+                playerObject.GetComponent<RuntimePlayerController>();
+            RuntimePlayerPackageCarrier carrier =
+                playerObject.GetComponent<RuntimePlayerPackageCarrier>();
+            RuntimePackageDurability durability =
+                playerObject.GetComponentInChildren<RuntimePackageDurability>(true);
+            RuntimePlayerSpriteAnimator animator =
+                playerObject.GetComponent<RuntimePlayerSpriteAnimator>();
+            if (posture == null || controller == null || carrier == null ||
+                durability == null || animator == null || !animator.IsConfigured)
+            {
+                throw new InvalidOperationException(
+                    "Runtime player prefab is missing gameplay or sprite components.");
+            }
 
-            PlayerPosture posture = playerObject.AddComponent<PlayerPosture>();
-            PlayerController controller = playerObject.AddComponent<PlayerController>();
-            playerObject.AddComponent<PlayerInteraction>();
-            PackageDurability durability = playerObject.AddComponent<PackageDurability>();
-            PlayerCollisionImpact collisionImpact =
-                playerObject.AddComponent<PlayerCollisionImpact>();
-            SetObjectReference(
-                collisionImpact,
-                "heldPackageSource",
-                durability);
-
-            ConfigurePlayerSpriteVisual(playerObject, controller, posture);
-
-            GameObject package = CreateBlock(
-                "Cake Package",
-                (Vector2)playerObject.transform.position + new Vector2(0f, -0.58f),
-                new Vector2(0.56f, 0.28f),
-                "PrioritySeat",
-                playerObject.transform,
-                false,
-                -0.2f);
-            package.transform.localPosition = new Vector3(0f, -0.58f, -0.2f);
-            SetMeshRendererEnabled(package, false);
+            SetObjectReference(controller, "facingCamera", facingCamera);
+            carrier.SetPackageAvailable(false);
             CreateLabel(
                 "PLAYER",
                 (Vector2)playerObject.transform.position + Vector2.down * 0.9f,
                 playerObject.transform,
                 0.055f,
                 -0.3f);
-            GameObject facingIndicator = CreateBlock(
-                "Player Facing Indicator",
-                (Vector2)playerObject.transform.position + Vector2.down * 0.56f,
-                new Vector2(0.42f, 0.13f),
-                "Door",
-                playerObject.transform,
-                false,
-                -0.28f);
-            facingIndicator.transform.localPosition =
-                new Vector3(0f, -0.56f, -0.28f);
-            SetMeshRendererEnabled(facingIndicator, false);
-            controller.ConfigureFacing(facingCamera, facingIndicator.transform);
 
             return new PlayerBuildData
             {
@@ -1720,10 +1725,10 @@ namespace SubwayCarry.Prototype.Editor
         {
             PrototypeGameFlowController flow =
                 UnityEngine.Object.FindFirstObjectByType<PrototypeGameFlowController>();
-            PlayerController player =
-                UnityEngine.Object.FindFirstObjectByType<PlayerController>();
-            PrototypePlayerSpriteAnimator playerSpriteAnimator =
-                UnityEngine.Object.FindFirstObjectByType<PrototypePlayerSpriteAnimator>();
+            RuntimePlayerController player =
+                UnityEngine.Object.FindFirstObjectByType<RuntimePlayerController>();
+            RuntimePlayerSpriteAnimator playerSpriteAnimator =
+                UnityEngine.Object.FindFirstObjectByType<RuntimePlayerSpriteAnimator>();
             DeliveryService delivery =
                 UnityEngine.Object.FindFirstObjectByType<DeliveryService>();
             GeneralPassengerPrototype[] passengers =
@@ -1761,17 +1766,19 @@ namespace SubwayCarry.Prototype.Editor
             else
             {
                 SerializedObject serializedPlayer = new SerializedObject(player);
-                if (serializedPlayer.FindProperty("facingCamera")?.objectReferenceValue == null ||
-                    serializedPlayer.FindProperty("facingIndicator")?.objectReferenceValue == null)
+                if (serializedPlayer.FindProperty("facingCamera")?.objectReferenceValue == null)
                 {
-                    errors.Add("player mouse-facing camera or indicator is not wired");
+                    errors.Add("player mouse-facing camera is not wired");
                 }
             }
             if (playerSpriteAnimator == null || !playerSpriteAnimator.IsConfigured)
             {
                 errors.Add("player walking/posture sprite animator is missing or not configured");
             }
-            if (player != null && player.GetComponent<MeshRenderer>()?.enabled == true)
+            MeshRenderer playerPlaceholderRenderer =
+                player != null ? player.GetComponent<MeshRenderer>() : null;
+            if (playerPlaceholderRenderer != null &&
+                playerPlaceholderRenderer.enabled)
             {
                 errors.Add("player placeholder renderer must be disabled");
             }
@@ -1845,8 +1852,8 @@ namespace SubwayCarry.Prototype.Editor
                 "Destination Long Fare Gate",
                 "Destination Long Fare Gate Blocker",
                 "Destination Gate Exit Trigger",
-                "Cake Package",
-                "Player Facing Indicator",
+                "CakePackage",
+                "PackageVisual",
                 "BodyVisual"
             };
             foreach (string requiredName in requiredHierarchyNames)
@@ -2021,9 +2028,9 @@ namespace SubwayCarry.Prototype.Editor
 
         private sealed class PlayerBuildData
         {
-            public PlayerController Controller;
-            public PlayerPosture Posture;
-            public PackageDurability Durability;
+            public RuntimePlayerController Controller;
+            public RuntimePlayerPosture Posture;
+            public RuntimePackageDurability Durability;
         }
 
         private sealed class ServiceBuildData

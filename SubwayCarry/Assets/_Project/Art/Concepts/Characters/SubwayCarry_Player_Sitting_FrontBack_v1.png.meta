@@ -119,7 +119,7 @@ TextureImporter:
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData:
+      customData: 
       outline: []
       physicsShape: []
       tessellationDetail: 0
@@ -127,7 +127,7 @@ TextureImporter:
       spriteID: 83d11ce0a7b84914495cba99f03999e8
       internalID: -263013159
       vertices: []
-      indices:
+      indices: 
       edges: []
       weights: []
     - serializedVersion: 2
@@ -141,7 +141,7 @@ TextureImporter:
       alignment: 9
       pivot: {x: 0.5, y: 0.14}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData:
+      customData: 
       outline: []
       physicsShape: []
       tessellationDetail: 0
@@ -149,17 +149,17 @@ TextureImporter:
       spriteID: 4cb990f5879ac184c97b3aae8508c5ba
       internalID: 1784696280
       vertices: []
-      indices:
+      indices: 
       edges: []
       weights: []
     outline: []
-    customData:
+    customData: 
     physicsShape: []
     bones: []
     spriteID: 890c6e62f57248247bd433b927386182
     internalID: 0
     vertices: []
-    indices:
+    indices: 
     edges: []
     weights: []
     secondaryTextures: []
@@ -168,8 +168,8 @@ TextureImporter:
     nameFileIdTable:
       Player_Sitting_North: 1784696280
       Player_Sitting_South: -263013159
-  mipmapLimitGroupName:
+  mipmapLimitGroupName: 
   pSDRemoveMatte: 0
-  userData:
-  assetBundleName:
-  assetBundleVariant:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
