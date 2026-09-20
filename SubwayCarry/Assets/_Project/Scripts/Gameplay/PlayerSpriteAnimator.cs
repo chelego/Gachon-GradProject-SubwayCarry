@@ -70,7 +70,7 @@ namespace SubwayCarry.Gameplay
         [SerializeField, Min(1)] private int overheadTransitionFramesPerDirection = 5;
         [SerializeField, Min(1)] private int fallenFramesPerDirection = 5;
         [SerializeField, Min(0.1f)] private float fallenFramesPerSecond = 9f;
-        [SerializeField] private bool useMovementDirectionWhileMoving = true;
+        [SerializeField] private bool useMovementDirectionWhileMoving;
 
         private float walkElapsed;
         private float fallenElapsed;

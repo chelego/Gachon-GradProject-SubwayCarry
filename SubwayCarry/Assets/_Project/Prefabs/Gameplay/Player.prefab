@@ -647,7 +647,7 @@ MonoBehaviour:
   overheadTransitionFramesPerDirection: 5
   fallenFramesPerDirection: 5
   fallenFramesPerSecond: 9
-  useMovementDirectionWhileMoving: 1
+  useMovementDirectionWhileMoving: 0
 --- !u!1 &6491701447312214397
 GameObject:
   m_ObjectHideFlags: 0

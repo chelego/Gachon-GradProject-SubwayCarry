@@ -73,6 +73,7 @@ namespace SubwayCarry.Gameplay
         private float centerUnsafeTimer;
         private float currentTimingWindow;
         private int sequenceId;
+        private float balanceAssistPercent;
 
         public bool IsActive => phase == BalanceChallengePhase.Warning ||
                                 phase == BalanceChallengePhase.Active;
@@ -81,6 +82,7 @@ namespace SubwayCarry.Gameplay
         public float PromptTimeRemaining => phaseTimer;
         public float ProgressRatio => progress;
         public int RequiredTapCount => requiredTapCount;
+        public float BalanceAssistPercent => balanceAssistPercent;
 
         public BalanceStateSnapshot CurrentBalanceState => new BalanceStateSnapshot(
             sequenceId,
@@ -95,6 +97,11 @@ namespace SubwayCarry.Gameplay
             safeZoneHalfWidth);
 
         public event Action<BalanceStateSnapshot> BalanceStateChanged;
+
+        public void SetBalanceAssistPercent(float assistPercent)
+        {
+            balanceAssistPercent = Mathf.Clamp(assistPercent, 0f, 90f);
+        }
 
         public void Configure(
             MonoBehaviour motionProviderSource,
@@ -199,6 +206,7 @@ namespace SubwayCarry.Gameplay
             bool overhead =
                 balanceParticipant.CurrentBalancePosture == CarryPosture.OverheadCarry;
             float intensityMultiplier = Mathf.Clamp(snapshot.Intensity, 0.5f, 2f);
+            float assistMultiplier = 1f + balanceAssistPercent / 100f;
 
             sequenceId++;
             activePattern = pattern;
@@ -230,7 +238,7 @@ namespace SubwayCarry.Gameplay
                     requiredTapCount = Mathf.Max(1,
                         Mathf.RoundToInt(baseTapCount * intensityMultiplier));
                     challengeDuration = Mathf.Max(0.1f,
-                        baseTapCount * timePerTap);
+                        baseTapCount * timePerTap * assistMultiplier);
                     safeZoneHalfWidth = 0f;
                     break;
                 }
@@ -244,6 +252,9 @@ namespace SubwayCarry.Gameplay
                     safeZoneHalfWidth = overhead
                         ? overheadCenterSafeZone
                         : standingCenterSafeZone;
+                    safeZoneHalfWidth = Mathf.Min(
+                        0.9f,
+                        safeZoneHalfWidth * assistMultiplier);
                     centerInertiaSign = GetInertiaSign(
                         snapshot.InertiaDirection,
                         inputAxis,
@@ -263,6 +274,9 @@ namespace SubwayCarry.Gameplay
                     currentTimingWindow = overhead
                         ? overheadTimingWindow
                         : standingTimingWindow;
+                    currentTimingWindow = Mathf.Min(
+                        0.45f,
+                        currentTimingWindow * assistMultiplier);
                     targetValue = timingTarget * 2f - 1f;
                     safeZoneHalfWidth = currentTimingWindow * 2f;
                     indicatorValue = -1f;
@@ -351,7 +365,9 @@ namespace SubwayCarry.Gameplay
                     centerUnsafeTimer - deltaTime * 1.5f);
             }
 
-            if (centerUnsafeTimer >= centerFailureGrace)
+            float effectiveFailureGrace =
+                centerFailureGrace * (1f + balanceAssistPercent / 100f);
+            if (centerUnsafeTimer >= effectiveFailureGrace)
             {
                 Fail();
                 return;

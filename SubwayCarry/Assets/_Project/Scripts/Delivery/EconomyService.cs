@@ -26,10 +26,16 @@ namespace SubwayCarry.Delivery
 
         public bool TrySpend(int amount)
         {
-            if(amount <= 0 || currentCash < amount)
+            if (amount < 0 || currentCash < amount)
             {
                 return false;
             }
+
+            if (amount == 0)
+            {
+                return true;
+            }
+
             ApplyDelta(-amount);
             return true;
         }

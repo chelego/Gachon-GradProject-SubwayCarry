@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -10,9 +11,20 @@ namespace SubwayCarry.Delivery
 
         private readonly Dictionary<UpgradeStat, int> currentLevels = new Dictionary<UpgradeStat, int>();
 
+        public event Action<UpgradeStat, int, float> UpgradePurchased;
+
         public int GetCurrentLevel(UpgradeStat stat)
         {
             return currentLevels.TryGetValue(stat, out int level) ? level : 0;
+        }
+
+        public float GetCurrentEffectValue(UpgradeStat stat)
+        {
+            UpgradeData data = FindData(stat);
+            UpgradeLevelEntry entry = data != null
+                ? data.GetLevelEntry(GetCurrentLevel(stat))
+                : null;
+            return entry != null ? entry.EffectValue : 0f;
         }
 
         public bool TryPurchase(UpgradeStat stat)
@@ -30,12 +42,13 @@ namespace SubwayCarry.Delivery
                 return false;
             }
 
-            if (!economyService.TrySpend(entry.Price))
+            if (economyService == null || !economyService.TrySpend(entry.Price))
             {
                 return false;
             }
 
             currentLevels[stat] = nextLevel;
+            UpgradePurchased?.Invoke(stat, nextLevel, entry.EffectValue);
             return true;
         }
 

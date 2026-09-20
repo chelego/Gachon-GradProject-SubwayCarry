@@ -24,7 +24,7 @@ namespace SubwayCarry.Delivery
                 return false;
             }
 
-            if (!economyService.TrySpend(data.Price))
+            if (economyService == null || !economyService.TrySpend(data.Price))
             {
                 return false;
             }

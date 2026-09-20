@@ -707,7 +707,7 @@ namespace SubwayCarry.Gameplay.Editor
                 serializedAnimator.FindProperty("fallenFramesPerDirection").intValue =
                     FallenFrameCount;
                 serializedAnimator.FindProperty("fallenFramesPerSecond").floatValue = 9f;
-                serializedAnimator.FindProperty("useMovementDirectionWhileMoving").boolValue = true;
+                serializedAnimator.FindProperty("useMovementDirectionWhileMoving").boolValue = false;
 
                 SerializedProperty idleSprites = serializedAnimator.FindProperty("idleSprites");
                 idleSprites.arraySize = DirectionCount;

@@ -31,9 +31,39 @@ namespace SubwayCarry.Delivery
 
         private void Awake()
         {
+            ResolvePackageSources();
+            transitProgressProvider = transitProgressProviderSource as ITransitProgressProvider;
+
+            if (packageDurabilityProvider != null)
+            {
+                packageDurabilityProvider.DurabilityChanged += OnDurabilityChanged;
+            }
+
+            if (transitProgressProvider != null)
+            {
+                transitProgressProvider.TransitProgressChanged += OnTransitProgressChanged;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (packageDurabilityProvider != null)
+            {
+                packageDurabilityProvider.DurabilityChanged -= OnDurabilityChanged;
+            }
+
+            if (transitProgressProvider != null)
+            {
+                transitProgressProvider.TransitProgressChanged -= OnTransitProgressChanged;
+            }
+        }
+
+        private void ResolvePackageSources()
+        {
+            packageAvailability = packageAvailabilitySource as IPackageAvailabilityController;
             packageDurabilityProvider = packageDurabilityProviderSource as IPackageDurabilityProvider;
             packageDurabilityResetter = packageDurabilityProviderSource as IPackageDurabilityResetter;
-            packageAvailability = packageAvailabilitySource as IPackageAvailabilityController;
+
             if (packageAvailability == null && packageDurabilityProviderSource != null)
             {
                 MonoBehaviour[] parentBehaviours =
@@ -48,16 +78,32 @@ namespace SubwayCarry.Delivery
                     }
                 }
             }
-            transitProgressProvider = transitProgressProviderSource as ITransitProgressProvider;
 
-            if (packageDurabilityProvider != null)
+            if (packageAvailabilitySource == null ||
+                (packageDurabilityProvider != null && packageDurabilityResetter != null))
             {
-                packageDurabilityProvider.DurabilityChanged += OnDurabilityChanged;
+                return;
             }
 
-            if (transitProgressProvider != null)
+            MonoBehaviour[] packageBehaviours =
+                packageAvailabilitySource.GetComponentsInChildren<MonoBehaviour>(true);
+            foreach (MonoBehaviour packageBehaviour in packageBehaviours)
             {
-                transitProgressProvider.TransitProgressChanged += OnTransitProgressChanged;
+                if (packageDurabilityProvider == null && packageBehaviour is IPackageDurabilityProvider provider)
+                {
+                    packageDurabilityProvider = provider;
+                }
+
+                if (packageDurabilityResetter == null && packageBehaviour is IPackageDurabilityResetter resetter)
+                {
+                    packageDurabilityResetter = resetter;
+                }
+
+                if (packageDurabilityProvider != null && packageDurabilityResetter != null)
+                {
+                    packageDurabilityProviderSource = packageBehaviour;
+                    break;
+                }
             }
         }
 

@@ -16,9 +16,19 @@ namespace SubwayCarry.Gameplay
         private PlayerPosture posture;
         private PlayerBalance balance;
         private Vector2 moveInput;
+        private float agilityBonusPercent;
 
         public Vector2 FacingDirection { get; private set; } = Vector2.down;
         public Vector2 MoveInput => moveInput;
+        public float BaseMoveSpeed => moveSpeed;
+        public float AgilityBonusPercent => agilityBonusPercent;
+        public float EffectiveMoveSpeed =>
+            moveSpeed * (1f + agilityBonusPercent / 100f);
+
+        public void SetAgilityBonusPercent(float bonusPercent)
+        {
+            agilityBonusPercent = Mathf.Max(0f, bonusPercent);
+        }
 
         private void Awake()
         {
@@ -50,7 +60,10 @@ namespace SubwayCarry.Gameplay
                 return;
             }
 
-            body.MovePosition(body.position + moveInput * moveSpeed * posture.MoveSpeedMultiplier * Time.fixedDeltaTime);
+            body.MovePosition(
+                body.position +
+                moveInput * EffectiveMoveSpeed * posture.MoveSpeedMultiplier *
+                Time.fixedDeltaTime);
         }
 
         private void ReadMovementInput()

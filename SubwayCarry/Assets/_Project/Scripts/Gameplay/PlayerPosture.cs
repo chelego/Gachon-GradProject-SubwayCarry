@@ -28,8 +28,18 @@ namespace SubwayCarry.Gameplay
         private float currentStamina;
         private float recoverDelayTimer;
         private float fallenTimer;
+        private float staminaBonusPercent;
 
-        public float StaminaRatio => maxStamina <= 0f ? 0f : currentStamina / maxStamina;
+        public float BaseMaxStamina => maxStamina;
+
+        public float StaminaBonusPercent => staminaBonusPercent;
+
+        public float EffectiveMaxStamina =>
+            maxStamina * (1f + staminaBonusPercent / 100f);
+
+        public float StaminaRatio => EffectiveMaxStamina <= 0f
+            ? 0f
+            : currentStamina / EffectiveMaxStamina;
 
         public CarryPosture CurrentState => currentState;
 
@@ -48,7 +58,7 @@ namespace SubwayCarry.Gameplay
 
         public StaminaStateSnapshot CurrentStaminaState => new StaminaStateSnapshot(
             currentStamina,
-            maxStamina,
+            EffectiveMaxStamina,
             recoverDelayTimer > 0f);
 
         public bool CanMove => !IsTransitioning && (currentState == CarryPosture.Standing || currentState == CarryPosture.OverheadCarry);
@@ -59,6 +69,17 @@ namespace SubwayCarry.Gameplay
 
         public event Action<PlayerCarryStateSnapshot> CarryStateChanged;
         public event Action<StaminaStateSnapshot> StaminaStateChanged;
+
+        public void SetStaminaBonusPercent(float bonusPercent)
+        {
+            float previousMaximum = EffectiveMaxStamina;
+            float previousRatio = previousMaximum > 0f
+                ? Mathf.Clamp01(currentStamina / previousMaximum)
+                : 1f;
+            staminaBonusPercent = Mathf.Max(0f, bonusPercent);
+            currentStamina = EffectiveMaxStamina * previousRatio;
+            StaminaStateChanged?.Invoke(CurrentStaminaState);
+        }
 
         public bool TryTransition(CarryPosture target)
         {
@@ -98,7 +119,7 @@ namespace SubwayCarry.Gameplay
 
         private void Awake()
         {
-            currentStamina = maxStamina;
+            currentStamina = EffectiveMaxStamina;
         }
 
         private void Update()
@@ -157,7 +178,7 @@ namespace SubwayCarry.Gameplay
             }
 
             currentStamina += staminaRecoverRate * Time.deltaTime;
-            currentStamina = Mathf.Min(currentStamina, maxStamina);
+            currentStamina = Mathf.Min(currentStamina, EffectiveMaxStamina);
             NotifyStaminaStateChangedIfNeeded(previousState);
         }
 

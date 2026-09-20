@@ -738,15 +738,48 @@ Transform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &396733666 stripped
 MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 4989290657511045195, guid: c787f26dfbc934d4db897ede8b25d55e, type: 3}
+  m_CorrespondingSourceObject: {fileID: 9005231940191899007, guid: c787f26dfbc934d4db897ede8b25d55e, type: 3}
   m_PrefabInstance: {fileID: 1368319016}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 11c1c0e251767de4893bda6c231c14e8, type: 3}
+  m_Script: {fileID: 11500000, guid: 1a1c372bca6bd0142892016a00aeddeb, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay.PackageDurability
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay.PlayerPackageCarrier
+--- !u!114 &396733667 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7903649557249364266, guid: c787f26dfbc934d4db897ede8b25d55e, type: 3}
+  m_PrefabInstance: {fileID: 1368319016}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a5dd0dc39dfc96c4da7cb018240d8f16, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay.PlayerPosture
+--- !u!114 &396733668 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6981318461018434724, guid: c787f26dfbc934d4db897ede8b25d55e, type: 3}
+  m_PrefabInstance: {fileID: 1368319016}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9ef5cb35ba71274998c1490323ad4ef, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay.PlayerController
+--- !u!114 &396733669 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4212135516204653897, guid: c787f26dfbc934d4db897ede8b25d55e, type: 3}
+  m_PrefabInstance: {fileID: 1368319016}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 64df8392918ad4645b4e1a003c3460fe, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay.PlayerBalance
 --- !u!1 &398427184
 GameObject:
   m_ObjectHideFlags: 0
@@ -2549,6 +2582,9 @@ GameObject:
   - component: {fileID: 2072324565}
   - component: {fileID: 2072324564}
   - component: {fileID: 2072324563}
+  - component: {fileID: 2072324567}
+  - component: {fileID: 2072324568}
+  - component: {fileID: 2072324569}
   m_Layer: 0
   m_Name: DeliveryIntegration
   m_TagString: Untagged
@@ -2587,7 +2623,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 186c84b87a0ec644793b594ce035f4f2, type: 2}
   economyService: {fileID: 2072324566}
   serviceShop: {fileID: 2072324565}
-  packageDurabilityProviderSource: {fileID: 396733666}
+  packageDurabilityProviderSource: {fileID: 0}
+  packageAvailabilitySource: {fileID: 396733666}
   transitProgressProviderSource: {fileID: 2072324564}
 --- !u!114 &2072324564
 MonoBehaviour:
@@ -2621,7 +2658,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Delivery.SchoolServiceShop
   economyService: {fileID: 2072324566}
-  catalog: []
+  catalog:
+  - {fileID: 11400000, guid: d721cf2642964a1fafd0c6e0d8abf116, type: 2}
+  - {fileID: 11400000, guid: 2df09e8acd7643dba9d5c0211bbed1fe, type: 2}
 --- !u!114 &2072324566
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2635,6 +2674,57 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Delivery.EconomyService
   initialCash: 15000
+--- !u!114 &2072324567
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2072324561}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0ea3ecc770aeb2429b8817db6377e31, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Delivery.UpgradeShopService
+  economyService: {fileID: 2072324566}
+  catalog:
+  - {fileID: 11400000, guid: 352a65dbd2bf47c1a114b16a51a2467e, type: 2}
+  - {fileID: 11400000, guid: 4f1f0e2917a84c678d21ab32e0e172de, type: 2}
+  - {fileID: 11400000, guid: 42c3961cc0994b32820741a016376a84, type: 2}
+--- !u!114 &2072324568
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2072324561}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69fc2f2f52b44cb7ad34bd3d3f727523, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Delivery.PlayerUpgradeEffectBinder
+  upgradeShopService: {fileID: 2072324567}
+  playerPosture: {fileID: 396733667}
+  playerBalance: {fileID: 396733669}
+  playerController: {fileID: 396733668}
+--- !u!114 &2072324569
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2072324561}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9a2ec7f25e1457fa2f0a9779301f32a, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.UI.GameplayHudPresenter
+  staminaProviderSource: {fileID: 396733667}
+  packageDurabilityProviderSource: {fileID: 0}
+  packageOwnerSource: {fileID: 396733666}
+  deliveryStateProviderSource: {fileID: 2072324563}
+  economyStateProviderSource: {fileID: 2072324566}
+  settlementProviderSource: {fileID: 2072324563}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
