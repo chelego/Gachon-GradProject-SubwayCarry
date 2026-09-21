@@ -19,6 +19,8 @@ namespace SubwayCarry.Gameplay
 
         public Vector2 FacingDirection { get; private set; } = Vector2.down;
         public Vector2 MoveInput => moveInput;
+        // Integration scenes validate facilities themselves; existing prototypes retain their test keys.
+        public bool PrototypePostureInputEnabled { get; set; } = true;
 
         private void Awake()
         {
@@ -112,6 +114,7 @@ namespace SubwayCarry.Gameplay
 
         private void ReadPostureTestInput()
         {
+            if (!PrototypePostureInputEnabled) return;
             if (Keyboard.current == null)
             {
                 return;

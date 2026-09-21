@@ -24,6 +24,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             foreach (Vector2 p in map.Grid.SamplePoints) if (CanStandStatic(p)) standing.Add(p);
             for (int i = 0; i < map.portals.Length; i++)
             {
+                if (source.placeKind == PassengerAiV2PlaceKind.TrainInterior && map.portals[i].side != SubwayCarry.Core.Contracts.DoorOpeningSide.Right) continue;
                 Vector2 normal = (map.floorBounds.center - map.portals[i].position).normalized;
                 float best = float.PositiveInfinity;
                 foreach (var wall in map.walls) { float d = Mathf.Abs(Vector2.Dot(map.portals[i].position - wall.point, wall.inwardNormal)); if (d < best) { best = d; normal = wall.inwardNormal; } }
@@ -107,6 +108,12 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         }
         public bool TryGetExit(Vector2 origin, out Vector2 position)
         {
+            if (map.placeKind == PassengerAiV2PlaceKind.TrainInterior)
+            {
+                float nearest = float.PositiveInfinity; position = origin;
+                foreach (var exit in map.exits) { float d = (origin - exit.inside).sqrMagnitude; if (d < nearest) { nearest = d; position = exit.inside; } }
+                return !float.IsPositiveInfinity(nearest);
+            }
             float best = -1; position = origin;
             foreach (var exit in map.exits) { float d = (origin - exit.inside).sqrMagnitude; if (d > best) { best = d; position = exit.inside; } }
             return best >= 0;

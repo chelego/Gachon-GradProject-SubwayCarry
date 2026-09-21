@@ -1,0 +1,26 @@
+Original: Korea Railroad Corporation (KORAIL), Metropolitan Railway Map, 2026-09-01 edition.
+Source page: https://info.korail.com/info/contents.do?key=2950
+PDF: https://info.korail.com/downloadContentsFile.do?key=2950&fileNo=1605
+Retrieved: 2026-09-22.
+Copyright remains with KORAIL. OriginalMap.pdf is preserved unmodified.
+
+The source page displays KOGL Type 4 (attribution, noncommercial, no derivatives).
+This is NOT a redistribution/commercial-use permission or a license grant.
+The locally edited prototype map must not be represented as cleared for release.
+Obtain the rights holder's permission before publishing/distributing this derivative.
+
+Local edit: remove only intermediate stations skipped INSIDE the active delivery
+routes, using SliceDeliveryCatalog plus the verified physical line sequences in
+BuildMetroMap.py. Stations on untravelled lines, branches and directions remain.
+A station used by any delivery is never removed merely because another skips it.
+Existing rail runs exposed by removed symbols are joined only inside those symbol
+footprints. All other source pixels are retained. This is a fictional game map,
+not a travel guide.
+
+Reproduction: install PyMuPDF==1.28.2, pypdf and Pillow, then run BuildMetroMap.py.
+Run BuildRouteHighlights.py to rebuild all 13 cropped delivery overlays and their
+catalog references. These contain only original map pixels with transparent masks;
+the UI fades the background and decodes only the currently selected overlay.
+The script reads the catalog relative to this directory, verifies the source SHA256,
+and checks every RGB pixel outside deletion masks and every retained label/mark.
+The trailing ~ prevents Unity from importing the source PDF/build script into the game.

@@ -27,6 +27,25 @@ namespace SubwayCarry.Gameplay
         private float currentStamina;
         private float recoverDelayTimer;
         private float fallenTimer;
+        private float baseMaxStamina;
+
+        public void ConfigureStaminaMultiplier(float multiplier)
+        {
+            float ratio = StaminaRatio;
+            maxStamina = baseMaxStamina * Mathf.Clamp(multiplier, 1, 3);
+            currentStamina = maxStamina * ratio;
+            StaminaStateChanged?.Invoke(CurrentStaminaState);
+        }
+
+        public void RestorePosture(CarryPosture posture, float staminaRatio)
+        {
+            if (!Enum.IsDefined(typeof(CarryPosture), posture) || float.IsNaN(staminaRatio)) return;
+            currentState = targetState = posture;
+            IsTransitioning = false; transitionTimer = 0;
+            fallenTimer = posture == CarryPosture.Fallen ? fallenRecoveryTime : 0;
+            currentStamina = Mathf.Clamp01(staminaRatio) * maxStamina;
+            NotifyCarryStateChanged(); StaminaStateChanged?.Invoke(CurrentStaminaState);
+        }
 
         public float StaminaRatio => maxStamina <= 0f ? 0f : currentStamina / maxStamina;
 
@@ -88,6 +107,7 @@ namespace SubwayCarry.Gameplay
 
         private void Awake()
         {
+            baseMaxStamina = maxStamina;
             currentStamina = maxStamina;
         }
 

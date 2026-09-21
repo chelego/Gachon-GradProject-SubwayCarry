@@ -56,6 +56,17 @@ namespace SubwayCarry.Gameplay
         private int previousDirectionIndex = -1;
         private int lockedFallenDirectionIndex = -1;
         private PackageDamageVisual packageDamageVisual;
+        // Opt-in integration mode; prototype prefabs keep their existing locomotion.
+        public bool MouseRelativeLocomotion { get; set; }
+        SpriteRenderer legs;
+        readonly System.Collections.Generic.Dictionary<Sprite, Sprite[]> splitSprites = new System.Collections.Generic.Dictionary<Sprite, Sprite[]>();
+        float stride;
+        Vector2 lastGroundPosition;
+        bool groundSampled;
+        int legDirection, legFrame;
+        bool splitLocomotion;
+        MaterialPropertyBlock legProperties;
+        float lastMovedAt;
 
         private void Awake()
         {
@@ -100,11 +111,32 @@ namespace SubwayCarry.Gameplay
             }
 
             bool isMoving = posture != null && posture.CanMove && controller.MoveInput.sqrMagnitude > 0.0001f;
+            Vector2 travelDirection = controller.MoveInput;
             bool isCarryingPackage = packageCarrier != null && packageCarrier.HasPackage;
-            Vector2 direction = isMoving && useMovementDirectionWhileMoving
+            Vector2 direction = isMoving && useMovementDirectionWhileMoving && !MouseRelativeLocomotion
                 ? controller.MoveInput
                 : controller.FacingDirection;
             int directionIndex = GetDirectionIndex(direction);
+            splitLocomotion = false;
+            if (legs != null) legs.enabled = false;
+            if (MouseRelativeLocomotion)
+            {
+                Vector2 current = transform.position;
+                Vector2 displacement = groundSampled ? current - lastGroundPosition : Vector2.zero;
+                float distance = groundSampled ? Vector2.Distance(current, lastGroundPosition) : 0;
+                lastGroundPosition = current; groundSampled = true;
+                if (distance < .4f && distance > .001f) { stride += distance * 2.8f; lastMovedAt = Time.time; }
+                // Actual displacement prevents walking against a wall or while a cut-in has paused time.
+                // Guided stairs disable input, but should still animate the visible traversal.
+                if (!controller.enabled)
+                {
+                    travelDirection = displacement.normalized;
+                    isMoving = posture != null && posture.CanMove && distance > .001f && distance < .4f;
+                }
+                isMoving &= Time.time - lastMovedAt < .09f && Time.deltaTime > 0;
+                legDirection = GetDirectionIndex(travelDirection);
+                legFrame = Mathf.FloorToInt(stride) % walkFramesPerDirection;
+            }
 
             if (posture != null && posture.CurrentState == CarryPosture.Fallen)
             {
@@ -182,6 +214,15 @@ namespace SubwayCarry.Gameplay
                 }
 
                 int frameIndex = Mathf.FloorToInt(walkElapsed * walkFramesPerSecond) % walkFramesPerDirection;
+                if (MouseRelativeLocomotion)
+                {
+                    float relative = Vector2.Dot(controller.FacingDirection, travelDirection.normalized);
+                    bool backing = relative < -.5f;
+                    frameIndex = backing ? (walkFramesPerDirection - 1 - legFrame) : legFrame;
+                    // Reverse the facing cycle for backpedaling; side steps use travel-facing legs only.
+                    if (backing) { legDirection = directionIndex; legFrame = frameIndex; }
+                    splitLocomotion = true;
+                }
                 SetSprites(
                     GetWalkSprite(directionIndex, frameIndex, isCarryingPackage),
                     isCarryingPackage
@@ -320,6 +361,24 @@ namespace SubwayCarry.Gameplay
 
         private void SetSprites(Sprite bodySprite, Sprite packageSprite, int directionIndex)
         {
+            if (splitLocomotion && bodySprite != null)
+            {
+                Sprite legSource = GetWalkSprite(legDirection, legFrame, false);
+                if (legSource != null)
+                {
+                    EnsureLegs();
+                    var upper = Split(bodySprite); var lower = Split(legSource);
+                    bodySprite = upper[1]; legs.sprite = lower[0]; legs.enabled = true;
+                    legs.color = spriteRenderer.color; legs.sharedMaterial = spriteRenderer.sharedMaterial;
+                    legs.transform.localPosition = spriteRenderer.transform.localPosition;
+                    legs.transform.localScale = spriteRenderer.transform.localScale;
+                    legs.sortingLayerID = spriteRenderer.sortingLayerID; legs.sortingOrder = spriteRenderer.sortingOrder;
+                    Rect r = legs.sprite.textureRect; Texture t = legs.sprite.texture;
+                    if (legProperties == null) legProperties = new MaterialPropertyBlock();
+                    legProperties.SetVector("_UvRect", new Vector4(r.xMin / t.width, r.yMin / t.height, r.xMax / t.width, r.yMax / t.height));
+                    legs.SetPropertyBlock(legProperties);
+                }
+            }
             SetSprite(bodySprite);
             ResolvePackageSpriteRenderer();
             if (packageSpriteRenderer == null)
@@ -333,6 +392,30 @@ namespace SubwayCarry.Gameplay
             packageSpriteRenderer.sortingOrder = IsPackageBehindPlayer(directionIndex)
                 ? spriteRenderer.sortingOrder - 1
                 : spriteRenderer.sortingOrder + 1;
+        }
+
+        void EnsureLegs()
+        {
+            if (legs != null) return;
+            var go = new GameObject("Locomotion_Legs"); go.transform.SetParent(spriteRenderer.transform.parent, false);
+            legs = go.AddComponent<SpriteRenderer>();
+        }
+        Sprite[] Split(Sprite source)
+        {
+            if (splitSprites.TryGetValue(source, out var result)) return result;
+            // Source sheets are full-rect, unatlased sprites. Cut at the hips, keeping the original foot pivot.
+            Rect r = source.rect; float cut = Mathf.Round(r.height * .40f);
+            var low = new Rect(r.x, r.y, r.width, cut); var high = new Rect(r.x, r.y + cut, r.width, r.height - cut);
+            Vector2 pivot = source.pivot;
+            result = new[] {
+                Sprite.Create(source.texture, low, new Vector2(pivot.x / low.width, pivot.y / low.height), source.pixelsPerUnit, 0, SpriteMeshType.FullRect),
+                Sprite.Create(source.texture, high, new Vector2(pivot.x / high.width, (pivot.y - cut) / high.height), source.pixelsPerUnit, 0, SpriteMeshType.FullRect)
+            };
+            splitSprites.Add(source, result); return result;
+        }
+        void OnDestroy()
+        {
+            foreach (var pair in splitSprites) foreach (var sprite in pair.Value) if (sprite != null) Destroy(sprite);
         }
 
         private void ResolvePackageSpriteRenderer()
