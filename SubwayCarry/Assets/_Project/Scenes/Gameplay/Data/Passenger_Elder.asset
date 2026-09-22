@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f65a17e84548ade4aaeaae682aab5abd, type: 3}
+  m_Name: Passenger_Elder
+  m_EditorClassIdentifier: 
+  profileId: gameplay_elder
+  displayName: 느긋한 승객
+  debugColor: {r: 0.82, g: 0.87, b: 0.9, a: 1}
+  courtesy: 0.65
+  assertiveness: 0.5
+  selfInterest: 0.5
+  personalSpace: 0.28
+  crowdTolerance: 0.6
+  patience: 0.8
+  seatPreference: 0.92
+  doorProximityPreference: 0.25
+  routeFamiliarity: 0.7
+  riskTolerance: 0.45
+  walkingSpeed: 1.05
+  reactionDelay: 0.22
+  mobility: 0.6
+  fatigueSensitivity: 0.7
+  personalityVariation: 0.08
+  walkingSpeedVariation: 0.08

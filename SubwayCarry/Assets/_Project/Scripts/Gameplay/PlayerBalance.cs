@@ -83,6 +83,8 @@ namespace SubwayCarry.Gameplay
         public float ProgressRatio => progress;
         public int RequiredTapCount => requiredTapCount;
         public float BalanceAssistPercent => balanceAssistPercent;
+        public bool InputSuspended { get; set; }
+        public float Assistance { get; set; }
 
         public BalanceStateSnapshot CurrentBalanceState => new BalanceStateSnapshot(
             sequenceId,
@@ -144,6 +146,7 @@ namespace SubwayCarry.Gameplay
 
         private void Update()
         {
+            if (InputSuspended) return;
             if (!IsActive)
             {
                 return;
@@ -284,6 +287,11 @@ namespace SubwayCarry.Gameplay
                 }
             }
 
+            float assistance = Mathf.Clamp(Assistance, 0, 0.75f);
+            if (pattern == BalanceChallengePattern.CounterTap) challengeDuration *= 1 + assistance;
+            if (pattern == BalanceChallengePattern.CenterGauge) safeZoneHalfWidth = Mathf.Min(0.85f, safeZoneHalfWidth * (1 + assistance));
+            if (pattern == BalanceChallengePattern.ImpactTiming)
+            { currentTimingWindow = Mathf.Min(0.4f, currentTimingWindow * (1 + assistance)); safeZoneHalfWidth = currentTimingWindow * 2; }
             phaseTimer = phase == BalanceChallengePhase.Warning
                 ? warningDuration
                 : challengeDuration;

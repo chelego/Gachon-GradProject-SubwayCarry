@@ -30,6 +30,9 @@ namespace SubwayCarry.Gameplay
             agilityBonusPercent = Mathf.Max(0f, bonusPercent);
         }
 
+        // Integration scenes validate facilities themselves; existing prototypes retain their test keys.
+        public bool PrototypePostureInputEnabled { get; set; } = true;
+
         private void Awake()
         {
             body = GetComponent<Rigidbody2D>();
@@ -125,6 +128,7 @@ namespace SubwayCarry.Gameplay
 
         private void ReadPostureTestInput()
         {
+            if (!PrototypePostureInputEnabled) return;
             if (Keyboard.current == null)
             {
                 return;

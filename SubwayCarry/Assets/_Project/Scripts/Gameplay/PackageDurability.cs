@@ -53,6 +53,16 @@ namespace SubwayCarry.Gameplay
             DurabilityChanged?.Invoke(CurrentDurability);
         }
 
+        public void RestoreDurability(float box, float cake)
+        {
+            if (float.IsNaN(box) || float.IsInfinity(box) || float.IsNaN(cake) || float.IsInfinity(cake))
+                throw new ArgumentException("Saved durability must be finite.");
+            boxDurability = Mathf.Clamp(box, 0, 100);
+            cakeDurability = Mathf.Clamp(cake, 0, 100);
+            deliveryFailed = cakeDurability <= 0;
+            DurabilityChanged?.Invoke(CurrentDurability);
+        }
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         [ContextMenu("Debug Set Intact (100/100)")]
         private void DebugSetIntact()

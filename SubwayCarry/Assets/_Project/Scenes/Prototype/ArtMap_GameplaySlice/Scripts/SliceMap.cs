@@ -26,6 +26,11 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public Vector2 position;
         public int targetMap;
         public Vector2 arrival;
+        public SubwayCarry.Core.Contracts.DoorOpeningSide side;
+        public bool stationConnection;
+        public bool guidedTraversal;
+        public Vector2 traversalEnd;
+        public float traversalSeconds;
     }
     [System.Serializable] public struct SliceExit { public Vector2 inside, outside; }
     [System.Serializable] public struct SliceInterest
@@ -37,6 +42,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice
     public sealed class SliceMap : MonoBehaviour
     {
         public string displayName;
+        public bool hasFareGate;
+        public Vector2 fareGate, streetExit;
         public PassengerAiV2PlaceKind placeKind;
         public Rect[] noWaitingZones = new Rect[0];
         public Tilemap floorTiles;

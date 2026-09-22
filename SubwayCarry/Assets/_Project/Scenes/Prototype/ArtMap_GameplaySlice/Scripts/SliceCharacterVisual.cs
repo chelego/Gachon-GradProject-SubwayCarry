@@ -11,6 +11,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public SpriteRenderer package;
         public Sprite[] idleSprites;
         public Sprite[] walkSprites;
+        public Sprite[] sittingSprites;
         public PassengerAiV2Agent agent;
         public SlicePassengerIntent intent;
         public bool player;
@@ -47,7 +48,14 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                 }
                 int frame = direction * 3 + Mathf.FloorToInt(Time.time * 8) % 3;
                 body.sprite = v.sqrMagnitude > 0.0225f && frame < walkSprites.Length ? walkSprites[frame] : idleSprites[direction];
-                body.transform.localScale = new Vector3(visualScale, visualScale * (intent != null && intent.Sitting ? 0.76f : 1f), 1);
+                bool seatedArt = intent != null && intent.Sitting && sittingSprites != null && sittingSprites.Length >= 2;
+                if (seatedArt)
+                {
+                    bool back = map != null && map.placeKind == PassengerAiV2PlaceKind.TrainInterior
+                        ? transform.position.y - .5f * transform.position.x < 3 : direction >= 3 && direction <= 5;
+                    body.sprite = sittingSprites[back ? 1 : 0];
+                }
+                body.transform.localScale = new Vector3(visualScale, visualScale * (intent != null && intent.Sitting && !seatedArt ? 0.76f : 1f), 1);
                 body.transform.localRotation = Quaternion.Euler(0, 0, intent != null && intent.Leaning ? 7 : 0);
             }
             if (player && body.sprite != previousSprite)
