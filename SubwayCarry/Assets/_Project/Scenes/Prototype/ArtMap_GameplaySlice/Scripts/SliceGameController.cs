@@ -10,6 +10,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice
 {
     public sealed class SliceGameController : MonoBehaviour
     {
+        private const float FacilityDistanceTieEpsilon = 0.0001f;
+
         public SliceMap[] maps;
         public GameObject playerPrefab, packagePrefab;
         public Material playerOutline;
@@ -43,7 +45,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         Texture2D whiteTexture;
         int currentMap, serial, exited, nearestPortal = -1;
         float nextSpawn, nextHud, fade, portalReadyAt;
-        bool changing;
+        bool changing, releasingPlayerFacility;
         string hud = "", prompt = "";
         GUIStyle hudStyle;
         public SliceMap CurrentMap => maps[currentMap];
@@ -68,30 +70,235 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             exited++;
         }
         public bool IsChangingMap => changing;
+        public bool HasActivePlayerFacility => playerFacility != null;
+        public bool PortalInteractionReady => Time.time >= portalReadyAt;
+        public Vector2 ActivePlayerFacilityPosition => playerFacility != null
+            ? playerFacility.UsePosition
+            : PlayerPosition;
+
         public bool TryUseFacility(CarryPosture target)
         {
-            if (target == CarryPosture.Standing || target == CarryPosture.OverheadCarry)
+            if (target == CarryPosture.Standing)
             {
-                if (!posture.TryTransition(target)) return false;
-                ReleasePlayerFacility(); return true;
+                return playerFacility != null
+                    ? TryReleasePlayerFacility()
+                    : posture.TryTransition(target);
             }
-            PassengerAiV2InteriorSpotKind kind = target == CarryPosture.Sitting ? PassengerAiV2InteriorSpotKind.Seat : target == CarryPosture.Leaning ? PassengerAiV2InteriorSpotKind.Lean : PassengerAiV2InteriorSpotKind.Stand;
-            PassengerAiV2InteriorSpotSmartObject best = null; float distance = 1.25f * 1.25f;
-            foreach (var spot in spots)
+
+            if (target == CarryPosture.OverheadCarry)
             {
-                float d = (spot.UsePosition - playerBody.position).sqrMagnitude;
-                if (spot.Kind == kind && spot.IsAvailableFor(playerProxy) && d < distance) { distance = d; best = spot; }
+                return playerFacility == null && posture.TryTransition(target);
             }
-            if (best == null || !best.RequestUse(playerProxy, 0, Mathf.Sqrt(distance))) return false;
-            if (!posture.TryTransition(target)) { if (best != playerFacility) best.Release(playerProxy); return false; }
-            ReleasePlayerFacility(); playerFacility = best;
-            best.RequestUse(playerProxy, 0, 0); best.MarkOccupied(playerProxy);
+
+            PassengerAiV2InteriorSpotKind kind = target == CarryPosture.Sitting
+                ? PassengerAiV2InteriorSpotKind.Seat
+                : target == CarryPosture.Leaning
+                    ? PassengerAiV2InteriorSpotKind.Lean
+                    : PassengerAiV2InteriorSpotKind.Stand;
+            PassengerAiV2InteriorSpotSmartObject best = FindNearestFacility(kind, out float distance);
+            return TryBeginFacilityUse(best, target, distance);
+        }
+
+        public bool TryUseNearestFacility(out CarryPosture target)
+        {
+            target = CarryPosture.Standing;
+            PassengerAiV2InteriorSpotSmartObject best = FindNearestFacility(null, out float distance);
+            if (best == null) return false;
+            target = GetPosture(best.Kind);
+            return TryBeginFacilityUse(best, target, distance);
+        }
+
+        public bool TryGetNearestFacility(out Vector2 position, out CarryPosture target)
+        {
+            position = PlayerPosition;
+            target = CarryPosture.Standing;
+            PassengerAiV2InteriorSpotSmartObject best = FindNearestFacility(null, out _);
+            if (best == null) return false;
+            position = best.UsePosition;
+            target = GetPosture(best.Kind);
             return true;
         }
+
+        public bool TryReleasePlayerFacility()
+        {
+            if (playerFacility == null || posture.IsTransitioning) return false;
+            if (posture.CurrentState == CarryPosture.Fallen)
+            {
+                ReleasePlayerFacility();
+                return true;
+            }
+
+            if (posture.CurrentState == CarryPosture.Standing)
+            {
+                ReleasePlayerFacility();
+                return true;
+            }
+
+            if (!posture.TryTransition(CarryPosture.Standing)) return false;
+            releasingPlayerFacility = true;
+            return true;
+        }
+
+        PassengerAiV2InteriorSpotSmartObject FindNearestFacility(
+            PassengerAiV2InteriorSpotKind? requiredKind,
+            out float distance)
+        {
+            float maximumDistance = 1.25f * 1.25f;
+            distance = maximumDistance;
+            if (spots == null || playerBody == null || playerFacility != null ||
+                posture == null || posture.IsTransitioning ||
+                posture.CurrentState != CarryPosture.Standing)
+            {
+                return null;
+            }
+
+            PassengerAiV2InteriorSpotSmartObject best = null;
+            foreach (var spot in spots)
+            {
+                if (spot == null || spot.Kind == PassengerAiV2InteriorSpotKind.DoorPrepare ||
+                    (requiredKind.HasValue && spot.Kind != requiredKind.Value) ||
+                    !spot.IsAvailableFor(playerProxy))
+                {
+                    continue;
+                }
+
+                float candidateDistance = (spot.UsePosition - playerBody.position).sqrMagnitude;
+                if (candidateDistance >= maximumDistance) continue;
+                if (best != null)
+                {
+                    if (candidateDistance > distance + FacilityDistanceTieEpsilon) continue;
+                    if (Mathf.Abs(candidateDistance - distance) <= FacilityDistanceTieEpsilon &&
+                        GetFacilityPriority(spot.Kind) >= GetFacilityPriority(best.Kind))
+                    {
+                        continue;
+                    }
+                }
+
+                distance = candidateDistance;
+                best = spot;
+            }
+
+            return best;
+        }
+
+        bool TryBeginFacilityUse(
+            PassengerAiV2InteriorSpotSmartObject facility,
+            CarryPosture target,
+            float distance)
+        {
+            if (facility == null ||
+                !facility.RequestUse(playerProxy, 0, Mathf.Sqrt(distance)))
+            {
+                return false;
+            }
+
+            if (!facility.MarkOccupied(playerProxy))
+            {
+                facility.Release(playerProxy);
+                return false;
+            }
+
+            if (!posture.TryTransition(target))
+            {
+                facility.Release(playerProxy);
+                return false;
+            }
+
+            playerFacility = facility;
+            releasingPlayerFacility = false;
+            AlignPlayerWithFacility(facility, target);
+            return true;
+        }
+
+        void AlignPlayerWithFacility(
+            PassengerAiV2InteriorSpotSmartObject facility,
+            CarryPosture target)
+        {
+            if (facility == null || playerBody == null) return;
+
+            Vector2 usePosition = facility.UsePosition;
+            playerBody.position = usePosition;
+            playerBody.linearVelocity = Vector2.zero;
+            playerBody.transform.position = usePosition;
+            if (boundary != null) boundary.ClearImpulse();
+
+            if (playerInput != null &&
+                TryGetFacilityFacingDirection(usePosition, target, out Vector2 facing))
+            {
+                playerInput.SetFacingDirection(facing);
+            }
+
+            Physics2D.SyncTransforms();
+            PackageImpactSensor[] sensors =
+                playerBody.GetComponentsInChildren<PackageImpactSensor>(true);
+            for (int index = 0; index < sensors.Length; index++)
+            {
+                if (!sensors[index].enabled) continue;
+                sensors[index].enabled = false;
+                sensors[index].enabled = true;
+            }
+        }
+
+        bool TryGetFacilityFacingDirection(
+            Vector2 usePosition,
+            CarryPosture target,
+            out Vector2 facing)
+        {
+            facing = Vector2.zero;
+            if (target == CarryPosture.HoldingSupport || maps == null ||
+                currentMap < 0 || currentMap >= maps.Length || maps[currentMap] == null)
+            {
+                return false;
+            }
+
+            SliceSolidFootprint[] footprints = maps[currentMap].solidFootprints;
+            if (footprints == null || footprints.Length == 0) return false;
+
+            float nearestDistance = 2.25f;
+            Vector2 nearestCenter = Vector2.zero;
+            bool found = false;
+            for (int index = 0; index < footprints.Length; index++)
+            {
+                float candidateDistance =
+                    (usePosition - footprints[index].center).sqrMagnitude;
+                if (candidateDistance >= nearestDistance) continue;
+                nearestDistance = candidateDistance;
+                nearestCenter = footprints[index].center;
+                found = true;
+            }
+
+            if (!found) return false;
+            facing = usePosition - nearestCenter;
+            return facing.sqrMagnitude > 0.0001f;
+        }
+
+        static int GetFacilityPriority(PassengerAiV2InteriorSpotKind kind)
+        {
+            switch (kind)
+            {
+                case PassengerAiV2InteriorSpotKind.Seat:
+                    return 0;
+                case PassengerAiV2InteriorSpotKind.Lean:
+                    return 1;
+                default:
+                    return 2;
+            }
+        }
+
+        static CarryPosture GetPosture(PassengerAiV2InteriorSpotKind kind)
+        {
+            return kind == PassengerAiV2InteriorSpotKind.Seat
+                ? CarryPosture.Sitting
+                : kind == PassengerAiV2InteriorSpotKind.Lean
+                    ? CarryPosture.Leaning
+                    : CarryPosture.HoldingSupport;
+        }
+
         void ReleasePlayerFacility()
         {
             if (playerFacility != null) playerFacility.Release(playerProxy);
             playerFacility = null;
+            releasingPlayerFacility = false;
         }
         public Vector2 PlayerPosition => playerBody.position;
         public void SetInputBlocked(bool blocked)
@@ -264,7 +471,11 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         void Update()
         {
             if (player == null) return;
-            if (playerFacility != null && posture.CurrentState == CarryPosture.Fallen) ReleasePlayerFacility();
+            if (playerFacility != null && posture.CurrentState == CarryPosture.Fallen)
+                ReleasePlayerFacility();
+            else if (releasingPlayerFacility && !posture.IsTransitioning &&
+                     posture.CurrentState == CarryPosture.Standing)
+                ReleasePlayerFacility();
             if (!changing && Time.time >= nextSpawn && (journey == null || journey.AllowPassengerArrival))
             {
                 nextSpawn = Time.time + spawnInterval;
@@ -300,11 +511,10 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                 if (Keyboard.current.f7Key.wasPressedThisFrame) environment.NotifyService(PassengerAiV2ServicePhase.DoorsOpen, true, true);
                 if (Keyboard.current.f8Key.wasPressedThisFrame) environment.NotifyService(PassengerAiV2ServicePhase.Departed, true, true);
             }
-            if (!changing && nearestPortal >= 0 && Time.time >= portalReadyAt && Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
+            if (journey == null && !changing && nearestPortal >= 0 && Time.time >= portalReadyAt && Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
             {
                 var portal = CurrentMap.portals[nearestPortal];
-                if (journey != null) journey.TryUseDoor(portal);
-                else StartCoroutine(Transition(portal));
+                StartCoroutine(Transition(portal));
             }
             if (journey != null && !journey.InputBlocked && !changing && Time.time >= portalReadyAt && nearestPortal >= 0)
             {

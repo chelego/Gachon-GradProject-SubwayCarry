@@ -424,6 +424,9 @@ MonoBehaviour:
   sittingPackageSprites:
   - {fileID: -1448767685, guid: ce1ad79169445044ba0d6d255c734a41, type: 3}
   - {fileID: -1271852068, guid: ce1ad79169445044ba0d6d255c734a41, type: 3}
+  holdingSupportBodySprites:
+  - {fileID: 1795020011, guid: 4df57a1c99594ce2aa8817b40a7d2e61, type: 3}
+  - {fileID: -1795020012, guid: 4df57a1c99594ce2aa8817b40a7d2e61, type: 3}
   fallenBodySprites:
   - {fileID: 213101001, guid: b4c284d4e4d14ae587aeefcc688c3901, type: 3}
   - {fileID: 213101002, guid: b4c284d4e4d14ae587aeefcc688c3901, type: 3}
@@ -470,7 +473,7 @@ MonoBehaviour:
   walkFramesPerSecond: 8
   fallenFramesPerDirection: 5
   fallenFramesPerSecond: 9
-  useMovementDirectionWhileMoving: 1
+  useMovementDirectionWhileMoving: 0
 --- !u!114 &7004978879466379838
 MonoBehaviour:
   m_ObjectHideFlags: 0

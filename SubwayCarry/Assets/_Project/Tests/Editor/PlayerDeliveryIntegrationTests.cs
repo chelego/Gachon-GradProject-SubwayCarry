@@ -112,6 +112,40 @@ namespace SubwayCarry.Tests
         }
 
         [Test]
+        public void FacilityPostures_LockFacingUntilStandingTransitionCompletes()
+        {
+            GameObject player = CreatePlayer();
+            PlayerPosture posture = player.GetComponent<PlayerPosture>();
+            InvokePrivate(posture, "Awake");
+
+            Assert.That(posture.CanChangeFacing, Is.True);
+
+            foreach (CarryPosture lockedPosture in new[]
+                     {
+                         CarryPosture.Sitting,
+                         CarryPosture.Leaning,
+                         CarryPosture.HoldingSupport,
+                         CarryPosture.Fallen
+                     })
+            {
+                posture.RestorePosture(lockedPosture, 1f);
+                Assert.That(
+                    posture.CanChangeFacing,
+                    Is.False,
+                    lockedPosture + " should keep the interaction-facing direction locked.");
+            }
+
+            posture.RestorePosture(CarryPosture.Sitting, 1f);
+            Assert.That(posture.TryTransition(CarryPosture.Standing), Is.True);
+            Assert.That(posture.CanChangeFacing, Is.False);
+
+            posture.RestorePosture(CarryPosture.Standing, 1f);
+            Assert.That(posture.CanChangeFacing, Is.True);
+            posture.RestorePosture(CarryPosture.OverheadCarry, 1f);
+            Assert.That(posture.CanChangeFacing, Is.True);
+        }
+
+        [Test]
         public void DeliveryComplete_UndamagedPackageUpdatesSettlementEconomyAndHud()
         {
             DeliveryFixture fixture = CreateDeliveryFixture();

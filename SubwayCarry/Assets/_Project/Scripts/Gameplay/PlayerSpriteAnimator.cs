@@ -38,6 +38,10 @@ namespace SubwayCarry.Gameplay
         [SerializeField] private Sprite[] sittingBodySprites = new Sprite[2];
         [SerializeField] private Sprite[] sittingPackageSprites = new Sprite[2];
 
+        [Header("Sprites - Holding Support (Front, Back)")]
+        [Tooltip("South/front and North/back. Facing is locked while the support is held.")]
+        [SerializeField] private Sprite[] holdingSupportBodySprites = new Sprite[2];
+
         [Header("Sprites - Sitting Transition (South, North)")]
         [Tooltip("Direction-major order. Each direction contains sittingTransitionFramesPerDirection consecutive frames from standing to sitting.")]
         [SerializeField] private Sprite[] sittingTransitionBodySprites =
@@ -103,6 +107,7 @@ namespace SubwayCarry.Gameplay
             HasAssignedSprites(carryingWalkSprites, DirectionCount * walkFramesPerDirection) &&
             HasAssignedSprites(packageIdleSprites, DirectionCount) &&
             HasAssignedSprites(packageWalkSprites, DirectionCount * walkFramesPerDirection) &&
+            HasAssignedSprites(holdingSupportBodySprites, SittingDirectionCount) &&
             HasAssignedSprites(sittingTransitionBodySprites,
                 SittingDirectionCount * sittingTransitionFramesPerDirection) &&
             HasAssignedSprites(sittingTransitionPackageSprites,
@@ -267,6 +272,25 @@ namespace SubwayCarry.Gameplay
                 SetSprites(
                     GetSittingBodySprite(sittingDirectionIndex, directionIndex, isCarryingPackage),
                     isCarryingPackage ? GetSittingPackageSprite(sittingDirectionIndex) : null,
+                    directionIndex);
+                wasMoving = false;
+                wasCarryingPackage = isCarryingPackage;
+                previousDirectionIndex = directionIndex;
+                return;
+            }
+
+            if (posture != null && posture.CurrentState == CarryPosture.HoldingSupport)
+            {
+                walkElapsed = 0f;
+                int holdingDirectionIndex = GetSittingDirectionIndex(directionIndex);
+                SetSprites(
+                    GetHoldingSupportBodySprite(
+                        holdingDirectionIndex,
+                        directionIndex,
+                        isCarryingPackage),
+                    isCarryingPackage
+                        ? GetPackageIdleSprite(holdingDirectionIndex == 1 ? 4 : 0)
+                        : null,
                     directionIndex);
                 wasMoving = false;
                 wasCarryingPackage = isCarryingPackage;
@@ -537,6 +561,22 @@ namespace SubwayCarry.Gameplay
                 sittingDirectionIndex < sittingPackageSprites.Length
                 ? sittingPackageSprites[sittingDirectionIndex]
                 : null;
+        }
+
+        private Sprite GetHoldingSupportBodySprite(
+            int holdingDirectionIndex,
+            int directionIndex,
+            bool isCarryingPackage)
+        {
+            if (holdingSupportBodySprites != null &&
+                holdingDirectionIndex >= 0 &&
+                holdingDirectionIndex < holdingSupportBodySprites.Length &&
+                holdingSupportBodySprites[holdingDirectionIndex] != null)
+            {
+                return holdingSupportBodySprites[holdingDirectionIndex];
+            }
+
+            return GetIdleSprite(directionIndex, isCarryingPackage);
         }
 
         private Sprite GetFallenBodySprite(

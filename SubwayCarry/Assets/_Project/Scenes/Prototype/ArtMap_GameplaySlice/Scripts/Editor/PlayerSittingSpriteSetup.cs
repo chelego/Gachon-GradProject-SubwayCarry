@@ -18,6 +18,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice.Editor
             ReviewRoot + "Art/Concepts/Characters/SubwayCarry_Player_Sitting_FrontBack_v1.png";
         private const string SittingPackageSpriteSheetPath =
             ReviewRoot + "Art/Concepts/Characters/SubwayCarry_CakePackage_Sitting_FrontBack_v1.png";
+        private const string HoldingSupportBodySpriteSheetPath =
+            ReviewRoot + "Art/Concepts/Characters/SubwayCarry_Player_HoldingSupport_FrontBack_v1.png";
         private const string ReviewPlayerPrefabPath =
             ReviewRoot + "Prefabs/Gameplay/Player.prefab";
         private const string SlicePlayerPrefabPath =
@@ -26,6 +28,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice.Editor
             "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_Sitting_FrontBack_v1.png";
         private const string SourceSittingPackageSpriteSheetPath =
             "Assets/_Project/Art/Concepts/Characters/SubwayCarry_CakePackage_Sitting_FrontBack_v1.png";
+        private const string SourceHoldingSupportBodySpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_HoldingSupport_FrontBack_v1.png";
         private const string SourcePlayerPrefabPath =
             "Assets/_Project/Prefabs/Gameplay/Player.prefab";
         private const int SittingDirectionCount = 2;
@@ -45,10 +49,16 @@ namespace SubwayCarry.Prototype.ArtMapSlice.Editor
                 LoadSpritesByName(SittingBodySpriteSheetPath);
             IReadOnlyDictionary<string, Sprite> packageSprites =
                 LoadSpritesByName(SittingPackageSpriteSheetPath);
+            IReadOnlyDictionary<string, Sprite> holdingSupportBodySprites =
+                LoadSpritesByName(HoldingSupportBodySpriteSheetPath);
 
-            ApplyToPrefab(SlicePlayerPrefabPath, bodySprites, packageSprites);
+            ApplyToPrefab(
+                SlicePlayerPrefabPath,
+                bodySprites,
+                packageSprites,
+                holdingSupportBodySprites);
 
-            Debug.Log("Applied shared animation data to the vertical-slice player prefab; source assets were not modified.");
+            Debug.Log("Applied shared sitting and holding-support animation data to the vertical-slice player prefab; source assets were not modified.");
         }
 
         [MenuItem("SubwayCarry/Art/Validate Player Sitting Sprites")]
@@ -56,6 +66,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice.Editor
         {
             ValidateSpriteSheet(SourceSittingBodySpriteSheetPath);
             ValidateSpriteSheet(SourceSittingPackageSpriteSheetPath);
+            ValidateSpriteSheet(SourceHoldingSupportBodySpriteSheetPath);
             ValidatePrefab(SourcePlayerPrefabPath);
             ValidatePrefab(SlicePlayerPrefabPath);
             ValidateDirectionMapping(typeof(SubwayCarry.Gameplay.PlayerSpriteAnimator));
@@ -148,7 +159,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice.Editor
         private static void ApplyToPrefab(
             string prefabPath,
             IReadOnlyDictionary<string, Sprite> bodySprites,
-            IReadOnlyDictionary<string, Sprite> packageSprites)
+            IReadOnlyDictionary<string, Sprite> packageSprites,
+            IReadOnlyDictionary<string, Sprite> holdingSupportBodySprites)
         {
             GameObject prefabRoot = PrefabUtility.LoadPrefabContents(prefabPath);
             try
@@ -177,6 +189,9 @@ namespace SubwayCarry.Prototype.ArtMapSlice.Editor
                 SerializedProperty sittingPackageSprites =
                     serializedAnimator.FindProperty("sittingPackageSprites");
                 sittingPackageSprites.arraySize = SittingDirectionCount;
+                SerializedProperty holdingSupportSprites =
+                    serializedAnimator.FindProperty("holdingSupportBodySprites");
+                holdingSupportSprites.arraySize = SittingDirectionCount;
 
                 for (int direction = 0; direction < SittingDirectionCount; direction++)
                 {
@@ -184,6 +199,9 @@ namespace SubwayCarry.Prototype.ArtMapSlice.Editor
                         bodySprites[GetSpriteName(direction, "Player_Sitting")];
                     sittingPackageSprites.GetArrayElementAtIndex(direction).objectReferenceValue =
                         packageSprites[GetSpriteName(direction, "CakePackage_Sitting")];
+                    holdingSupportSprites.GetArrayElementAtIndex(direction).objectReferenceValue =
+                        holdingSupportBodySprites[
+                            GetSpriteName(direction, "Player_HoldingSupport")];
                 }
 
                 // Keep the slice's movement/outline overrides; reuse the shared animation data.
@@ -292,6 +310,10 @@ namespace SubwayCarry.Prototype.ArtMapSlice.Editor
                     serializedAnimator.FindProperty("sittingPackageSprites"),
                     prefabPath,
                     "sittingPackageSprites");
+                ValidateSpriteArray(
+                    serializedAnimator.FindProperty("holdingSupportBodySprites"),
+                    prefabPath,
+                    "holdingSupportBodySprites");
 
                 if (serializedAnimator.FindProperty("packageSpriteRenderer").objectReferenceValue == null)
                 {

@@ -82,6 +82,10 @@ namespace SubwayCarry.Gameplay
 
         public bool CanMove => !IsTransitioning && (currentState == CarryPosture.Standing || currentState == CarryPosture.OverheadCarry);
 
+        public bool CanChangeFacing => !IsTransitioning &&
+            (currentState == CarryPosture.Standing ||
+             currentState == CarryPosture.OverheadCarry);
+
         public float MoveSpeedMultiplier => currentState == CarryPosture.OverheadCarry ? overheadMoveSpeedMultiplier : 1f;
 
         public bool IsTransitioning { get; private set; }

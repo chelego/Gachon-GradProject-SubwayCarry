@@ -487,6 +487,9 @@ MonoBehaviour:
   sittingPackageSprites:
   - {fileID: -1448767685, guid: ce1ad79169445044ba0d6d255c734a41, type: 3}
   - {fileID: -1271852068, guid: ce1ad79169445044ba0d6d255c734a41, type: 3}
+  holdingSupportBodySprites:
+  - {fileID: 1795020011, guid: 4df57a1c99594ce2aa8817b40a7d2e61, type: 3}
+  - {fileID: -1795020012, guid: 4df57a1c99594ce2aa8817b40a7d2e61, type: 3}
   sittingTransitionBodySprites:
   - {fileID: -513247513, guid: 61c76f886ff59164d832d6a61ae55e98, type: 3}
   - {fileID: -465992719, guid: 61c76f886ff59164d832d6a61ae55e98, type: 3}

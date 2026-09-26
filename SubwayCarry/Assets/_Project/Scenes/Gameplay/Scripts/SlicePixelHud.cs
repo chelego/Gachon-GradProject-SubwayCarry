@@ -227,7 +227,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         void DrawHelp()
         {
             Panel(new Rect(28, 305, 306, 324), Card); Label(49, 322, 264, "조작법", title);
-            Label(49, 374, 264, "WASD  이동\n마우스  바라보기\nE  이용하기\n1 서기    2 기대기\n3 앉기    4 잡기\n5 머리 위로 들기\nTAB 배달 앱  ·  ESC 쉬기", text, 240);
+            Label(49, 374, 264, "WASD  이동\n마우스  바라보기\nE  이용하기 / 해제하기\nR  머리 위로 들기 / 내리기\nTAB 배달 앱  ·  ESC 쉬기", text, 240);
         }
         void DrawDamage()
         {

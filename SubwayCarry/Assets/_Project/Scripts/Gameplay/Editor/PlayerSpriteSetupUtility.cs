@@ -19,6 +19,8 @@ namespace SubwayCarry.Gameplay.Editor
             "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_Sitting_FrontBack_v1.png";
         private const string SittingPackageSpriteSheetPath =
             "Assets/_Project/Art/Concepts/Characters/SubwayCarry_CakePackage_Sitting_FrontBack_v1.png";
+        private const string HoldingSupportBodySpriteSheetPath =
+            "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_HoldingSupport_FrontBack_v1.png";
         private const string SittingTransitionBodySpriteSheetPath =
             "Assets/_Project/Art/Concepts/Characters/SubwayCarry_Player_SittingTransition_FrontBack_5Frame_v2.png";
         private const string SittingTransitionPackageSpriteSheetPath =
@@ -169,6 +171,9 @@ namespace SubwayCarry.Gameplay.Editor
             ConfigureSpriteSheet(CakePackageSpriteSheetPath, "CakePackage");
             ConfigureSittingSpriteSheet(SittingBodySpriteSheetPath, "Player_Sitting");
             ConfigureSittingSpriteSheet(SittingPackageSpriteSheetPath, "CakePackage_Sitting");
+            ConfigureSittingSpriteSheet(
+                HoldingSupportBodySpriteSheetPath,
+                "Player_HoldingSupport");
             ConfigureSittingTransitionSpriteSheet(
                 SittingTransitionBodySpriteSheetPath,
                 "Player_SittingTransition");
@@ -217,6 +222,8 @@ namespace SubwayCarry.Gameplay.Editor
                 LoadSpritesByName(SittingBodySpriteSheetPath, SittingDirectionCount);
             IReadOnlyDictionary<string, Sprite> sittingPackageSprites =
                 LoadSpritesByName(SittingPackageSpriteSheetPath, SittingDirectionCount);
+            IReadOnlyDictionary<string, Sprite> holdingSupportBodySprites =
+                LoadSpritesByName(HoldingSupportBodySpriteSheetPath, SittingDirectionCount);
             IReadOnlyDictionary<string, Sprite> sittingTransitionBodySprites =
                 LoadSpritesByName(
                     SittingTransitionBodySpriteSheetPath,
@@ -255,6 +262,7 @@ namespace SubwayCarry.Gameplay.Editor
                 packageSprites,
                 sittingBodySprites,
                 sittingPackageSprites,
+                holdingSupportBodySprites,
                 sittingTransitionBodySprites,
                 sittingTransitionPackageSprites,
                 overheadBodySprites,
@@ -267,7 +275,7 @@ namespace SubwayCarry.Gameplay.Editor
             AssetDatabase.Refresh();
 
             Debug.Log(
-                $"Applied walking, sitting, overhead carry, overhead transition, and fallen body/package sprites to {PlayerPrefabPath}.");
+                $"Applied walking, sitting, holding-support, overhead carry, overhead transition, and fallen body/package sprites to {PlayerPrefabPath}.");
         }
 
         private static void ConfigureSpriteSheet(
@@ -633,6 +641,7 @@ namespace SubwayCarry.Gameplay.Editor
             IReadOnlyDictionary<string, Sprite> packageSprites,
             IReadOnlyDictionary<string, Sprite> sittingBodySprites,
             IReadOnlyDictionary<string, Sprite> sittingPackageSprites,
+            IReadOnlyDictionary<string, Sprite> holdingSupportBodySprites,
             IReadOnlyDictionary<string, Sprite> sittingTransitionBodySprites,
             IReadOnlyDictionary<string, Sprite> sittingTransitionPackageSprites,
             IReadOnlyDictionary<string, Sprite> overheadBodySprites,
@@ -739,6 +748,10 @@ namespace SubwayCarry.Gameplay.Editor
                     serializedAnimator.FindProperty("sittingPackageSprites");
                 sittingPackageSpriteArray.arraySize = SittingDirectionCount;
 
+                SerializedProperty holdingSupportBodySpriteArray =
+                    serializedAnimator.FindProperty("holdingSupportBodySprites");
+                holdingSupportBodySpriteArray.arraySize = SittingDirectionCount;
+
                 SerializedProperty sittingTransitionBodySpriteArray =
                     serializedAnimator.FindProperty("sittingTransitionBodySprites");
                 sittingTransitionBodySpriteArray.arraySize =
@@ -828,6 +841,9 @@ namespace SubwayCarry.Gameplay.Editor
                         sittingBodySprites[GetSittingSpriteName(direction, "Player_Sitting")];
                     sittingPackageSpriteArray.GetArrayElementAtIndex(direction).objectReferenceValue =
                         sittingPackageSprites[GetSittingSpriteName(direction, "CakePackage_Sitting")];
+                    holdingSupportBodySpriteArray.GetArrayElementAtIndex(direction)
+                        .objectReferenceValue = holdingSupportBodySprites[
+                            GetSittingSpriteName(direction, "Player_HoldingSupport")];
 
                     for (int frame = 0; frame < SittingTransitionFrameCount; frame++)
                     {

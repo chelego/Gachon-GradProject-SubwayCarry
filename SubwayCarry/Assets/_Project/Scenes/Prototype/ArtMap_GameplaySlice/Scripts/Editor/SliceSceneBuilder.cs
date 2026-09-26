@@ -61,6 +61,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice.Editor
                     var motion = player.AddComponent<DebugTrainMotionProvider>();
                     var balance = new SerializedObject(player.GetComponent<PlayerBalance>()); balance.FindProperty("trainMotionProviderSource").objectReferenceValue = motion; balance.ApplyModifiedPropertiesWithoutUndo();
                     var animator = new SerializedObject(player.GetComponent<PlayerSpriteAnimator>());
+                    animator.FindProperty("useMovementDirectionWhileMoving").boolValue = false;
+                    animator.ApplyModifiedPropertiesWithoutUndo();
                     controller.idleSprites = ReadSprites(animator.FindProperty("idleSprites")); controller.walkSprites = ReadSprites(animator.FindProperty("walkSprites"));
                     controller.playerPrefab = PrefabUtility.SaveAsPrefabAsset(player, Root + "/Player_Slice.prefab");
                 }

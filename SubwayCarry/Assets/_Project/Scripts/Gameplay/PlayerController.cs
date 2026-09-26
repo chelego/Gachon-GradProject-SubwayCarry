@@ -30,6 +30,16 @@ namespace SubwayCarry.Gameplay
             agilityBonusPercent = Mathf.Max(0f, bonusPercent);
         }
 
+        public void SetFacingDirection(Vector2 direction)
+        {
+            if (direction.sqrMagnitude <= 0.0001f)
+            {
+                return;
+            }
+
+            FacingDirection = direction.normalized;
+        }
+
         // Integration scenes validate facilities themselves; existing prototypes retain their test keys.
         public bool PrototypePostureInputEnabled { get; set; } = true;
 
@@ -103,7 +113,7 @@ namespace SubwayCarry.Gameplay
 
         private void UpdateFacingDirection()
         {
-            if ((posture != null && posture.CurrentState == CarryPosture.Fallen) ||
+            if ((posture != null && !posture.CanChangeFacing) ||
                 facingCamera == null ||
                 Mouse.current == null)
             {
@@ -113,11 +123,7 @@ namespace SubwayCarry.Gameplay
             Vector2 screenPosition = Mouse.current.position.ReadValue();
             Vector3 worldPoint = facingCamera.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, -facingCamera.transform.position.z));
             Vector2 direction = (Vector2)worldPoint - body.position;
-
-            if (direction.sqrMagnitude > 0.0001f)
-            {
-                FacingDirection = direction.normalized;
-            }
+            SetFacingDirection(direction);
         }
 
         private void OnDrawGizmosSelected()
