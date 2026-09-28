@@ -9,9 +9,12 @@ namespace SubwayCarry.Prototype.ArtMapSlice
     {
         public Vector2 center, halfSize;
         public float slope;
+        public bool diamond;
         public bool Contains(Vector2 p, float padding = 0)
         {
             Vector2 d = p - center;
+            if (diamond) return Mathf.Abs(d.x) / Mathf.Max(.001f, halfSize.x + padding * 1.42f) +
+                Mathf.Abs(d.y) / Mathf.Max(.001f, halfSize.y + padding * 1.42f) <= 1;
             return Mathf.Abs(d.x) <= halfSize.x + padding && Mathf.Abs(d.y - slope * d.x) <= halfSize.y + padding * Mathf.Sqrt(1 + slope * slope);
         }
     }
@@ -31,6 +34,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public bool guidedTraversal;
         public Vector2 traversalEnd;
         public float traversalSeconds;
+        public bool arriveThroughDoor;
+        public Vector2 arrivalTraversalEnd;
     }
     [System.Serializable] public struct SliceExit { public Vector2 inside, outside; }
     [System.Serializable] public struct SliceInterest
@@ -38,6 +43,11 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public Vector2 position;
         public PassengerAiV2InteriorSpotKind kind;
         public float comfort;
+        // Navigation stays on the floor; presentation aligns the pelvis/back to the furniture.
+        public bool hasPoseAnchor;
+        public Vector2 contactPoint;
+        public Vector2 facing;
+        public int poseSortingOrder;
     }
     public sealed class SliceMap : MonoBehaviour
     {

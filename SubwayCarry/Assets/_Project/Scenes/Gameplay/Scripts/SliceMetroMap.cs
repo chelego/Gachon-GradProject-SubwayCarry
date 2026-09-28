@@ -14,15 +14,18 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         TextAsset selectedPng;
         Texture2D selectedRoute;
         Rect selectedBounds;
+        bool fitRequested = true;
+        public void ResetView() { fitRequested = true; }
         void SelectRoute(SliceRouteHighlight route)
         {
             TextAsset next = route != null ? route.png : null;
             if (next == selectedPng) return;
             ReleaseRoute(); selectedPng = next;
+            fitRequested = true;
             if (next == null) return;
             selectedBounds = route.normalizedRect;
             // Only the selected, tightly cropped PNG is decoded. Never decode in every GUI event.
-            selectedRoute = new Texture2D(2, 2, TextureFormat.RGBA32, false) { name = "Selected delivery route", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+            selectedRoute = new Texture2D(2, 2, TextureFormat.RGBA32, false) { name = "Selected delivery route", filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
             if (!ImageConversion.LoadImage(selectedRoute, next.bytes, true)) ReleaseRoute();
         }
         public void ReleaseRoute()
@@ -40,15 +43,28 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             minimumZoom = Mathf.Min(area.width / image.width, area.height / image.height) * .8f;
             pan = area.size * .5f - Vector2.Scale(focus.center, new Vector2(image.width, image.height)) * zoom;
         }
+        void FitSelected(Rect area)
+        {
+            if (selectedRoute == null || selectedBounds.width <= 0 || selectedBounds.height <= 0) { Fit(area, true); return; }
+            minimumZoom = Mathf.Min(area.width / image.width, area.height / image.height) * .8f;
+            zoom = Mathf.Clamp(Mathf.Min(area.width / (image.width * selectedBounds.width * 1.3f),
+                area.height / (image.height * selectedBounds.height * 1.3f)), minimumZoom, 3);
+            pan = area.size * .5f - Vector2.Scale(selectedBounds.center, new Vector2(image.width, image.height)) * zoom;
+        }
         public void Draw(Rect viewport, Texture2D source, SliceRouteHighlight route, GUIStyle style)
         {
             Color previous = GUI.color; GUI.color = Color.white;
             GUI.DrawTexture(viewport, Texture2D.whiteTexture);
-            if (source == null) { GUI.color = previous; return; }
             Rect area = new Rect(viewport.x, viewport.y + 34, viewport.width, viewport.height - 34);
             if (toolbar == null) toolbar = new GUIStyle(style) { normal = { textColor = new Color32(35, 52, 63, 255) }, alignment = TextAnchor.MiddleCenter };
-            if (image != source) { image = source; Fit(area, true); }
+            if (source == null)
+            {
+                GUI.Label(area, "노선도 이미지 연결을 확인해 주세요.", toolbar);
+                GUI.color = previous; return;
+            }
+            if (image != source) { image = source; fitRequested = true; }
             SelectRoute(route);
+            if (fitRequested || zoom <= 0 || float.IsNaN(zoom)) { FitSelected(area); fitRequested = false; }
             int id = GUIUtility.GetControlID(0x52AC7, FocusType.Passive, area);
             Event e = Event.current;
             if (!GUI.enabled && dragControl != 0) { if (GUIUtility.hotControl == dragControl) GUIUtility.hotControl = 0; dragControl = 0; }
@@ -68,10 +84,11 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                 if (e.type == EventType.MouseUp || e.type == EventType.Ignore)
                 { GUIUtility.hotControl = 0; dragControl = 0; if (e.type == EventType.MouseUp) e.Use(); }
             }
-            pan.x = Mathf.Clamp(pan.x, -image.width * zoom + 32, area.width - 32);
-            pan.y = Mathf.Clamp(pan.y, -image.height * zoom + 32, area.height - 32);
+            pan.x = SlicePresentationRules.ClampMapPan(pan.x, image.width * zoom, area.width);
+            pan.y = SlicePresentationRules.ClampMapPan(pan.y, image.height * zoom, area.height);
             Rect destination = new Rect(area.position + pan, new Vector2(image.width, image.height) * zoom);
-            GUI.color = new Color(1, 1, 1, selectedRoute != null ? .22f : 1);
+            // Dim only the base. At phone scale .48 left too little contrast with a thin yellow route.
+            GUI.color = new Color(1, 1, 1, selectedRoute != null ? .16f : 1);
             DrawClipped(area, destination, image);
             GUI.color = Color.white;
             if (selectedRoute != null)
@@ -81,8 +98,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                     selectedBounds.width * destination.width, selectedBounds.height * destination.height);
                 DrawClipped(area, routeRect, selectedRoute);
             }
-            if (GUI.Button(new Rect(viewport.x + 4, viewport.y + 3, 84, 27), "전체 보기", toolbar)) Fit(area, true);
-            if (GUI.Button(new Rect(viewport.x + 94, viewport.y + 3, 72, 27), "범례 포함", toolbar)) Fit(area, false);
+            if (GUI.Button(new Rect(viewport.x + 4, viewport.y + 3, 84, 27), "선택 노선", toolbar)) FitSelected(area);
+            if (GUI.Button(new Rect(viewport.x + 94, viewport.y + 3, 72, 27), "전체 지도", toolbar)) Fit(area, false);
             GUI.Label(new Rect(viewport.x + 178, viewport.y + 3, 260, 27), "휠 확대 · 드래그 이동", toolbar);
             GUI.color = previous;
         }

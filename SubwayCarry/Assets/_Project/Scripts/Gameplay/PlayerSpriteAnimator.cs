@@ -58,14 +58,10 @@ namespace SubwayCarry.Gameplay
         private PackageDamageVisual packageDamageVisual;
         // Opt-in integration mode; prototype prefabs keep their existing locomotion.
         public bool MouseRelativeLocomotion { get; set; }
-        SpriteRenderer legs;
-        readonly System.Collections.Generic.Dictionary<Sprite, Sprite[]> splitSprites = new System.Collections.Generic.Dictionary<Sprite, Sprite[]>();
         float stride;
         Vector2 lastGroundPosition;
         bool groundSampled;
-        int legDirection, legFrame;
-        bool splitLocomotion;
-        MaterialPropertyBlock legProperties;
+        int strideFrame;
         float lastMovedAt;
 
         private void Awake()
@@ -117,8 +113,6 @@ namespace SubwayCarry.Gameplay
                 ? controller.MoveInput
                 : controller.FacingDirection;
             int directionIndex = GetDirectionIndex(direction);
-            splitLocomotion = false;
-            if (legs != null) legs.enabled = false;
             if (MouseRelativeLocomotion)
             {
                 Vector2 current = transform.position;
@@ -134,8 +128,7 @@ namespace SubwayCarry.Gameplay
                     isMoving = posture != null && posture.CanMove && distance > .001f && distance < .4f;
                 }
                 isMoving &= Time.time - lastMovedAt < .09f && Time.deltaTime > 0;
-                legDirection = GetDirectionIndex(travelDirection);
-                legFrame = Mathf.FloorToInt(stride) % walkFramesPerDirection;
+                strideFrame = Mathf.FloorToInt(stride) % walkFramesPerDirection;
             }
 
             if (posture != null && posture.CurrentState == CarryPosture.Fallen)
@@ -218,10 +211,9 @@ namespace SubwayCarry.Gameplay
                 {
                     float relative = Vector2.Dot(controller.FacingDirection, travelDirection.normalized);
                     bool backing = relative < -.5f;
-                    frameIndex = backing ? (walkFramesPerDirection - 1 - legFrame) : legFrame;
-                    // Reverse the facing cycle for backpedaling; side steps use travel-facing legs only.
-                    if (backing) { legDirection = directionIndex; legFrame = frameIndex; }
-                    splitLocomotion = true;
+                    frameIndex = backing ? (walkFramesPerDirection - 1 - strideFrame) : strideFrame;
+                    // Keep the authored full-body silhouette and package in the same facing/frame.
+                    // Independent directional hip crops do not share a skeleton and tear at the waist.
                 }
                 SetSprites(
                     GetWalkSprite(directionIndex, frameIndex, isCarryingPackage),
@@ -361,24 +353,6 @@ namespace SubwayCarry.Gameplay
 
         private void SetSprites(Sprite bodySprite, Sprite packageSprite, int directionIndex)
         {
-            if (splitLocomotion && bodySprite != null)
-            {
-                Sprite legSource = GetWalkSprite(legDirection, legFrame, false);
-                if (legSource != null)
-                {
-                    EnsureLegs();
-                    var upper = Split(bodySprite); var lower = Split(legSource);
-                    bodySprite = upper[1]; legs.sprite = lower[0]; legs.enabled = true;
-                    legs.color = spriteRenderer.color; legs.sharedMaterial = spriteRenderer.sharedMaterial;
-                    legs.transform.localPosition = spriteRenderer.transform.localPosition;
-                    legs.transform.localScale = spriteRenderer.transform.localScale;
-                    legs.sortingLayerID = spriteRenderer.sortingLayerID; legs.sortingOrder = spriteRenderer.sortingOrder;
-                    Rect r = legs.sprite.textureRect; Texture t = legs.sprite.texture;
-                    if (legProperties == null) legProperties = new MaterialPropertyBlock();
-                    legProperties.SetVector("_UvRect", new Vector4(r.xMin / t.width, r.yMin / t.height, r.xMax / t.width, r.yMax / t.height));
-                    legs.SetPropertyBlock(legProperties);
-                }
-            }
             SetSprite(bodySprite);
             ResolvePackageSpriteRenderer();
             if (packageSpriteRenderer == null)
@@ -392,30 +366,6 @@ namespace SubwayCarry.Gameplay
             packageSpriteRenderer.sortingOrder = IsPackageBehindPlayer(directionIndex)
                 ? spriteRenderer.sortingOrder - 1
                 : spriteRenderer.sortingOrder + 1;
-        }
-
-        void EnsureLegs()
-        {
-            if (legs != null) return;
-            var go = new GameObject("Locomotion_Legs"); go.transform.SetParent(spriteRenderer.transform.parent, false);
-            legs = go.AddComponent<SpriteRenderer>();
-        }
-        Sprite[] Split(Sprite source)
-        {
-            if (splitSprites.TryGetValue(source, out var result)) return result;
-            // Source sheets are full-rect, unatlased sprites. Cut at the hips, keeping the original foot pivot.
-            Rect r = source.rect; float cut = Mathf.Round(r.height * .40f);
-            var low = new Rect(r.x, r.y, r.width, cut); var high = new Rect(r.x, r.y + cut, r.width, r.height - cut);
-            Vector2 pivot = source.pivot;
-            result = new[] {
-                Sprite.Create(source.texture, low, new Vector2(pivot.x / low.width, pivot.y / low.height), source.pixelsPerUnit, 0, SpriteMeshType.FullRect),
-                Sprite.Create(source.texture, high, new Vector2(pivot.x / high.width, (pivot.y - cut) / high.height), source.pixelsPerUnit, 0, SpriteMeshType.FullRect)
-            };
-            splitSprites.Add(source, result); return result;
-        }
-        void OnDestroy()
-        {
-            foreach (var pair in splitSprites) foreach (var sprite in pair.Value) if (sprite != null) Destroy(sprite);
         }
 
         private void ResolvePackageSpriteRenderer()

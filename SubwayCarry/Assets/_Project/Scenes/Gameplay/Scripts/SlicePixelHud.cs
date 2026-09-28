@@ -9,7 +9,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
     {
         SliceJourneyController flow;
         SliceDamageFeedback feedback;
-        GUIStyle text, small, title, big, center;
+        GUIStyle text, small, title, big, center, interactionKey;
         readonly SliceMetroMap metro = new SliceMetroMap();
         int preview;
         bool mapTab = true, help, services;
@@ -27,6 +27,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             if (flow == null) return;
             if (flow.MapOpen && !wasMapOpen)
             {
+                metro.ResetView();
                 if (flow.SelectedIndex >= 0) preview = flow.SelectedIndex;
                 scroll.y = Mathf.Max(0, (flow.Catalog.orders.Length - flow.UnlockedCount) * 70 - 140);
             }
@@ -43,6 +44,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             title = new GUIStyle(text) { fontSize = 24, fontStyle = FontStyle.Bold };
             big = new GUIStyle(title) { fontSize = 30 };
             center = new GUIStyle(text) { alignment = TextAnchor.MiddleCenter };
+            interactionKey = new GUIStyle(center) { fontStyle = FontStyle.Bold, normal = { textColor = Color.black } };
         }
         static void Fill(Rect r, Color c) => GUI.DrawTexture(r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, c, 0, 0);
         static void Panel(Rect r, Color c, float radius = 10) => GUI.DrawTexture(r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, c, 0, radius);
@@ -122,16 +124,43 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                 }
             }
         }
+        Rect keyRect;
+        int keySide = -1;
+        Vector2 keyTarget;
         void DrawInteraction()
         {
-            if (!flow.TryGetInteractionHint(out Vector2 position, out string caption, out string key)) return;
-            Vector3 s = flow.World.gameplayCamera.WorldToScreenPoint(position + Vector2.up * .8f);
+            if (!flow.TryGetInteractionHint(out Vector2 position, out _, out _)) { keySide = -1; return; }
+            var playerVisual = flow.World.Player.GetComponent<SliceCharacterVisual>();
+            Rect actor = ScreenRect(playerVisual.VisibleBounds);
+            Rect target = ScreenRect(flow.World.InteractionBounds(position));
+            Rect union = Rect.MinMaxRect(Mathf.Min(actor.xMin, target.xMin) - 10, Mathf.Min(actor.yMin, target.yMin) - 10,
+                Mathf.Max(actor.xMax, target.xMax) + 10, Mathf.Max(actor.yMax, target.yMax) + 10);
+            Vector2 anchor = ScreenRect(new Bounds(position, Vector3.zero)).center;
+            float best = float.PositiveInfinity; Rect chosen = default; int side = -1;
+            for (int i = 0; i < 8; i++)
+            {
+                float x = i < 3 ? union.xMin - 42 : i < 6 ? union.xMax : union.center.x - 21;
+                float y = i == 0 || i == 3 || i == 6 ? union.yMin - 38 : i == 2 || i == 5 || i == 7 ? union.yMax : union.center.y - 19;
+                var candidate = new Rect(Mathf.Clamp(x, 20, 1218), Mathf.Clamp(y, 126, 598), 42, 38);
+                float cost = (candidate.center - anchor).sqrMagnitude;
+                if (candidate.Overlaps(actor) || candidate.Overlaps(target)) cost += 1000000;
+                // A small preference for the previous side prevents flicker while walking past a chair.
+                if (i == keySide && (keyTarget - position).sqrMagnitude < .1f) cost -= 2500;
+                if (cost < best) { best = cost; chosen = candidate; side = i; }
+            }
+            keySide = side; keyTarget = position; keyRect = chosen;
+            if (best >= 1000000) return; // Never cover both subjects when neither fits on screen.
+            GUI.DrawTexture(keyRect, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, Color.black, 2.5f, 9);
+            GUI.Label(keyRect, "E", interactionKey);
+        }
+        Rect ScreenRect(Bounds bounds)
+        {
+            var camera = flow.World.gameplayCamera;
+            Vector3 min = camera.WorldToScreenPoint(bounds.min), max = camera.WorldToScreenPoint(bounds.max);
             float scale = Mathf.Min(Screen.width / 1280f, Screen.height / 720f);
-            float x = Mathf.Clamp((s.x - (Screen.width - 1280 * scale) / 2) / scale - 92, 20, 1060);
-            float y = Mathf.Clamp((Screen.height - s.y - (Screen.height - 720 * scale) / 2) / scale - 40, 130, 565);
-            Panel(new Rect(x, y, 200, 42), Card); Panel(new Rect(x + 7, y + 7, 30, 28), Mint, 5);
-            Color old = GUI.color; GUI.color = Ink; Label(x + 7, y + 7, 30, key, center, 28); GUI.color = old;
-            Label(x + 45, y + 8, 148, caption);
+            float left = (Screen.width - 1280 * scale) * .5f, top = (Screen.height - 720 * scale) * .5f;
+            return Rect.MinMaxRect((min.x - left) / scale, (Screen.height - max.y - top) / scale,
+                (max.x - left) / scale, (Screen.height - min.y - top) / scale);
         }
         void DrawBalance()
         {
@@ -227,7 +256,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         void DrawHelp()
         {
             Panel(new Rect(28, 305, 306, 324), Card); Label(49, 322, 264, "조작법", title);
-            Label(49, 374, 264, "WASD  이동\n마우스  바라보기\nE  이용하기\n1 서기    2 기대기\n3 앉기    4 잡기\n5 머리 위로 들기\nTAB 배달 앱  ·  ESC 쉬기", text, 240);
+            Label(49, 374, 264, "WASD  이동\n마우스  바라보기\nE / F  가까운 대상 이용·해제\n우클릭  머리 위로 들기·내리기\nTAB  배달 앱\nESC  잠시 쉬기", text, 240);
         }
         void DrawDamage()
         {

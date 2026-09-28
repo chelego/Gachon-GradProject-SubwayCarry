@@ -23,6 +23,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public int seed = 2701;
         public SliceDeliveryCatalog deliveryCatalog;
         SliceJourneyController journey;
+        SliceSceneOcclusion occlusion;
+        public Bounds InteractionBounds(Vector2 point) => occlusion != null ? occlusion.InteractionBounds(point) : new Bounds(point, Vector3.one);
         GameObject player, actorsRoot;
         PlayerController playerInput;
         PlayerPosture posture;
@@ -33,12 +35,37 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         PassengerAiV2CrowdManager crowd;
         PassengerAiV2Agent playerProxy;
         PassengerAiV2InteriorSpotSmartObject playerFacility;
+        bool facilityApproach;
+        public bool PlayerLeavingFacility { get; private set; }
+        public bool IsUsingFacility => playerFacility != null || facilityApproach;
         SlicePlaceEnvironment environment;
         PassengerAiV2InteriorSpotSmartObject[] spots;
         readonly List<SlicePassengerIntent> passengers = new List<SlicePassengerIntent>(40);
         readonly List<PassengerAiV2Agent> nearby = new List<PassengerAiV2Agent>(20);
         readonly Dictionary<int, int> aboard = new Dictionary<int, int>();
         readonly List<KeyValuePair<int, int>> alighted = new List<KeyValuePair<int, int>>();
+        readonly Dictionary<SliceMap, SlicePlatformTrain> platformTrains = new Dictionary<SliceMap, SlicePlatformTrain>();
+        public SlicePlatformTrain PlatformTrain => platformTrains.TryGetValue(CurrentMap, out var view) ? view : null;
+        public SlicePlatformTrain TrainAtMap(int index) => platformTrains.TryGetValue(maps[index], out var view) ? view : null;
+        public IEnumerable<KeyValuePair<int, int>> AboardPassengers => aboard;
+        public int AllocatePassengerId() => ++serial;
+        public Color PassengerColor(int id) => Personality(id).DebugColor;
+        public void RememberTrainPassenger(int id, int destination) { aboard[id] = destination; }
+        public void ClearDepartedTrain() { aboard.Clear(); }
+        public void InitializePlatformTrains(SliceJourneyController flow)
+        {
+            foreach (int i in new[] { 0, 2 })
+            {
+                var view = maps[i].gameObject.AddComponent<SlicePlatformTrain>();
+                platformTrains.Add(maps[i], view); view.Initialize(this, flow, maps[i]);
+            }
+        }
+        public bool SpawnPlatformAlighter(int id, int destination, Vector2 cabin, Vector2 landing, SlicePlatformTrain trainView)
+        {
+            var intent = SpawnPassenger(false, id, destination, true, cabin);
+            if (intent == null) return false;
+            intent.BeginPlatformAlighting(cabin, landing, trainView); return true;
+        }
         Sprite sharedSprite;
         Texture2D whiteTexture;
         int currentMap, serial, exited, nearestPortal = -1;
@@ -58,35 +85,95 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public float DoorSecondsRemaining => journey != null ? journey.SecondsRemaining : 0;
         public bool HasDoorPassage
         {
-            get { foreach (var p in passengers) if (p != null && p.IsCrossingDoor) return true; return false; }
+            get { foreach (var p in passengers) if (p != null && p.IsCrossingDoor) return true; return PlatformTrain != null && PlatformTrain.HasCrossingAlighters; }
         }
         public void ResetPassengerJourney() { aboard.Clear(); alighted.Clear(); }
         public void PassengerTraversed(int id, int destination, bool boarding)
         {
             if (boarding) aboard[id] = destination;
-            else { aboard.Remove(id); alighted.Add(new KeyValuePair<int, int>(id, destination)); }
+            else { aboard.Remove(id); if (currentMap == 1) alighted.Add(new KeyValuePair<int, int>(id, destination)); }
             exited++;
         }
         public bool IsChangingMap => changing;
         public bool TryUseFacility(CarryPosture target)
         {
+            if (facilityApproach || changing || posture.IsTransitioning) return false;
             if (target == CarryPosture.Standing || target == CarryPosture.OverheadCarry)
             {
                 if (!posture.TryTransition(target)) return false;
+                if (deliveryCatalog != null && playerFacility != null) { StartCoroutine(LeaveFacility()); return true; }
                 ReleasePlayerFacility(); return true;
             }
             PassengerAiV2InteriorSpotKind kind = target == CarryPosture.Sitting ? PassengerAiV2InteriorSpotKind.Seat : target == CarryPosture.Leaning ? PassengerAiV2InteriorSpotKind.Lean : PassengerAiV2InteriorSpotKind.Stand;
             PassengerAiV2InteriorSpotSmartObject best = null; float distance = 1.25f * 1.25f;
-            foreach (var spot in spots)
+            for (int i = 0; i < spots.Length; i++)
             {
+                var spot = spots[i];
+                // Holding support also needs a real handrail anchor, not an arbitrary standing space.
+                if (deliveryCatalog != null && !CurrentMap.interests[i].hasPoseAnchor) continue;
                 float d = (spot.UsePosition - playerBody.position).sqrMagnitude;
-                if (spot.Kind == kind && spot.IsAvailableFor(playerProxy) && d < distance) { distance = d; best = spot; }
+                if (spot.Kind == kind && spot.IsAvailableFor(playerProxy) && d < distance &&
+                    (deliveryCatalog == null || CurrentMap.Grid.ClearLine(playerBody.position, spot.UsePosition))) { distance = d; best = spot; }
             }
             if (best == null || !best.RequestUse(playerProxy, 0, Mathf.Sqrt(distance))) return false;
+            if (deliveryCatalog != null)
+            {
+                ReleasePlayerFacility(); playerFacility = best;
+                best.RequestUse(playerProxy, 0, 0);
+                StartCoroutine(ApproachFacility(best, target)); return true;
+            }
             if (!posture.TryTransition(target)) { if (best != playerFacility) best.Release(playerProxy); return false; }
             ReleasePlayerFacility(); playerFacility = best;
             best.RequestUse(playerProxy, 0, 0); best.MarkOccupied(playerProxy);
             return true;
+        }
+        IEnumerator LeaveFacility()
+        {
+            PlayerLeavingFacility = true; facilityApproach = true; boundary.locked = true; playerInput.enabled = false;
+            float elapsed = 0;
+            while (elapsed < deliveryCatalog.facilityPoseSeconds + .05f) { elapsed += Time.deltaTime; yield return null; }
+            ReleasePlayerFacility(); PlayerLeavingFacility = false; facilityApproach = false;
+            SetInputBlocked(journey != null && journey.InputBlocked);
+        }
+        IEnumerator ApproachFacility(PassengerAiV2InteriorSpotSmartObject spot, CarryPosture target)
+        {
+            facilityApproach = true; boundary.locked = true; boundary.ClearImpulse(); playerInput.enabled = false;
+            float elapsed = 0;
+            while ((playerBody.position - spot.UsePosition).sqrMagnitude > .0025f && elapsed < 2)
+            {
+                if (posture.CurrentState == CarryPosture.Fallen || balance.IsActive) break;
+                Vector2 next = Vector2.MoveTowards(playerBody.position, spot.UsePosition, 1.8f * Time.deltaTime);
+                next = CurrentMap.Grid.Constrain(playerBody.position, next, CurrentMap.characterRadius);
+                playerBody.position = next; player.transform.position = next;
+                elapsed += Time.deltaTime; yield return null;
+            }
+            if ((playerBody.position - spot.UsePosition).sqrMagnitude < .04f && posture.TryTransition(target)) spot.MarkOccupied(playerProxy);
+            else ReleasePlayerFacility();
+            facilityApproach = false;
+            SetInputBlocked(journey != null && journey.InputBlocked);
+        }
+        public bool TryGetFacilityHint(out SliceInterest data)
+        {
+            data = default; float distance = 1.5625f; bool found = false;
+            if (spots == null || facilityApproach) return false;
+            for (int i = 0; i < spots.Length; i++)
+            {
+                var s = spots[i];
+                if ((s.Kind != PassengerAiV2InteriorSpotKind.Seat && s.Kind != PassengerAiV2InteriorSpotKind.Lean && s.Kind != PassengerAiV2InteriorSpotKind.Stand) ||
+                    !CurrentMap.interests[i].hasPoseAnchor || !s.IsAvailableFor(playerProxy)) continue;
+                float d = (s.UsePosition - PlayerPosition).sqrMagnitude;
+                if (d >= distance || !CurrentMap.Grid.ClearLine(PlayerPosition, s.UsePosition)) continue;
+                distance = d; data = CurrentMap.interests[i]; found = true;
+            }
+            return found;
+        }
+        public bool TryGetOccupiedPose(PassengerAiV2Agent actor, out SliceInterest pose)
+        {
+            pose = default; if (spots == null) return false;
+            for (int i = 0; i < spots.Length; i++)
+                if (spots[i].IsOccupied && spots[i].HasReservation(actor == null ? playerProxy : actor) && CurrentMap.interests[i].hasPoseAnchor)
+                { pose = CurrentMap.interests[i]; return true; }
+            return false;
         }
         void ReleasePlayerFacility()
         {
@@ -96,8 +183,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public Vector2 PlayerPosition => playerBody.position;
         public void SetInputBlocked(bool blocked)
         {
-            boundary.locked = blocked || changing;
-            playerInput.enabled = !blocked && !changing;
+            boundary.locked = blocked || changing || facilityApproach;
+            playerInput.enabled = !blocked && !changing && !facilityApproach;
         }
         public void NotifyService(PassengerAiV2ServicePhase phase, bool destination)
         { environment.NotifyService(phase, true, destination); }
@@ -123,7 +210,9 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                 maps[5] = SliceStationLayout.Create(transform, maps[0], "환승 연결 통로", false, 2);
                 foreach (int index in new[] { 0, 2 })
                 {
+                    SliceFacilityAnchors.RepairImportedFurniture(maps[index]);
                     SliceStationLayout.ConnectPlatformAccess(maps[index], index == 0 ? 3 : 4, SliceTrainLayout.Project(11, 3));
+                    SliceFacilityAnchors.BindImported(maps[index]);
                 }
             }
             for (int i = 0; i < maps.Length; i++) maps[i].gameObject.SetActive(false);
@@ -133,6 +222,9 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             boundary = player.GetComponent<SlicePlayerBoundary>();
             if (boundary == null) boundary = player.AddComponent<SlicePlayerBoundary>();
             var visual = player.AddComponent<SliceCharacterVisual>(); visual.player = true;
+            visual.world = this;
+            visual.idleSprites = idleSprites;
+            visual.sittingSprites = deliveryCatalog != null ? deliveryCatalog.passengerSittingSprites : null;
             visual.body = player.transform.Find("BodyVisual").GetComponent<SpriteRenderer>(); visual.body.sharedMaterial = playerOutline;
             GameObject package = Instantiate(packagePrefab); durability = package.GetComponent<PackageDurability>();
             player.GetComponent<PlayerPackageCarrier>().SetPackage(package.transform);
@@ -142,10 +234,11 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             {
                 journey = gameObject.AddComponent<SliceJourneyController>();
                 journey.Initialize(this, deliveryCatalog);
+                occlusion = gameObject.AddComponent<SliceSceneOcclusion>(); occlusion.Initialize(this);
             }
         }
 
-        void ActivateMap(int index, Vector2 arrival)
+        void ActivateMap(int index, Vector2 arrival, bool doorArrival = false)
         {
             ReleasePlayerFacility();
             if (currentMap == 1)
@@ -162,8 +255,9 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             // The character's art size and its ground footprint are separate measurements.
             var playerCollider = player.GetComponent<BoxCollider2D>();
             if (playerCollider != null) playerCollider.size = Vector2.one * (CurrentMap.characterRadius * 1.414214f / CurrentMap.characterScale);
-            player.GetComponent<SliceCharacterVisual>().map = CurrentMap;
-            Vector2 spawn = CurrentMap.Grid.Nearest(arrival);
+            var playerVisual = player.GetComponent<SliceCharacterVisual>();
+            playerVisual.ResetFacilityPose(); playerVisual.map = CurrentMap;
+            Vector2 spawn = doorArrival ? arrival : CurrentMap.Grid.Nearest(arrival);
             playerBody.position = spawn; playerBody.linearVelocity = Vector2.zero; player.transform.position = spawn;
             Physics2D.SyncTransforms();
             // Spawning/teleporting is not a physical impact. Reset the sensor's previous-position sample.
@@ -181,6 +275,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                 var data = CurrentMap.interests[i]; var go = new GameObject("Facility_" + data.kind + "_" + i); go.transform.SetParent(actorsRoot.transform, false);
                 go.transform.position = data.position; spots[i] = go.AddComponent<PassengerAiV2InteriorSpotSmartObject>();
                 spots[i].Configure("slice_" + currentMap + "_" + i, data.kind, data.position, data.comfort, 0.5f, null);
+                if (deliveryCatalog != null && (data.kind == PassengerAiV2InteriorSpotKind.Seat || data.kind == PassengerAiV2InteriorSpotKind.Lean) && !data.hasPoseAnchor)
+                    spots[i].enabled = false;
             }
             environment = actorsRoot.AddComponent<SlicePlaceEnvironment>(); environment.Configure(CurrentMap, crowd, spots);
             var proxy = CreateAgent("Player_Perception_Only", spawn, 0);
@@ -197,6 +293,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             }
             for (int i = passengers.Count; i < Mathf.Min(10, maximumPassengers); i++) SpawnPassenger(true);
             nextSpawn = Time.time + spawnInterval; portalReadyAt = Time.time + 1; nearestPortal = -1;
+            if (PlatformTrain != null) PlatformTrain.Reenter();
+            if (occlusion != null) occlusion.Rebind();
         }
 
         PassengerAiV2Agent CreateAgent(string label, Vector2 position, int id)
@@ -222,19 +320,22 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             return (profile != null ? profile : baselineProfile).CreateRuntimePersonality(seed + id);
         }
 
-        void SpawnPassenger(bool scatter, int restoredId = 0, int destinationStop = -1, bool disembarked = false)
+        SlicePassengerIntent SpawnPassenger(bool scatter, int restoredId = 0, int destinationStop = -1, bool disembarked = false, Vector2? exactStart = null)
         {
-            if (passengers.Count >= maximumPassengers || CurrentMap.exits.Length == 0) return;
+            for (int i = passengers.Count - 1; i >= 0; i--) if (passengers[i] == null) passengers.RemoveAt(i);
+            if (passengers.Count >= maximumPassengers + (disembarked ? 6 : 0) || CurrentMap.exits.Length == 0) return null;
             int id = restoredId > 0 ? restoredId : ++serial;
             var samples = CurrentMap.Grid.SamplePoints;
             Vector2 position = scatter && samples.Count > 0
                 ? CurrentMap.Grid.Nearest(samples[(id * 37) % samples.Count])
                 : CurrentMap.exits[id % CurrentMap.exits.Length].inside;
             if (disembarked && CurrentMap.portals.Length > 0) position = CurrentMap.Grid.Nearest(CurrentMap.portals[id % CurrentMap.portals.Length].position + new Vector2(.4f, -.6f));
-            if ((position - (Vector2)player.transform.position).sqrMagnitude < 1.2f) return;
+            if (exactStart.HasValue) position = exactStart.Value;
+            if ((position - (Vector2)player.transform.position).sqrMagnitude < 1.2f) return null;
             // Initial population is checked directly; later arrivals use the shared spatial hash.
-            for (int i = 0; i < passengers.Count; i++) if (passengers[i] != null && ((Vector2)passengers[i].transform.position - position).sqrMagnitude < 0.8f) return;
-            crowd.QueryNearby(position, 0.8f, null, nearby); if (nearby.Count > 0) return;
+            float spacing = exactStart.HasValue ? .6f : .8944272f;
+            for (int i = 0; i < passengers.Count; i++) if (passengers[i] != null && ((Vector2)passengers[i].transform.position - position).sqrMagnitude < spacing * spacing) return null;
+            crowd.QueryNearby(position, exactStart.HasValue ? .6f : .8f, null, nearby); if (nearby.Count > 0) return null;
             var agent = CreateAgent("Passenger_" + id, position, id);
             var intent = agent.gameObject.AddComponent<SlicePassengerIntent>();
             int waiting = 0;
@@ -255,16 +356,19 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             var body = bodyObject.AddComponent<SpriteRenderer>(); body.sprite = idleSprites[0]; body.color = Personality(id).DebugColor;
             body.transform.localScale = Vector3.one * CurrentMap.characterScale;
             var visual = agent.gameObject.AddComponent<SliceCharacterVisual>(); visual.body = body; visual.agent = agent; visual.intent = intent;
+            visual.world = this;
             visual.idleSprites = idleSprites; visual.walkSprites = walkSprites;
             visual.sittingSprites = deliveryCatalog != null ? deliveryCatalog.passengerSittingSprites : null;
             visual.map = CurrentMap; visual.visualScale = CurrentMap.characterScale;
             passengers.Add(intent);
+            return intent;
         }
 
         void Update()
         {
             if (player == null) return;
-            if (playerFacility != null && posture.CurrentState == CarryPosture.Fallen) ReleasePlayerFacility();
+            if (playerFacility != null && !facilityApproach && !posture.IsTransitioning &&
+                posture.CurrentState != CarryPosture.Sitting && posture.CurrentState != CarryPosture.Leaning && posture.CurrentState != CarryPosture.HoldingSupport) ReleasePlayerFacility();
             if (!changing && Time.time >= nextSpawn && (journey == null || journey.AllowPassengerArrival))
             {
                 nextSpawn = Time.time + spawnInterval;
@@ -300,13 +404,13 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                 if (Keyboard.current.f7Key.wasPressedThisFrame) environment.NotifyService(PassengerAiV2ServicePhase.DoorsOpen, true, true);
                 if (Keyboard.current.f8Key.wasPressedThisFrame) environment.NotifyService(PassengerAiV2ServicePhase.Departed, true, true);
             }
-            if (!changing && nearestPortal >= 0 && Time.time >= portalReadyAt && Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
+            if (journey == null && !changing && nearestPortal >= 0 && Time.time >= portalReadyAt && Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
             {
                 var portal = CurrentMap.portals[nearestPortal];
                 if (journey != null) journey.TryUseDoor(portal);
                 else StartCoroutine(Transition(portal));
             }
-            if (journey != null && !journey.InputBlocked && !changing && Time.time >= portalReadyAt && nearestPortal >= 0)
+            if (journey != null && !journey.InputBlocked && !changing && !IsUsingFacility && Time.time >= portalReadyAt && nearestPortal >= 0)
             {
                 var portal = CurrentMap.portals[nearestPortal];
                 if (portal.guidedTraversal && (portal.position - PlayerPosition).sqrMagnitude < .36f &&
@@ -344,10 +448,24 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             }
             if (!portal.guidedTraversal)
                 for (float t = 0; t < 0.25f; t += Time.unscaledDeltaTime) { fade = t / 0.25f; yield return null; }
-            fade = 1; ActivateMap(portal.targetMap, portal.arrival); yield return null;
+            fade = 1; ActivateMap(portal.targetMap, portal.arrival, portal.arriveThroughDoor);
+            if (journey != null) journey.RefreshDoorPresentation();
+            yield return null;
+            if (portal.arriveThroughDoor)
+            {
+                playerBody.simulated = false; fade = 0;
+                Vector2 start = playerBody.position;
+                for (float t = 0; t < 1.3f; t += Time.deltaTime)
+                {
+                    Vector2 p = Vector2.Lerp(start, portal.arrivalTraversalEnd, Mathf.Clamp01(t / 1.3f));
+                    playerBody.position = p; player.transform.position = p; yield return null;
+                }
+                playerBody.position = portal.arrivalTraversalEnd; player.transform.position = portal.arrivalTraversalEnd;
+            }
             playerBody.simulated = true;
             for (int i = 0; i < sensors.Length; i++) sensors[i].enabled = true;
-            for (float t = 0; t < 0.25f; t += Time.unscaledDeltaTime) { fade = 1 - t / 0.25f; yield return null; }
+            if (!portal.arriveThroughDoor)
+                for (float t = 0; t < 0.25f; t += Time.unscaledDeltaTime) { fade = 1 - t / 0.25f; yield return null; }
             fade = 0; boundary.locked = false; changing = false; playerInput.enabled = true;
             if (journey != null) journey.MapActivated();
         }

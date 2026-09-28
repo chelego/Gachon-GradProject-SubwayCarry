@@ -15,13 +15,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         {
             map = source; flow = journey;
             material = new Material(Shader.Find("Sprites/Default"));
-            foreach (var portal in map.portals)
-            {
-                if (map.placeKind == SubwayCarry.AI.V2.PassengerAiV2PlaceKind.TrainInterior && portal.side != SubwayCarry.Core.Contracts.DoorOpeningSide.Right) continue;
-                var line = Ring(portal.position, portal.stationConnection ? new Color32(108, 237, 196, 255) : new Color32(244, 201, 85, 255));
-                if (!portal.stationConnection) doorMarkers.Add(line);
-            }
-            if (map.hasFareGate) Ring(map.fareGate, new Color32(108, 237, 196, 255));
+            // The screen-space E key is the only interaction marker. Keep physical station signs.
             var layout = map.GetComponent<SliceStationLayout>();
             if (layout != null)
             {
@@ -51,7 +45,11 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         void Update()
         {
             bool active = flow != null && !flow.InputBlocked && !flow.World.IsChangingMap;
-            foreach (var marker in markers) if (marker.gameObject.activeSelf != active) marker.gameObject.SetActive(active);
+            foreach (var marker in markers)
+            {
+                bool nearby = active && ((Vector2)marker.position - flow.World.PlayerPosition).sqrMagnitude < 6.25f;
+                if (marker.gameObject.activeSelf != nearby) marker.gameObject.SetActive(nearby);
+            }
             foreach (var marker in doorMarkers) marker.enabled = active && flow.World.DoorsOpen;
         }
         void OnDestroy() { if (material != null) Destroy(material); if (signPixel != null) Destroy(signPixel); }

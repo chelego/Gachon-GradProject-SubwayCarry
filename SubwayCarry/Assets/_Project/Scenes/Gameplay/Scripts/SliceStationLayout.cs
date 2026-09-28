@@ -48,14 +48,19 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             var interests = new List<SliceInterest>();
             // Large unpaid hall -> visible gate barrier -> separate paid circulation and two platform approaches.
             // This is an authored playable concourse, NOT a measured reconstruction of unavailable station drawings.
-            for (int u = -3; u < 21; u += 4)
-                layout.art.Draw(root.transform, 0, "Tiled rear wall", P(u, 11) + Vector2.right * 1.65f, 4.25f, -1850);
-            for (int v = 11; v > -3; v -= 4)
-                layout.art.Draw(root.transform, 1, "Tiled return wall", P(-3, v - 4) - Vector2.right * 1.65f, 4.25f, -1840);
+            for (float u = -2.5f; u < 20.5f; u += 4)
+                layout.art.GroundWall(root.transform, 0, P(u, 10.5f), P(Mathf.Min(u + 4, 20.5f), 10.5f), map.GroundOrder(P(u, 10.5f)));
+            for (float v = 10.5f; v > -2.5f; v -= 4)
+                layout.art.GroundWall(root.transform, 1, P(-2.5f, v), P(-2.5f, Mathf.Max(v - 4, -2.5f)), map.GroundOrder(P(-2.5f, v - 2)));
             foreach (var point in new[] { P(2, 8), P(10, 8), P(18, -1), P(10, -1) })
             {
-                if (pillar != null) AddArt(root.transform, "Concourse_Column", pillar, point + Vector2.up * 1.1f, 1.25f, material, map.GroundOrder(point));
-                solids.Add(new SliceSolidFootprint { center = point, halfSize = new Vector2(.48f, .32f), slope = .5f });
+                if (pillar != null)
+                {
+                    var column = AddArt(root.transform, "Concourse_Column", pillar, point, 1.05f, material, map.GroundOrder(point));
+                    var b = column.bounds;
+                    column.transform.position += (Vector3)(point - new Vector2(b.center.x, b.min.y + b.size.x * .25f));
+                }
+                solids.Add(new SliceSolidFootprint { center = point, halfSize = new Vector2(.49f, .245f), diamond = true });
             }
             // Three vending/card machines, service room and seating kept out of the circulation lane.
             for (int i = 0; i < 2; i++)
@@ -83,9 +88,14 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             if (bench != null)
             {
                 Vector2 p = SliceTrainLayout.Project(2, 6);
-                AddArt(root.transform, "Waiting_Bench", bench, p + Vector2.up * .5f, 2.4f, material, map.GroundOrder(p));
-                solids.Add(new SliceSolidFootprint { center = p, halfSize = new Vector2(1, .3f), slope = .5f });
-                interests.Add(new SliceInterest { position = p + new Vector2(.7f, -.6f), kind = PassengerAiV2InteriorSpotKind.Seat, comfort = .8f });
+                var benchArt = AddArt(root.transform, "Waiting_Bench", bench, p, 3.1f, material, map.GroundOrder(p));
+                float slope = .5f;
+                if (SliceFacilityAnchors.AlignBenchSeatHeight(benchArt, out _, out Vector2 ground, out float measuredSlope))
+                { benchArt.transform.position += (Vector3)(p - ground); slope = measuredSlope; }
+                Vector2 facing = new Vector2(slope >= 0 ? 1 : -1, -.5f).normalized;
+                solids.Add(new SliceSolidFootprint { center = p, halfSize = new Vector2(benchArt.bounds.size.x * .42f, .23f), slope = slope });
+                interests.Add(new SliceInterest { position = p + facing * .85f, kind = PassengerAiV2InteriorSpotKind.Seat, comfort = .8f,
+                    hasPoseAnchor = true, contactPoint = p + Vector2.up * .5f, facing = facing, poseSortingOrder = map.GroundOrder(p) + 2 });
             }
             map.walls = new[] {
                 new SliceWallBoundary { point = P(-2.5f, 0), inwardNormal = new Vector2(.5f, 1).normalized },
@@ -97,26 +107,50 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             map.exits = new SliceExit[0]; // Public concourse crowd is connected separately, never spawned through a closed fare gate.
             map.interests = interests.ToArray(); map.solidFootprints = solids.ToArray();
             map.EnsureGrid();
-            for (int i = 0; i < map.portals.Length; i++) map.portals[i].position = map.Grid.Nearest(map.portals[i].position);
             if (gate) root.AddComponent<SliceStationGate>().Initialize(map);
             root.SetActive(false); return map;
         }
         SlicePortal Stairs(SliceMap map, float u, float v, float direction, int target, Vector2 arrival, List<SliceSolidFootprint> solids)
         {
-            Vector2 start = P(u, v), finish = P(u + direction * 3.4f, v);
-            var stair = art.Draw(transform, direction > 0 ? 6 : 5, "Recessed platform stairwell", (start + finish) * .5f - Vector2.up * 1.4f,
-                5.3f, map.GroundOrder(start) - 20, direction < 0);
+            Vector2 entry = P(u, v);
+            var stair = art.Draw(transform, 6, "Recessed platform stairwell", entry,
+                4.8f, map.GroundOrder(entry) - 10, direction < 0);
+            Vector2 start = entry, finish = entry;
             if (stair != null)
             {
-                var b = stair.bounds;
-                start = new Vector2(b.min.x + b.size.x * (direction > 0 ? .24f : .76f), b.min.y + b.size.y * .24f);
-                finish = new Vector2(b.min.x + b.size.x * (direction > 0 ? .74f : .26f), b.min.y + b.size.y * .68f);
+                // The near yellow landing is level with the hall. The flight descends toward the far dark opening.
+                // Both endpoints are sampled in the sprite's own coordinates (including its flipped view).
+                Vector2 landing = SliceStationArt.Point(stair, new Vector2(.32f, .22f));
+                stair.transform.position += (Vector3)(entry - landing);
+                Vector2 far = SliceStationArt.Point(stair, new Vector2(.75f, .70f));
+                Vector2 flight = (far - entry).normalized;
+                start = entry - flight * .42f;
+                finish = Vector2.Lerp(entry, far, .84f);
+                StairForeground(stair, map.GroundOrder(entry) + 4);
             }
             Vector2 floorCenter = (start + finish) * .5f;
             // Solid ground footprint: only the guided entry can enter the stairwell, never a side wall.
-            solids.Add(new SliceSolidFootprint { center = floorCenter, halfSize = new Vector2(2.25f, .9f), slope = direction * .5f });
+            solids.Add(new SliceSolidFootprint { center = floorCenter + new Vector2(direction, .5f) * .32f,
+                halfSize = new Vector2(Mathf.Abs(finish.x - start.x) * .5f + .30f, .55f), slope = direction * .5f });
             return new SlicePortal { label = "승강장으로", stationConnection = true, guidedTraversal = true,
-                position = start - new Vector2(direction, .5f) * 1.4f, traversalEnd = finish, traversalSeconds = 2.6f, targetMap = target, arrival = arrival };
+                position = start - new Vector2(direction, .5f).normalized * .38f, traversalEnd = finish, traversalSeconds = 2.6f, targetMap = target, arrival = arrival };
+        }
+        void StairForeground(SpriteRenderer stair, int order)
+        {
+            // Reuse only the near side/rim pixels as a foreground layer; walkers descend behind the rim.
+            var outline = new[] { new Vector2(.43f, .02f), new Vector2(.99f, .71f), new Vector2(.93f, .83f), new Vector2(.36f, .10f) };
+            var vertices = new Vector3[4]; var uv = new Vector2[4]; var colors = new Color[4]; var s = stair.sprite;
+            for (int i = 0; i < 4; i++)
+            {
+                vertices[i] = transform.InverseTransformPoint(SliceStationArt.Point(stair, outline[i]));
+                uv[i] = new Vector2((s.rect.x + s.rect.width * outline[i].x) / s.texture.width, (s.rect.y + s.rect.height * outline[i].y) / s.texture.height);
+                colors[i] = Color.white;
+            }
+            var mesh = new Mesh { name = "Stairwell foreground rim" }; mesh.vertices = vertices; mesh.uv = uv; mesh.colors = colors;
+            mesh.triangles = new[] { 0, 1, 2, 0, 2, 3 }; mesh.RecalculateBounds(); meshes.Add(mesh);
+            var go = new GameObject(mesh.name); go.transform.SetParent(transform, false); go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var renderer = go.AddComponent<MeshRenderer>(); renderer.sharedMaterial = stair.sharedMaterial; renderer.sortingOrder = order;
+            var block = new MaterialPropertyBlock(); block.SetTexture("_MainTex", s.texture); renderer.SetPropertyBlock(block);
         }
         void Panel(string name, Vector2 a, Vector2 b, float height, Color color, int order)
             => Quad(name, a, b, b + Vector2.up * height, a + Vector2.up * height, color, order);
@@ -177,13 +211,13 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             map.entry = map.Grid.Nearest(map.entry);
             for (int i = 0; i < map.portals.Length; i++) if (map.portals[i].stationConnection) map.portals[i].position = map.Grid.Nearest(map.portals[i].position);
         }
-        static void AddArt(Transform root, string label, Sprite sprite, Vector2 p, float width, Material material, int order)
+        static SpriteRenderer AddArt(Transform root, string label, Sprite sprite, Vector2 p, float width, Material material, int order)
         {
-            if (sprite == null) return;
+            if (sprite == null) return null;
             var go = new GameObject(label); go.transform.SetParent(root, false);
             float scale = width / sprite.bounds.size.x;
             go.transform.position = (Vector3)p - sprite.bounds.center * scale; go.transform.localScale = Vector3.one * scale;
-            var r = go.AddComponent<SpriteRenderer>(); r.sprite = sprite; if (material != null) r.sharedMaterial = material; r.sortingOrder = order;
+            var r = go.AddComponent<SpriteRenderer>(); r.sprite = sprite; if (material != null) r.sharedMaterial = material; r.sortingOrder = order; return r;
         }
     }
 }

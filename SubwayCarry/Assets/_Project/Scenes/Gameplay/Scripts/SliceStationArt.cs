@@ -40,6 +40,28 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             var r = go.AddComponent<SpriteRenderer>(); r.sprite = pieces[piece]; r.flipX = flip; r.sortingOrder = order;
             return r;
         }
+        public SpriteRenderer GroundWall(Transform parent, int piece, Vector2 left, Vector2 right, int order)
+        {
+            var r = Draw(parent, piece, "Tiled station wall", Vector2.zero, right.x - left.x, order);
+            if (r == null) return null;
+            // Measured ground corners of the two atlas wall views, not the lowest pixel of the whole image.
+            Vector2 a = piece == 0 ? new Vector2(.06f, .025f) : new Vector2(.015f, .425f);
+            Vector2 b = piece == 0 ? new Vector2(.985f, .44f) : new Vector2(.92f, .02f);
+            Vector2 sourceA = Point(r, a), sourceB = Point(r, b);
+            Vector2 source = sourceB - sourceA, target = right - left;
+            r.transform.localScale *= target.magnitude / source.magnitude;
+            r.transform.rotation = Quaternion.Euler(0, 0, Vector2.SignedAngle(source, target));
+            r.transform.position += (Vector3)(left - Point(r, a));
+            return r;
+        }
+        public static Vector2 Point(SpriteRenderer r, Vector2 normalized)
+        {
+            Bounds b = r.sprite.bounds;
+            Vector2 p = new Vector2(Mathf.Lerp(b.min.x, b.max.x, normalized.x), Mathf.Lerp(b.min.y, b.max.y, normalized.y));
+            if (r.flipX) p.x = -p.x;
+            if (r.flipY) p.y = -p.y;
+            return r.transform.TransformPoint(p);
+        }
         void OnDestroy() { foreach (var sprite in pieces) if (sprite != null) Destroy(sprite); }
     }
 }

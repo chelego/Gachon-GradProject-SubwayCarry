@@ -13,6 +13,9 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public SliceNavigationGrid grid;
         public SliceJourneyController journey;
         Vector2 impulse;
+        Vector2 lastValidPosition;
+        SliceNavigationGrid lastGrid;
+        bool hasValidPosition;
         public void AddImpulse(Vector2 velocity) { impulse = Vector2.ClampMagnitude(impulse + velocity, 3); }
         public void ClearImpulse() { impulse = Vector2.zero; }
         Rigidbody2D body; PlayerController input; PlayerPosture posture; PlayerBalance balance;
@@ -21,12 +24,20 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         {
             // Guided stairs own the body while physics is suspended.
             if (grid == null || !body.simulated) return;
+            if (lastGrid != grid) { lastGrid = grid; hasValidPosition = false; }
+            // A physics contact can push the root beyond the navigation mask between fixed steps.
+            // Recover to the last legal foot position instead of freezing forever at that invalid starting point.
+            if (!grid.Fits(body.position, radius))
+            {
+                body.position = hasValidPosition ? lastValidPosition : grid.Nearest(body.position);
+                body.linearVelocity = Vector2.zero;
+            }
             Vector2 next = body.position;
             if (!locked && input.enabled && posture.CanMove && (balance == null || !balance.ConsumesMovementInput)) next += input.MoveInput * moveSpeed * posture.MoveSpeedMultiplier * Time.fixedDeltaTime;
             if (!locked) next += impulse * Time.fixedDeltaTime;
             impulse = Vector2.MoveTowards(impulse, Vector2.zero, Time.fixedDeltaTime * 7);
             next = grid.Constrain(body.position, next, radius);
-            if (journey == null || journey.AllowsGateCrossing(body.position, next)) body.MovePosition(next);
+            if (journey == null || journey.AllowsGateCrossing(body.position, next)) { body.MovePosition(next); lastValidPosition = next; hasValidPosition = true; }
             else body.MovePosition(body.position);
         }
     }
