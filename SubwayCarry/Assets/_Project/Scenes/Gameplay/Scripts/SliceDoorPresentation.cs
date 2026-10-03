@@ -8,6 +8,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
     {
         struct Leaf { public Transform transform; public Vector3 closed, slide; }
         readonly List<Leaf> leaves = new List<Leaf>(24);
+        readonly List<SliceSlidingDoor> trainDoors = new List<SliceSlidingDoor>();
         SliceGameController world;
         SliceJourneyController journey;
         float opening;
@@ -20,17 +21,23 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         {
             // Restore the previous map before caching another one, so repeated trips never accumulate offsets.
             foreach (var leaf in leaves) if (leaf.transform != null) leaf.transform.localPosition = leaf.closed;
-            leaves.Clear(); opening = 0;
+            foreach (var door in trainDoors) if (door != null) door.SetOpening(0);
+            trainDoors.Clear();
+            leaves.Clear(); opening = journey.CurrentDoorState.State == TrainDoorState.Open ? 1 : 0;
+            foreach (var door in world.CurrentMap.GetComponentsInChildren<SliceSlidingDoor>(false))
+                if (door.serviceSide) { trainDoors.Add(door); door.SetOpening(opening); }
             foreach (var renderer in world.CurrentMap.GetComponentsInChildren<SpriteRenderer>(false))
             {
                 if (renderer.sprite == null) continue;
                 string name = renderer.sprite.name.ToLowerInvariant();
                 if (!name.Contains("door_leaf")) continue;
                 if (world.CurrentMapIndex == 1 && !renderer.name.Contains("ServiceSide")) continue;
-                Vector3 tangent = new Vector3(1, 0.5f, 0).normalized;
+                Vector3 tangent = new Vector3(1, world.CurrentMap.depthSlope, 0).normalized;
                 float direction = name.Contains("left") ? -1 : 1;
-                Vector3 localSlide = renderer.transform.parent.InverseTransformVector(tangent * direction * 0.72f);
-                leaves.Add(new Leaf { transform = renderer.transform, closed = renderer.transform.localPosition, slide = localSlide });
+                float travel = Mathf.Max(.72f, renderer.bounds.size.x / tangent.x * .94f);
+                Vector3 localSlide = renderer.transform.parent.InverseTransformVector(tangent * direction * travel);
+                var leaf = new Leaf { transform = renderer.transform, closed = renderer.transform.localPosition, slide = localSlide };
+                leaves.Add(leaf); leaf.transform.localPosition = leaf.closed + leaf.slide * opening;
             }
         }
         void DoorChanged(TrainDoorSnapshot state)
@@ -52,6 +59,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             if (Mathf.Approximately(next, opening)) return;
             opening = next;
             foreach (var leaf in leaves) if (leaf.transform != null) leaf.transform.localPosition = leaf.closed + leaf.slide * opening;
+            foreach (var door in trainDoors) if (door != null) door.SetOpening(opening);
         }
         void OnDestroy()
         {

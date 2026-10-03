@@ -38,6 +38,9 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public string ServiceReceipt { get; private set; } = "";
         public float SecondsRemaining => Mathf.Max(0, timer);
         public bool OnTrain => World.CurrentMapIndex == 1;
+        public bool PlatformTrainDocked => Order != null && Phase != DeliveryPhase.Selected && step != ServiceStep.Waiting && step != ServiceStep.Travelling;
+        public float PlatformTrainApproach01 => Order != null && Phase != DeliveryPhase.Selected && step == ServiceStep.Waiting
+            ? Mathf.Clamp01(1 - timer / Mathf.Min(Catalog.travelSeconds, Catalog.visibleTrainApproachSeconds)) : 0;
         public int ApproachingStopIndex => StopIndex + (step == ServiceStep.Travelling ? 1 : 0);
         public bool IsRequiredStop => Order != null && (StopIndex == Order.stops.Length - 1 || (Stop.transfer && !transferred));
         public DeliveryStateSnapshot CurrentDeliveryState => new DeliveryStateSnapshot(Order?.id ?? "", Order == null ? "" : Order.stops[Order.stops.Length - 1].id, Phase, Failure);
@@ -73,13 +76,10 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             carrier = world.Player.GetComponent<PlayerPackageCarrier>();
             carrier.SetPackageAvailable(false);
             world.Player.GetComponent<PlayerController>().PrototypePostureInputEnabled = false;
-            // This scene resolves doors, gates, and AI smart-object facilities through one E-key path.
-            // Disable the standalone prototype scanner so a single press cannot trigger two owners.
-            var standaloneInteraction = world.Player.GetComponent<PlayerInteraction>();
-            if (standaloneInteraction != null) standaloneInteraction.enabled = false;
-            // Keep the authored full-body sprite intact. Facing still follows the mouse,
-            // while WASD only controls movement, so upper and lower body directions cannot split.
-            world.Player.GetComponent<PlayerSpriteAnimator>().MouseRelativeLocomotion = false;
+            // One contextual interaction owner, not two E listeners competing for the same press.
+            var originalInteraction = world.Player.GetComponent<PlayerInteraction>();
+            if (originalInteraction != null) originalInteraction.enabled = false;
+            world.Player.GetComponent<PlayerSpriteAnimator>().MouseRelativeLocomotion = true;
             world.Player.GetComponent<SlicePlayerBoundary>().journey = this;
             foreach (var map in world.maps)
             {
@@ -92,6 +92,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             world.Balance.Configure(this, world.Posture, world.Package);
             world.Package.DurabilityChanged += OnDurability;
             doors = gameObject.AddComponent<SliceDoorPresentation>();
+            world.InitializePlatformTrains(this);
             doors.Initialize(world, this);
             step = ServiceStep.Waiting; timer = catalog.travelSeconds;
             initialized = true;
@@ -145,45 +146,67 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public bool TryGetInteractionHint(out Vector2 position, out string caption, out string key)
         {
             position = World.PlayerPosition; caption = ""; key = "E";
-            if (InputBlocked || World.IsChangingMap || World.Balance.IsActive ||
-                World.Posture.IsTransitioning) return false;
-            if (World.HasActivePlayerFacility)
-            {
-                position = World.ActivePlayerFacilityPosition;
-                caption = World.Posture.CurrentState == CarryPosture.Sitting
-                    ? "일어나기"
-                    : World.Posture.CurrentState == CarryPosture.Leaning
-                        ? "기대기 해제"
-                        : "놓기";
-                return true;
-            }
+            if (InputBlocked || World.IsChangingMap || World.Balance.IsActive || World.Posture.IsTransitioning || World.Posture.CurrentState == CarryPosture.Fallen) return false;
+            if (World.IsUsingFacility) return false;
             var map = World.CurrentMap;
             if (map.hasFareGate && AtStationFacility()) { position = map.fareGate; caption = GateOpen ? "지나가세요" : "교통카드 찍기"; return true; }
-            if (TryFindNearestPortal(out SlicePortal portal))
+            float distance = 2.56f; bool found = false;
+            foreach (var portal in map.portals)
             {
-                position = portal.position;
-                caption = portal.stationConnection ? (World.CurrentMapIndex >= 3 ? "승강장으로" : "대합실로") : World.DoorsOpen ? (OnTrain ? "내리기" : "탑승하기") : "열차 기다리기";
-                return true;
+                if (OnTrain && portal.side != DoorOpeningSide.Right) continue;
+                float d = (portal.position - World.PlayerPosition).sqrMagnitude;
+                if (d >= distance) continue;
+                distance = d; position = portal.position;
+                caption = portal.stationConnection ? portal.label : World.DoorsOpen ? (OnTrain ? "내리기" : "탑승하기") : "열차 기다리기";
+                found = true;
             }
-            if (World.TryGetNearestFacility(out position, out CarryPosture target))
+            bool facility = World.TryGetFacilityHint(out var spot);
+            if (found && (!facility || distance <= (spot.position - World.PlayerPosition).sqrMagnitude))
+                return true;
+            if (facility)
             {
-                caption = target == CarryPosture.Sitting
-                    ? "앉기"
-                    : target == CarryPosture.Leaning
-                        ? "기대기"
-                        : "잡기";
-                return true;
+                position = spot.contactPoint; caption = spot.kind == PassengerAiV2InteriorSpotKind.Seat ? "앉기" : spot.kind == PassengerAiV2InteriorSpotKind.Lean ? "기대기" : "손잡이 잡기"; return true;
             }
-            return false;
+            return found;
+        }
+        void Interact()
+        {
+            if (InputBlocked || World.IsChangingMap || World.Balance.IsActive || World.Posture.IsTransitioning || World.Posture.CurrentState == CarryPosture.Fallen) return;
+            if (World.IsUsingFacility) { RequestPosture(CarryPosture.Standing); return; }
+            if (World.CurrentMap.hasFareGate && AtStationFacility())
+            {
+                if (Phase == DeliveryPhase.Selected) TryStartDelivery(Order.id);
+                else if (Phase == DeliveryPhase.Arrived || Phase == DeliveryPhase.TravellingToDeparture) OpenGate();
+                return;
+            }
+            float distance = 2.56f; int nearest = -1;
+            for (int i = 0; i < World.CurrentMap.portals.Length; i++)
+            {
+                var p = World.CurrentMap.portals[i];
+                if (OnTrain && p.side != DoorOpeningSide.Right) continue;
+                float d = (p.position - World.PlayerPosition).sqrMagnitude;
+                if (d < distance) { distance = d; nearest = i; }
+            }
+            bool facility = World.TryGetFacilityHint(out var spot);
+            if (nearest >= 0 && (!facility || distance <= (spot.position - World.PlayerPosition).sqrMagnitude)) { TryUseDoor(World.CurrentMap.portals[nearest]); return; }
+            if (facility) RequestPosture(spot.kind == PassengerAiV2InteriorSpotKind.Seat ? CarryPosture.Sitting : spot.kind == PassengerAiV2InteriorSpotKind.Lean ? CarryPosture.Leaning : CarryPosture.HoldingSupport);
         }
         void OpenGate() { gateOpen = true; gateClosesAt = Time.time + 4; World.Posture.TryTransition(CarryPosture.Standing); }
         public bool AllowsGateCrossing(Vector2 from, Vector2 to)
         {
             if (!World.CurrentMap.hasFareGate) return true;
-            float a = from.x * .5f + from.y - 6, b = to.x * .5f + to.y - 6;
-            if (a * b > 0 || Mathf.Approximately(a, b)) return true;
-            float across = to.y - to.x * .5f;
-            return gateOpen && across > 1.8f && across < 4.2f;
+            var gate = World.CurrentMap.GetComponent<SliceStationGate>();
+            return gate == null || gate.Allows(from, to, World.CurrentMap.characterRadius);
+        }
+        public SliceTravelDirection DepartureDirection
+        {
+            get
+            {
+                if (Order == null || Order.stops == null || Order.stops.Length < 2) return SliceTravelDirection.Unspecified;
+                string next = Order.stops[1].id;
+                return next == "moran" || next == "imae" || next == "jeongja" || next == "station_야탑"
+                    ? SliceTravelDirection.Jeongja : SliceTravelDirection.Wangsimni;
+            }
         }
 
         void Update()
@@ -194,12 +217,16 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             {
                 if (keyboard.escapeKey.wasPressedThisFrame) TogglePause();
                 if (!Paused && !PresentationPaused && keyboard.tabKey.wasPressedThisFrame) ToggleMap();
-                if (!InputBlocked && !World.IsChangingMap && !World.Balance.IsActive)
-                {
-                    if (keyboard.eKey.wasPressedThisFrame) TryPrimaryInteraction();
-                    if (keyboard.rKey.wasPressedThisFrame) ToggleOverheadCarry();
-                }
+                bool movement = keyboard.wKey.isPressed || keyboard.aKey.isPressed || keyboard.sKey.isPressed || keyboard.dKey.isPressed ||
+                    keyboard.upArrowKey.isPressed || keyboard.downArrowKey.isPressed || keyboard.leftArrowKey.isPressed || keyboard.rightArrowKey.isPressed;
+                if (movement && World.IsUsingFacility && !InputBlocked && !World.IsChangingMap && !World.Balance.IsActive && !World.Posture.IsTransitioning)
+                    RequestPosture(CarryPosture.Standing);
+                else if (keyboard.eKey.wasPressedThisFrame || keyboard.fKey.wasPressedThisFrame) Interact();
             }
+            if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame && !InputBlocked &&
+                !World.IsChangingMap && !World.IsUsingFacility && !World.Balance.IsActive && !World.Posture.IsTransitioning &&
+                carrier.HasPackage && (World.Posture.CurrentState == CarryPosture.Standing || World.Posture.CurrentState == CarryPosture.OverheadCarry))
+                RequestPosture(World.Posture.CurrentState == CarryPosture.OverheadCarry ? CarryPosture.Standing : CarryPosture.OverheadCarry);
             if (gateOpen && !Paused)
             {
                 float along = World.PlayerPosition.x * .5f + World.PlayerPosition.y;
@@ -210,7 +237,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             if (!Paused && Phase == DeliveryPhase.Arrived && World.CurrentMapIndex == 4 && exitGatePassed &&
                 (World.PlayerPosition - World.CurrentMap.streetExit).sqrMagnitude < 2.25f) Settle(DeliveryFailureReason.None);
             if (InputBlocked || World.IsChangingMap || Phase == DeliveryPhase.None || Phase == DeliveryPhase.Selected ||
-                Phase == DeliveryPhase.Arrived || Phase == DeliveryPhase.Transferring) return;
+                IsResult) return;
             timer -= Time.deltaTime;
             if (step == ServiceStep.Travelling)
             {
@@ -250,7 +277,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                     Notice = IsRequiredStop ? Stop.label + " 도착! 문으로 이동해 E로 내리세요." : "승하차 중. 문 가운데를 비워 주세요.";
                     break;
                 case ServiceStep.Open:
-                    if (World.HasDoorPassage && departureHold < 3) { timer = .25f; departureHold += .25f; break; }
+                    // Never close through a passenger already committed to crossing the threshold.
+                    if (World.HasDoorPassage) { timer = .25f; departureHold += .25f; break; }
                     step = ServiceStep.Closing; timer = Catalog.doorAnimationSeconds; SetDoor(TrainDoorState.Closing); break;
                 case ServiceStep.Closing:
                     step = ServiceStep.DepartureDelay; timer = Catalog.arrivalDelaySeconds; SetDoor(TrainDoorState.Closed); break;
@@ -280,12 +308,18 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             if (!OnTrain)
             {
                 if (Phase != DeliveryPhase.TravellingToDeparture) { Notice = "교통카드 단말기를 먼저 이용하세요."; return false; }
+                if (StopIndex == 0 && World.CurrentMap.travelDirection != SliceTravelDirection.Unspecified && World.CurrentMap.travelDirection != DepartureDirection)
+                { Notice = "반대 방향 승강장입니다. 대합실로 올라가 " + (DepartureDirection == SliceTravelDirection.Jeongja ? "정자" : "왕십리") + " 방면 계단을 이용하세요."; return false; }
+                if (World.PlatformTrain != null && !World.PlatformTrain.CanBoard) { Notice = "내리는 승객을 먼저 보내 주세요."; return false; }
                 SetPhase(DeliveryPhase.InTransit);
                 // Match the current station's boarding side; station destination is never encoded by left/right door.
                 var train = World.maps[1];
                 train.EnsureGrid();
                 Vector2 arrival = train.portals.Length > 0 ? train.portals[0].position : train.entry;
-                World.TravelTo(1, train.Grid.Nearest(arrival + new Vector2(-.5f, .5f)));
+                if (World.PlatformTrain != null && World.PlatformTrain.TryCabin(portal.position, out var cabin))
+                    World.TravelVia(new SlicePortal { targetMap = 1, arrival = train.Grid.Nearest(arrival + new Vector2(-.5f, .5f)),
+                        guidedTraversal = true, traversalEnd = cabin, traversalSeconds = 1.3f });
+                else World.TravelTo(1, train.Grid.Nearest(arrival + new Vector2(-.5f, .5f)));
                 Notice = "탑승했습니다. 좌석이나 지지물을 찾아 케이크를 보호하세요.";
             }
             else
@@ -298,7 +332,11 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                 if (map == 1) map = 2;
                 World.maps[map].displayName = Stop.label + "역";
                 Vector2 arrival = World.maps[map].portals.Length > 0 ? World.maps[map].portals[0].position : World.maps[map].entry;
-                World.TravelTo(map, arrival);
+                var platformTrain = World.TrainAtMap(map);
+                if (platformTrain != null && platformTrain.TryCabin(arrival, out var cabin))
+                    World.TravelVia(new SlicePortal { targetMap = map, arrival = cabin, arriveThroughDoor = true,
+                        arrivalTraversalEnd = World.maps[map].Grid.Nearest(arrival) });
+                else World.TravelTo(map, arrival);
                 Notice = destination ? "출구 단말기로 이동해 E를 누르면 배송이 완료됩니다." : "환승 안내를 따라 단말기로 이동하세요. 이 역에서 능력치를 강화할 수 있습니다.";
             }
             return true;
@@ -309,7 +347,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             if (World.CurrentMapIndex == 3)
             {
                 if (Phase != DeliveryPhase.TravellingToDeparture || !departureGatePassed) { Notice = "배송 수락 후 교통카드를 찍고 개찰구를 통과하세요."; return false; }
-                target = 0; arrival = World.maps[0].entry;
+                target = portal.targetMap; arrival = World.maps[target].entry;
             }
             else if (World.CurrentMapIndex == 2)
             {
@@ -405,6 +443,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             SetControl();
             SaveProgress();
         }
+        public void RefreshDoorPresentation() { if (doors != null) doors.Rebind(); }
         void PublishStop()
         {
             CurrentTransitProgress = new TransitProgressSnapshot(Stop.id, StopIndex + 1 < Order.stops.Length ? Order.stops[StopIndex + 1].id : "",
@@ -441,6 +480,11 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             if (!Economy.TrySpend(price)) { Notice = "현금이 부족합니다."; return; }
             if (insurance) Insurance++; else FareSupport++;
             Notice = "학교 서비스 구매 완료"; SaveProgress();
+        }
+        void RequestPosture(CarryPosture target)
+        {
+            if (!World.TryUseFacility(target))
+                Notice = "가까운 빈 좌석·벽·지지물이 필요합니다. 사용 중인 시설은 이용할 수 없습니다.";
         }
         public int UpgradePrice(int level) => Catalog.upgradeBasePrice * (level + 1);
         public void BuyUpgrade(int stat)

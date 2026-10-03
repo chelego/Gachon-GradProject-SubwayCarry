@@ -1,0 +1,92 @@
+fileFormatVersion: 2
+guid: 8f7e6da194cc48dbb5e45bb1b482d6fa
+TextureImporter:
+  serializedVersion: 13
+  internalIDToNameTable:
+  - first:
+      213: 213100001
+    second: Player_Sitting_SouthEast
+  - first:
+      213: 213100002
+    second: Player_Sitting_NorthWest
+  externalObjects: {}
+  mipmaps:
+    enableMipMap: 0
+  isReadable: 0
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  maxTextureSize: 2048
+  nPOTScale: 0
+  textureType: 8
+  textureShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  spritePixelsToUnits: 600
+  spriteGenerateFallbackPhysicsShape: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    overridden: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Player_Sitting_SouthEast
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 768
+        height: 1024
+      alignment: 9
+      pivot: {x: 0.5, y: 0.1}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      bones: []
+      spriteID: aef97a8d9c1e41918c48494b392cf17b
+      internalID: 213100001
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Player_Sitting_NorthWest
+      rect:
+        serializedVersion: 2
+        x: 768
+        y: 0
+        width: 768
+        height: 1024
+      alignment: 9
+      pivot: {x: 0.5, y: 0.1}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      bones: []
+      spriteID: 79d75c17daa64556bc98b19a14172946
+      internalID: 213100002
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    outline: []
+    physicsShape: []
+    bones: []
+    secondaryTextures: []
+    nameFileIdTable:
+      Player_Sitting_SouthEast: 213100001
+      Player_Sitting_NorthWest: 213100002

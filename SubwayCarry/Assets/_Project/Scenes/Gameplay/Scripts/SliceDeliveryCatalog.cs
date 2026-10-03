@@ -41,12 +41,24 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public Texture2D metroMapImage;
         public SliceRouteHighlight[] routeHighlights;
         public Texture2D stationArtAtlas;
+        public Texture2D trainBenchAtlas;
+        public Shader stationGlassShader;
         [Header("Damage presentation (percent points / real seconds)")]
         [Range(1, 50)] public float damageCutInThreshold = 18;
         [Range(1, 6)] public float damageCutInSeconds = 2.8f;
         [Range(0, 8)] public float damageCutInCooldown = 4;
         [Range(.2f, 3)] public float recoilScale = .8f;
+        [Header("Visible package ground contact (world units, integration only)")]
+        public Vector2 packageContactSize = new Vector2(.42f, .30f);
+        [Range(.1f, .6f)] public float packageContactReach = .36f;
         public Sprite[] passengerSittingSprites;
+        public Sprite[] sittingPackageSprites;
+        [Header("Carriage seated views (South-East / North-West)")]
+        public Sprite[] trainSittingSprites;
+        public Sprite[] trainSittingPackageSprites;
+        public Vector2[] trainSittingContacts = { new Vector2(.508f, .351f), new Vector2(.51f, .321f) };
+        [Range(.3f, 2)] public float facilityPoseSeconds = .65f;
+        [Range(3, 15)] public float visibleTrainApproachSeconds = 7;
         public SubwayCarry.AI.V2.PassengerAiV2PersonalityProfile[] passengerProfiles;
         [Min(1)] public float travelSeconds = 30;
         [Min(1)] public float doorsOpenSeconds = 12;

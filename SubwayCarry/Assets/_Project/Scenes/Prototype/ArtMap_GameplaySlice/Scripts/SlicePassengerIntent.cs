@@ -15,6 +15,9 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         float outsideAt = -1;
         PassengerAiV2LocalGoal goal;
         bool traversing, crossing;
+        bool platformAlighting;
+        SlicePlatformTrain trainView;
+        Collider2D bodyCollider;
         Vector2 doorEntry, doorOutside;
         PassengerAiV2RuntimePersonality personality;
         SlicePlaceEnvironment environment;
@@ -25,7 +28,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public int PassengerId { get; private set; }
         public int DestinationStop { get; private set; }
         public bool HasLeftTrain { get; private set; }
-        public Vector2 ImpactVelocity => agent != null ? agent.Velocity : Vector2.zero;
+        public Vector2 ImpactVelocity => agent != null && !Sitting && !Leaning ? agent.Velocity : Vector2.zero;
         public bool Sitting => activity != null && activity.Sitting;
         public bool Leaning => activity != null && activity.Leaning;
         public bool IsPassingThrough => activity != null && activity.Goal == PassengerAiV2LocalGoal.PassThrough;
@@ -36,9 +39,22 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             PassengerAiV2LocalGoal goal, int seed, int passengerId = 0, int destinationStop = 1)
         {
             agent = a; map = m; owner = controller;
+            bodyCollider = GetComponent<Collider2D>();
             this.goal = goal; PassengerId = passengerId; DestinationStop = destinationStop;
             this.personality = personality; this.environment = environment; this.tuning = tuning; stagger = (seed % 17) / 17f;
             ResumeActivity();
+        }
+        public void BeginPlatformAlighting(Vector2 cabin, Vector2 landing, SlicePlatformTrain view)
+        {
+            if (activity != null) { activity.enabled = false; Destroy(activity); activity = null; }
+            trainView = view; platformAlighting = true; traversing = crossing = true;
+            doorEntry = landing;
+            // Clear the sill before rejoining ordinary utility/navigation on the platform.
+            doorOutside = map.Grid.Nearest(landing + (landing - cabin).normalized * .9f);
+            agent.ConfigureMovementSpace(null, null, map.characterRadius);
+            agent.SetMovementBounds(new Rect(map.floorBounds.xMin - 8, map.floorBounds.yMin - 8, map.floorBounds.width + 16, map.floorBounds.height + 16));
+            trainView.SetPassageCollision(bodyCollider, true);
+            agent.TeleportAndSetTarget(cabin, doorOutside); agent.SetHoldPosition(false);
         }
         void ResumeActivity()
         {
@@ -51,11 +67,13 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             if (activity == null) return;
             bool train = map.placeKind == PassengerAiV2PlaceKind.TrainInterior;
             bool wantsTraversal = goal == PassengerAiV2LocalGoal.WaitForService || (train && goal == PassengerAiV2LocalGoal.RideToDestination && owner.ApproachingStopIndex >= DestinationStop);
-            if (!exiting && wantsTraversal && owner.DoorsOpen)
+            bool boardingAllowed = train || owner.PlatformTrain == null || owner.PlatformTrain.CanBoard;
+            if (!exiting && wantsTraversal && owner.DoorsOpen && boardingAllowed && owner.DoorSecondsRemaining > 2)
             {
                 float nearest = float.PositiveInfinity;
                 foreach (var portal in map.portals)
                 {
+                    if (portal.stationConnection) continue;
                     if (train && portal.side != GameplayContracts.DoorOpeningSide.Right) continue;
                     float distance = (agent.Position - portal.position).sqrMagnitude;
                     if (distance >= nearest) continue;
@@ -73,6 +91,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                         { float d = Mathf.Abs(Vector2.Dot(doorEntry - wall.point, wall.inwardNormal)); if (d < nearestWall) { nearestWall = d; normal = wall.inwardNormal; } }
                     }
                     doorOutside = doorEntry - normal * 2.2f;
+                    trainView = train ? null : owner.PlatformTrain;
+                    if (trainView != null) trainView.TryCabin(doorEntry, out doorOutside);
                     traversing = true; agent.SetMovementTarget(doorEntry); return;
                 }
             }
@@ -106,14 +126,35 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             }
             if (!crossing && (agent.Position - doorEntry).sqrMagnitude < .2f)
             {
+                if (trainView != null && !trainView.CanBoard) return;
                 crossing = true;
+                if (trainView != null) trainView.SetPassageCollision(bodyCollider, true);
                 agent.ConfigureMovementSpace(null, null, map.characterRadius);
                 agent.SetMovementBounds(new Rect(map.floorBounds.xMin - 6, map.floorBounds.yMin - 6, map.floorBounds.width + 12, map.floorBounds.height + 12));
                 agent.SetMovementTarget(doorOutside);
             }
             if (!crossing || !agent.HasReachedTarget) return;
+            if (platformAlighting)
+            {
+                trainView.SetPassageCollision(bodyCollider, false); trainView.AlighterCleared();
+                platformAlighting = false; crossing = traversing = false; HasLeftTrain = true;
+                owner.PassengerTraversed(PassengerId, DestinationStop, false);
+                var follower = new SlicePathFollower(map.Grid);
+                agent.ConfigureMovementSpace(follower.Resolve, map.Grid.Constrain, map.characterRadius);
+                agent.SetMovementBounds(map.floorBounds); agent.SetMovementSpeedScale(1);
+                goal = PassengerAiV2LocalGoal.PassThrough; ResumeActivity(); return;
+            }
             bool boarding = map.placeKind != PassengerAiV2PlaceKind.TrainInterior;
+            if (boarding && trainView != null) trainView.Boarded(PassengerId, DestinationStop, doorEntry);
             HasLeftTrain = !boarding; owner.PassengerTraversed(PassengerId, DestinationStop, boarding); Destroy(gameObject);
+        }
+        void OnDestroy()
+        {
+            if (trainView != null)
+            {
+                trainView.SetPassageCollision(bodyCollider, false);
+                if (platformAlighting) trainView.AlighterCleared();
+            }
         }
         // Each passenger sees the same service event but evaluates it against their own destination memory.
         sealed class PassengerView : IPassengerAiV2Place

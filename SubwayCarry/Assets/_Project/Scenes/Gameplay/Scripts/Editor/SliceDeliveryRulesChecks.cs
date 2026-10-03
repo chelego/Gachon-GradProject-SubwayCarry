@@ -4,11 +4,23 @@ namespace SubwayCarry.Prototype.ArtMapSlice
 {
     public static class SliceDeliveryRulesChecks
     {
+        static int checks;
 #if UNITY_EDITOR
         [UnityEditor.MenuItem("SubwayCarry/Art Map Slice/Validate Delivery Rules (no Play Mode)")]
 #endif
         public static void Run()
         {
+            checks = 0;
+            Require(Math.Abs(SlicePresentationRules.FloorHalfWidth(2.45f*.984f,.5f)-2.505f)<.0001f, "Floor sprite spans five projected grid cells");
+            Require(Math.Abs(SlicePresentationRules.FloorHalfWidth(2.3f*.984f,.5f)-2.505f)<.0001f, "Tactile grout stays connected to ordinary floor");
+            Require(Math.Abs(SlicePresentationRules.FloorHalfWidth(2.45f*.984f*2,1)-5.005f)<.0001f, "Floor grid span follows map scale");
+            Require(Math.Abs(SlicePresentationRules.FloorHalfWidth(2.4f,0)-2.405f)<.0001f, "Degenerate grid axis retains visible floor width");
+            Require(!SlicePresentationRules.AllowsFarePassage(-.4f,.4f,3,.28f,false), "Closed fare gate blocks entering");
+            Require(!SlicePresentationRules.AllowsFarePassage(.4f,-.4f,3,.28f,false), "Closed fare gate blocks leaving");
+            Require(SlicePresentationRules.AllowsFarePassage(-.4f,.4f,3,.28f,true), "Valid open gate lane");
+            Require(!SlicePresentationRules.AllowsFarePassage(-.4f,.4f,6,.28f,true), "Open gate never opens the glass barrier");
+            Require(!SlicePresentationRules.AllowsFarePassage(-.4f,-.1f,3,.28f,false), "Feet radius stops before the flap plane");
+            Require(SlicePresentationRules.AllowsFarePassage(-.1f,-.2f,3,.28f,false), "Contact recovery can move away without freezing");
             var intact = SliceDeliveryRules.Evaluate(100, 100, false, 25000, 3000, 1500, 1500, true, true);
             Require(intact.Success && intact.NetIncome == 1500 && intact.ReturnFare == 0 && !intact.UsedInsurance && !intact.UsedFareSupport, "Intact/free return");
             var boxOnly = SliceDeliveryRules.Evaluate(99, 100, false, 25000, 3000, 1500, 1500, true, false);
@@ -39,13 +51,40 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                 float pan = SlicePresentationRules.ZoomPan(-120, 250, before, after);
                 Require(Math.Abs((250 - pan) / after - 370 / before) < .002f, "Zoom stays anchored under cursor");
             }
+            Require(SlicePresentationRules.TrainOffset(false, 0, -1, 100) == 100, "Waiting train is outside the scene");
+            Require(SlicePresentationRules.TrainOffset(true, .5f, 3, 100) == 0, "Docked doors align regardless of elapsed travel");
+            Require(SlicePresentationRules.TrainOffset(false, 1, -1, 100) == 0, "Approach reaches the exact stop");
+            Require(SlicePresentationRules.TrainOffset(false, 0, 7, 100) == -100, "Departure fully clears the scene");
+            Require(SlicePresentationRules.TrainOffset(false, 0, 20, 100) == -100, "Departed train does not wrap early");
+            float previous = 100;
+            for (int i = 1; i <= 100; i++)
+            {
+                float position = SlicePresentationRules.TrainOffset(false, i / 100f, -1, 100);
+                Require(position <= previous && position >= 0, "Approach is monotonic without passing the door");
+                previous = position;
+            }
+            previous = 0;
+            for (int i = 1; i <= 100; i++)
+            {
+                float position = SlicePresentationRules.TrainOffset(false, 0, i * .1f, 100);
+                Require(position <= previous && position >= -100, "Departure accelerates away without restarting at zero");
+                previous = position;
+            }
+            foreach (var spans in new[] { new[] { 200f, 400f }, new[] { 400f, 400f }, new[] { 800f, 400f }, new[] { 2949f, 454f }, new[] { 4196f, 289f } })
+                foreach (float offset in new[] { -100000f, -25f, 0, 25f, 100000f })
+                {
+                    float p = SlicePresentationRules.ClampMapPan(offset, spans[0], spans[1]);
+                    Require(spans[0] <= spans[1] ? Math.Abs(p - (spans[1] - spans[0]) * .5f) < .001f
+                        : p <= 0 && p + spans[0] >= spans[1], "Map cannot be dragged into an empty phone viewport");
+                }
+            Require(SlicePresentationRules.ZoomPan(0, 0, 0, 1) == 0, "Initial zoom cannot divide by zero");
 #if UNITY_EDITOR
-            UnityEngine.Debug.Log("Delivery/presentation rules: 460 scenarios passed. No Play Mode or visual validation performed.");
+            UnityEngine.Debug.Log($"Delivery/presentation rules: {checks} checks passed. No Play Mode or visual validation performed.");
 #endif
         }
-        static void Require(bool condition, string name) { if (!condition) throw new InvalidOperationException(name); }
+        static void Require(bool condition, string name) { if (!condition) throw new InvalidOperationException(name); checks++; }
 #if !UNITY_EDITOR
-        public static int Main() { Run(); Console.WriteLine("Delivery/presentation rules: 460 scenarios passed."); return 0; }
+        public static int Main() { Run(); Console.WriteLine($"Delivery/presentation rules: {checks} checks passed."); return 0; }
 #endif
     }
 }

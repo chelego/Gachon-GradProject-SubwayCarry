@@ -57,13 +57,31 @@ MonoBehaviour:
   damageAtlas: {fileID: 2800000, guid: 1b6f7b971dc2456cbeb634539e2c7f25, type: 3}
   damageBurst: {fileID: 2800000, guid: ccf68a36096748a3876371fd811e5a63, type: 3}
   stationArtAtlas: {fileID: 2800000, guid: be3e2957dbbc4b17b144c23bf293e548, type: 3}
+  trainBenchAtlas: {fileID: 2800000, guid: db95779f04cf4fc6a7bdc7b6a1fb88bd, type: 3}
+  stationGlassShader: {fileID: 4800000, guid: 19e15b2bcba94c9b94f6e3d5d870bc73, type: 3}
   damageCutInThreshold: 18
   damageCutInSeconds: 2.8
   damageCutInCooldown: 4
   recoilScale: 0.8
+  packageContactSize: {x: 0.42, y: 0.3}
+  packageContactReach: 0.36
   passengerSittingSprites:
   - {fileID: -263013159, guid: a71adf8a60b32844ca45583ad71eb3b9, type: 3}
   - {fileID: 1784696280, guid: a71adf8a60b32844ca45583ad71eb3b9, type: 3}
+  sittingPackageSprites:
+  - {fileID: -1448767685, guid: ce1ad79169445044ba0d6d255c734a41, type: 3}
+  - {fileID: -1271852068, guid: ce1ad79169445044ba0d6d255c734a41, type: 3}
+  trainSittingSprites:
+  - {fileID: 213100001, guid: 8f7e6da194cc48dbb5e45bb1b482d6fa, type: 3}
+  - {fileID: 213100002, guid: 8f7e6da194cc48dbb5e45bb1b482d6fa, type: 3}
+  trainSittingPackageSprites:
+  - {fileID: -1187490054, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  - {fileID: 1920965134, guid: 1079351028f3417589c283005e4ecc7b, type: 3}
+  trainSittingContacts:
+  - {x: 0.508, y: 0.351}
+  - {x: 0.51, y: 0.321}
+  facilityPoseSeconds: 0.65
+  visibleTrainApproachSeconds: 7
   travelSeconds: 30
   passengerProfiles:
   - {fileID: 11400000, guid: 4acb6d760ec846b9b5e87c33d87cae31, type: 2}
