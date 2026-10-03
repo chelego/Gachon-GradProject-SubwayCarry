@@ -13,33 +13,61 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         readonly bool[] walkable;
         readonly bool[] mainArea;
         readonly SliceWallBoundary[] walls;
+        readonly SliceFloorDiamond[] floor;
+        readonly SliceSolidFootprint[] solids;
+        readonly Rect[] obstacles;
+        readonly List<int>[] floorBuckets, solidBuckets;
         readonly int[] parent, stamp, closed, heap, heapPosition;
         readonly float[] cost, priority;
         int search, heapCount, budgetFrame = -1, pathsThisFrame;
         public int PathRequests { get; private set; }
         public int PathFailures { get; private set; }
         public int WalkableCellCount { get; private set; }
+        public System.Func<Vector2, Vector2, float, bool> PassageAllowed;
         public readonly List<Vector2> SamplePoints = new List<Vector2>();
         public SliceNavigationGrid(Rect bounds, SliceFloorDiamond[] floor, Rect[] obstacles, SliceWallBoundary[] wallBoundaries = null, float agentRadius = 0.23f, SliceSolidFootprint[] solids = null)
         {
             AgentRadius = agentRadius;
+            this.floor = floor;
+            this.solids = solids ?? System.Array.Empty<SliceSolidFootprint>();
+            this.obstacles = obstacles;
             walls = wallBoundaries ?? System.Array.Empty<SliceWallBoundary>();
             Bounds = bounds; width = Mathf.CeilToInt(bounds.width / CellSize); height = Mathf.CeilToInt(bounds.height / CellSize);
             int n = width * height;
             walkable = new bool[n]; mainArea = new bool[n]; parent = new int[n]; stamp = new int[n]; closed = new int[n];
             heap = new int[n]; heapPosition = new int[n]; cost = new float[n]; priority = new float[n];
+            floorBuckets = new List<int>[n]; solidBuckets = new List<int>[n];
+            for (int i = 0; i < floor.Length; i++) AddToBuckets(floorBuckets, i, floor[i].center, floor[i].halfSize);
+            for (int i = 0; i < this.solids.Length; i++)
+            {
+                var s = this.solids[i];
+                AddToBuckets(solidBuckets, i, s.center, new Vector2(s.halfSize.x, s.halfSize.y + Mathf.Abs(s.slope) * s.halfSize.x) + Vector2.one * (agentRadius + CellSize));
+            }
             for (int i = 0; i < n; i++)
             {
-                Vector2 p = Center(i); bool clear = floor.Length == 0 && bounds.Contains(p);
-                for (int f = 0; f < floor.Length && !clear; f++) { Vector2 d = p - floor[f].center; clear = Mathf.Abs(d.x) / floor[f].halfSize.x + Mathf.Abs(d.y) / floor[f].halfSize.y <= 1; }
-                if (clear) for (int w = 0; w < walls.Length; w++) if (!walls[w].Allows(p, 0.06f)) { clear = false; break; }
-                if (clear && solids != null) for (int s = 0; s < solids.Length; s++) if (solids[s].Contains(p, 0.04f)) { clear = false; break; }
-                if (clear) for (int o = 0; o < obstacles.Length; o++)
-                { Rect r = obstacles[o]; r.xMin -= 0.15f; r.xMax += 0.15f; r.yMin -= 0.15f; r.yMax += 0.15f; if (r.Contains(p)) { clear = false; break; } }
+                bool clear = Fits(Center(i), 0);
                 walkable[i] = clear;
                 if (clear) WalkableCellCount++;
             }
             FindMainArea();
+        }
+        void AddToBuckets(List<int>[] buckets, int value, Vector2 center, Vector2 half)
+        {
+            int x0 = Mathf.Max(0, Mathf.FloorToInt((center.x - half.x - Bounds.xMin) / CellSize));
+            int x1 = Mathf.Min(width - 1, Mathf.FloorToInt((center.x + half.x - Bounds.xMin) / CellSize));
+            int y0 = Mathf.Max(0, Mathf.FloorToInt((center.y - half.y - Bounds.yMin) / CellSize));
+            int y1 = Mathf.Min(height - 1, Mathf.FloorToInt((center.y + half.y - Bounds.yMin) / CellSize));
+            for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++)
+            { int at = y * width + x; if (buckets[at] == null) buckets[at] = new List<int>(4); buckets[at].Add(value); }
+        }
+        bool OnFloor(Vector2 p)
+        {
+            int at = Index(p); if (at < 0) return false;
+            if (floor.Length == 0) return true;
+            var bucket = floorBuckets[at]; if (bucket == null) return false;
+            for (int i = 0; i < bucket.Count; i++)
+            { var f = floor[bucket[i]]; var d = p - f.center; if (Mathf.Abs(d.x) / f.halfSize.x + Mathf.Abs(d.y) / f.halfSize.y <= 1) return true; }
+            return false;
         }
         void FindMainArea()
         {
@@ -70,20 +98,62 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public bool Fits(Vector2 p, float r)
         {
             for (int i = 0; i < walls.Length; i++) if (!walls[i].Allows(p, r)) return false;
-            return IsWalkable(p) && IsWalkable(p + Vector2.right * r) && IsWalkable(p - Vector2.right * r) && IsWalkable(p + Vector2.up * r) && IsWalkable(p - Vector2.up * r);
+            // A* uses coarse cells; final movement uses continuous foot geometry, never the rounded cell edge.
+            int at = Index(p); if (at < 0) return false;
+            var bucket = solidBuckets[at];
+            if (bucket != null) for (int i = 0; i < bucket.Count; i++) if (solids[bucket[i]].Contains(p, r)) return false;
+            for (int i = 0; i < obstacles.Length; i++)
+            { Rect b = obstacles[i]; b.xMin -= r; b.xMax += r; b.yMin -= r; b.yMax += r; if (b.Contains(p)) return false; }
+            float diagonal = r * .707107f;
+            return OnFloor(p) && OnFloor(p + Vector2.right * r) && OnFloor(p - Vector2.right * r) &&
+                OnFloor(p + Vector2.up * r) && OnFloor(p - Vector2.up * r) &&
+                OnFloor(p + new Vector2(diagonal, diagonal)) && OnFloor(p - new Vector2(diagonal, diagonal)) &&
+                OnFloor(p + new Vector2(diagonal, -diagonal)) && OnFloor(p + new Vector2(-diagonal, diagonal));
         }
         public Vector2 Nearest(Vector2 p)
         {
-            int index = Index(p); if (index >= 0 && mainArea[index] && Fits(p, AgentRadius)) return p;
+            int index = Index(p);
+            if (index >= 0 && Fits(p, AgentRadius))
+            {
+                if (mainArea[index]) return p;
+                // A legal continuous landing can share a coarse cell with an invalid cell centre.
+                // Preserve it when connected to an adjacent navigation cell instead of shifting the visible entrance.
+                int x = index % width, y = index / width;
+                for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (x+dx<0 || x+dx>=width || y+dy<0 || y+dy>=height) continue;
+                    int next = index + dy*width + dx;
+                    if (mainArea[next] && ClearLine(p,Center(next))) return p;
+                }
+            }
             float best = float.PositiveInfinity; Vector2 result = Bounds.center;
             for (int i = 0; i < walkable.Length; i++) { if (!mainArea[i]) continue; Vector2 q = Center(i); float d = (q - p).sqrMagnitude; if (d < best && Fits(q, AgentRadius)) { best = d; result = q; } }
             return result;
         }
         public Vector2 Constrain(Vector2 from, Vector2 to, float radius)
         {
-            if (Fits(to, radius)) return to;
-            Vector2 h = new Vector2(to.x, from.y), v = new Vector2(from.x, to.y);
-            if (Fits(h, radius)) return h; if (Fits(v, radius)) return v; return from;
+            Vector2 delta = to - from;
+            int steps = Mathf.Max(1, Mathf.CeilToInt(delta.magnitude / .08f));
+            Vector2 step = delta / steps, p = from;
+            for (int i = 0; i < steps; i++)
+            {
+                Vector2 next = p + step;
+                if (Fits(next, radius) && (PassageAllowed == null || PassageAllowed(p, next, radius))) { p = next; continue; }
+                // Slide along the two projected floor axes before screen X/Y, preserving diagonal walls.
+                Vector2 best = p; float progress = 0;
+                TrySlide(p, step, new Vector2(1, .5f).normalized, radius, ref best, ref progress);
+                TrySlide(p, step, new Vector2(-1, .5f).normalized, radius, ref best, ref progress);
+                TrySlide(p, step, Vector2.right, radius, ref best, ref progress);
+                TrySlide(p, step, Vector2.up, radius, ref best, ref progress);
+                p = best;
+            }
+            return p;
+        }
+        void TrySlide(Vector2 p, Vector2 step, Vector2 tangent, float radius, ref Vector2 best, ref float progress)
+        {
+            Vector2 slide = tangent * Vector2.Dot(step, tangent);
+            float score = Vector2.Dot(slide, step);
+            if (score > progress && Fits(p + slide, radius) && (PassageAllowed == null || PassageAllowed(p, p + slide, radius))) { best = p + slide; progress = score; }
         }
         public bool ClearLine(Vector2 a, Vector2 b)
         { int steps = Mathf.CeilToInt(Vector2.Distance(a, b) / (CellSize * 0.5f)); for (int i = 1; i <= steps; i++) if (!Fits(Vector2.Lerp(a, b, i / (float)steps), AgentRadius)) return false; return true; }

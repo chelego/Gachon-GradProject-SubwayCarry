@@ -3,6 +3,20 @@ namespace SubwayCarry.Prototype.ArtMapSlice
     // Pure calculations shared by the UI and non-Unity regression checks.
     public static class SlicePresentationRules
     {
+        public static float FloorHalfWidth(float visibleHalfWidth, float projectedCellStep)
+        {
+            // Sprites span several authored grid cells. Include their grout up to that cell span;
+            // overlapping tile placements must not redefine the spacing of the entire platform.
+            if (projectedCellStep <= .0001f) return visibleHalfWidth + .005f;
+            return (float)System.Math.Ceiling(visibleHalfWidth / projectedCellStep - .0001f) * projectedCellStep + .005f;
+        }
+        public static bool AllowsFarePassage(float fromBoundary, float toBoundary, float across, float radius, bool open)
+        {
+            float margin = radius * 1.118034f + .035f;
+            // Always permit moving away from a contact, even if physics left the feet within the safety margin.
+            if (fromBoundary * toBoundary > 0 && (System.Math.Abs(toBoundary) >= margin || System.Math.Abs(toBoundary) > System.Math.Abs(fromBoundary))) return true;
+            return open && across > 2.24f + margin && across < 3.76f - margin;
+        }
         public static int DamageStage(float health) => health <= 0 ? 3 : health <= 40 ? 2 : health < 80 ? 1 : 0;
         public static bool ShouldCutIn(float oldBox, float oldCake, float box, float cake, float threshold)
             => oldBox - box + oldCake - cake >= threshold || DamageStage(box) > DamageStage(oldBox) || DamageStage(cake) > DamageStage(oldCake);

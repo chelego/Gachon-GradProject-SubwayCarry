@@ -54,7 +54,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public void ClearDepartedTrain() { aboard.Clear(); }
         public void InitializePlatformTrains(SliceJourneyController flow)
         {
-            foreach (int i in new[] { 0, 2 })
+            foreach (int i in new[] { 0, 2, 6 })
             {
                 var view = maps[i].gameObject.AddComponent<SlicePlatformTrain>();
                 platformTrains.Add(maps[i], view); view.Initialize(this, flow, maps[i]);
@@ -203,17 +203,23 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                 foreach (var map in maps)
                     foreach (var source in map.GetComponentsInChildren<SliceStaticImpactSource>(true)) Destroy(source);
                 gameObject.AddComponent<SliceTrainLayout>().Build(maps[1], maps[0]);
-                System.Array.Resize(ref maps, 6);
+                System.Array.Resize(ref maps, 7);
+                // Separate runtime instances share the teammate's art, not the direction or door state.
+                maps[6] = Instantiate(maps[0], transform); maps[6].name = "Gachon_Wangsimni_Bound_Platform";
+                maps[6].displayName = "가천대역 · 왕십리 방면"; maps[6].travelDirection = SliceTravelDirection.Wangsimni;
+                maps[0].displayName = "가천대역 · 정자 방면"; maps[0].travelDirection = SliceTravelDirection.Jeongja;
                 maps[3] = SliceStationLayout.Create(transform, maps[0], "가천대역 대합실", true, 0);
                 maps[4] = SliceStationLayout.Create(transform, maps[0], "목적역 대합실", true, 2);
                 maps[4].fareGate = SliceTrainLayout.Project(7, 3);
                 maps[5] = SliceStationLayout.Create(transform, maps[0], "환승 연결 통로", false, 2);
-                foreach (int index in new[] { 0, 2 })
+                foreach (int index in new[] { 0, 2, 6 })
                 {
                     SliceFacilityAnchors.RepairImportedFurniture(maps[index]);
-                    SliceStationLayout.ConnectPlatformAccess(maps[index], index == 0 ? 3 : 4, SliceTrainLayout.Project(11, 3));
+                    SliceStationLayout.ConnectPlatformAccess(maps[index], index == 2 ? 4 : 3, SliceTrainLayout.Project(11, 3));
                     SliceFacilityAnchors.BindImported(maps[index]);
                 }
+                for (int i = 0; i < maps[3].portals.Length; i++)
+                { var p = maps[3].portals[i]; p.arrival = maps[p.targetMap].entry; maps[3].portals[i] = p; }
             }
             for (int i = 0; i < maps.Length; i++) maps[i].gameObject.SetActive(false);
             player = Instantiate(playerPrefab); player.name = "PLAYER_CyanOutline"; player.transform.SetParent(transform, true);

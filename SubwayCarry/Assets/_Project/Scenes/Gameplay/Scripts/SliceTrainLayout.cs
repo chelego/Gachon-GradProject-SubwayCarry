@@ -14,9 +14,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             public readonly List<int> triangles = new List<int>();
             public readonly List<Color> colors = new List<Color>();
         }
-        struct DoorPart { public Sprite sprite; public Vector2 offset; public float width; public string name; }
         readonly List<Mesh> meshes = new List<Mesh>();
-        readonly List<Sprite> createdSprites = new List<Sprite>();
         readonly Dictionary<(int order, bool wall), Geometry> surfaces = new Dictionary<(int, bool), Geometry>();
         bool wallSurface;
         readonly List<SliceInterest> interests = new List<SliceInterest>();
@@ -30,10 +28,6 @@ namespace SubwayCarry.Prototype.ArtMapSlice
 
         public void Build(SliceMap train, SliceMap station)
         {
-            var catalog = GetComponent<SliceGameController>().deliveryCatalog;
-            var doorArt = ReadDoorAssembly(train);
-            if (catalog.trainBenchAtlas == null || doorArt.Count != 3)
-            { Debug.LogError("Carriage requires the front/back bench atlas and the imported three-part train door.", train); return; }
             map = train;
             for (int i = 0; i < train.transform.childCount; i++) train.transform.GetChild(i).gameObject.SetActive(false);
             train.transform.localScale = Vector3.one;
@@ -76,21 +70,18 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             Panel(Project(13, 0) + Vector2.up * 3.05f, Project(13, 6) + Vector2.up * 3.05f, .18f, new Color32(92, 111, 120, 255), 20);
 
             // Distinct front/rear views, never a mirrored seat front.
-            Sprite front = AtlasPiece(catalog.trainBenchAtlas, new Rect(170, 803, 715, 577));
-            Sprite back = AtlasPiece(catalog.trainBenchAtlas, new Rect(164, 123, 715, 538));
             foreach (float center in new[] { 2f, 10f, 16f, 24f })
             {
-                Bench(front, center, 5.65f, false);
-                Bench(back, center, .35f, true);
+                Bench(center, 5.65f, false);
+                Bench(center, .35f, true);
             }
             foreach (int u in new[] { 6, 20 }) foreach (int side in new[] { 0, 6 })
             {
                 Vector2 point = Project(u, side == 0 ? -.5f : 6.5f);
                 int order = map.GroundOrder(point);
                 var doorRoot = new GameObject("CarriageDoor_" + u + "_" + side).transform; doorRoot.SetParent(root, false);
-                foreach (var part in doorArt)
-                    Art(part.name + (side == 0 ? "_ServiceSide" : "_ClosedSide"), part.sprite,
-                        point + Vector2.up * 1.45f + part.offset * 2.8f, part.width * 2.8f, order + (part.name.Contains("Frame") ? 2 : 1)).transform.SetParent(doorRoot, true);
+                var door = doorRoot.gameObject.AddComponent<SliceSlidingDoor>(); door.serviceSide = side == 0;
+                door.Build(point, Project(1, 0).normalized, 2.8f * Project(1, 0).magnitude, 2.65f, order);
                 Floor(u - 1.4f, u + 1.4f, side == 0 ? -.5f : 5.8f, side == 0 ? .2f : 6.5f, new Color32(95, 110, 119, 255), -23990);
                 Vector2 inside = Project(u, side == 0 ? 1 : 5);
                 portals.Add(new SlicePortal { label = "Train door", position = inside, targetMap = 2, side = side == 0 ? DoorOpeningSide.Right : DoorOpeningSide.Left });
@@ -112,54 +103,42 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             FlushSurfaces();
             map.portals = portals.ToArray(); map.exits = exits.ToArray(); map.interests = interests.ToArray();
             map.solidFootprints = solids.ToArray(); map.entry = Project(6, 2);
-            foreach (var solid in solids)
-            {
-                var go = new GameObject("Carriage_Furniture_Collider"); go.transform.SetParent(root, false); go.transform.position = solid.center;
-                var collider = go.AddComponent<PolygonCollider2D>(); float x = solid.halfSize.x, y = solid.halfSize.y;
-                collider.points = new[] { new Vector2(-x, -y - x * .5f), new Vector2(x, -y + x * .5f), new Vector2(x, y + x * .5f), new Vector2(-x, y - x * .5f) };
-            }
+            map.BuildFootprintColliders();
             map.noWaitingZones = new Rect[0]; map.RebuildGrid();
             for (int i = 0; i < map.interests.Length; i++) map.interests[i].position = map.Grid.Nearest(map.interests[i].position);
             for (int i = 0; i < map.portals.Length; i++) map.portals[i].position = map.Grid.Nearest(map.portals[i].position);
             for (int i = 0; i < map.exits.Length; i++) map.exits[i].inside = map.Grid.Nearest(map.exits[i].inside);
         }
 
-        void Bench(Sprite sprite, float u, float v, bool rearView)
+        void Bench(float u, float v, bool rearView)
         {
             Vector2 ground = Project(u, v), facing = Project(0, rearView ? 1 : -1).normalized;
-            // Four places at ~0.76 projected units each; a backrest must not hide a seated head.
-            float scale = 4f / sprite.bounds.size.x;
-            // Contact points measured on the source atlas, top-left pixel convention.
-            Vector2 reference = rearView ? new Vector2(540, 1163) : new Vector2(546, 476);
-            Vector2 localContact = SpritePixel(sprite, reference);
-            Vector2 contact = ground + Vector2.up * .5f;
-            var go = new GameObject(rearView ? "Bench_Row_RearView_Facing_Aisle" : "Bench_Row_FrontView_Facing_Aisle");
-            go.transform.SetParent(root, false); go.transform.position = contact - localContact * scale;
-            go.transform.localScale = Vector3.one * scale;
-            var r = go.AddComponent<SpriteRenderer>(); r.sprite = sprite; r.sharedMaterial = surfaceMaterial;
-            r.sortingOrder = map.GroundOrder(ground);
+            float frontV = v + (rearView ? .42f : -.42f), backV = v + (rearView ? -.34f : .34f);
+            int order = map.GroundOrder(ground);
+            Color metal = new Color32(174, 188, 195, 255), light = new Color32(211, 220, 221, 255), dark = new Color32(73, 89, 99, 255);
+            // The back is 0.68 above the seat, not taller than a seated torso. End armrests stay below shoulders.
+            Vector2 ba = Project(u-1.82f, backV), bb = Project(u+1.82f, backV);
+            Panel(ba+Vector2.up*.47f, bb+Vector2.up*.47f, .68f, metal, order + (rearView ? 3 : -2));
+            Rail(ba+Vector2.up*1.15f, bb+Vector2.up*1.15f, .065f, order + (rearView ? 4 : -1));
+            foreach (float leg in new[] { u-1.3f, u+1.3f })
+                Panel(Project(leg-.06f,v), Project(leg+.06f,v), .48f, dark, order-3);
             for (int i = 0; i < 4; i++)
             {
-                float x = rearView ? 338 + i * 135 : 344 + i * 135;
-                Vector2 pixel = new Vector2(x, reference.y - (x - reference.x) * .5f);
-                Vector2 anchor = go.transform.TransformPoint(SpritePixel(sprite, pixel));
+                float x = u - 1.35f + i*.9f;
+                Vector2 a = Project(x-.43f, frontV), b = Project(x+.43f, frontV), c = Project(x+.43f, backV), d = Project(x-.43f, backV);
+                Panel(a+Vector2.up*.43f, b+Vector2.up*.43f, .07f, dark, order-1);
+                Face(a+Vector2.up*.5f, b+Vector2.up*.5f, c+Vector2.up*.5f, d+Vector2.up*.5f, light, order-1);
+                Panel(d+Vector2.up*.54f, c+Vector2.up*.54f, .51f, i%2==0 ? new Color32(135, 156, 166, 255) : metal, order + (rearView ? 3 : -1));
+                Vector2 anchor = Project(x, v) + Vector2.up*.5f;
                 Vector2 feet = anchor - Vector2.up * .5f;
                 interests.Add(new SliceInterest { position = feet + facing * 1.05f,
                     kind = PassengerAiV2InteriorSpotKind.Seat, comfort = .95f, hasPoseAnchor = true,
-                    contactPoint = anchor, facing = facing, poseSortingOrder = r.sortingOrder + (rearView ? -1 : 2) });
+                    contactPoint = anchor, facing = facing, poseSortingOrder = order + 1 });
                 interests.Add(new SliceInterest { position = feet + facing * 1.7f, kind = PassengerAiV2InteriorSpotKind.Stand, comfort = .55f });
             }
-            solids.Add(new SliceSolidFootprint { center = ground, halfSize = new Vector2(1.7f, .32f), slope = .5f });
-        }
-        static Vector2 SpritePixel(Sprite sprite, Vector2 pixel)
-            => new Vector2(pixel.x * sprite.texture.width / 1024f - sprite.rect.x - sprite.pivot.x,
-                (1536 - pixel.y) * sprite.texture.height / 1536f - sprite.rect.y - sprite.pivot.y) / sprite.pixelsPerUnit;
-        Sprite AtlasPiece(Texture2D texture, Rect rect)
-        {
-            float sx = texture.width / 1024f, sy = texture.height / 1536f;
-            var sprite = Sprite.Create(texture, new Rect(rect.x * sx, rect.y * sy, rect.width * sx, rect.height * sy),
-                new Vector2(.5f, 0), 100, 0, SpriteMeshType.FullRect);
-            createdSprites.Add(sprite); return sprite;
+            foreach (float end in new[] { u-1.9f, u+1.9f })
+                Rail(Project(end,frontV)+Vector2.up*.76f, Project(end,backV)+Vector2.up*.76f, .06f, order+2);
+            solids.Add(SliceSolidFootprint.Polygon(new[] { Project(u-1.9f,frontV), Project(u+1.9f,frontV), Project(u+1.9f,backV), Project(u-1.9f,backV) }));
         }
         void SideWall(float start, float end, int side)
         {
@@ -167,14 +146,19 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             Vector2 a = Project(start, v), b = Project(end, v); int order = map.GroundOrder(a);
             // Keep the carriage closed; nearby blocking panels fade dynamically, not permanently.
             Panel(a, b, .58f, new Color32(120, 139, 148, 255), order);
-            Panel(a + Vector2.up * .58f, b + Vector2.up * .58f, 2.57f,
+            // Near wall is a deliberate cutaway, while its top cap and full door frames retain the carriage volume.
+            Panel(a + Vector2.up * .58f, b + Vector2.up * .58f, side == 0 ? .34f : 2.57f,
                 side == 0 ? new Color32(176, 190, 196, 255) : new Color32(207, 216, 219, 255), order);
+            Vector2 depth = Project(0, .18f);
+            float cap = side == 0 ? .92f : 3.19f;
+            Face(a+Vector2.up*cap, b+Vector2.up*cap, b+depth+Vector2.up*cap, a+depth+Vector2.up*cap, new Color32(225,231,230,255), order+1);
             Panel(a + Vector2.up * 3.05f, b + Vector2.up * 3.05f, .14f,
                 new Color32(95, 121, 132, 255), order + 1);
             Panel(a + Vector2.up * .58f, b + Vector2.up * .58f, .06f, new Color32(68, 84, 93, 255), order + 1);
         }
         void Window(float center, int side)
         {
+            if (side == 0) return;
             float v = side == 0 ? -.51f : 6.49f;
             Vector2 a = Project(center - 1.9f, v) + Vector2.up * 1.28f, b = Project(center + 1.9f, v) + Vector2.up * 1.28f;
             int order = map.GroundOrder(Project(center, v)) + 2;
@@ -246,39 +230,9 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             }
             surfaces.Clear();
         }
-        static List<DoorPart> ReadDoorAssembly(SliceMap train)
-        {
-            var result = new List<DoorPart>(); var renderers = train.GetComponentsInChildren<SpriteRenderer>(true);
-            foreach (var frame in renderers)
-            {
-                if (frame.sprite == null || !frame.sprite.name.Contains("door_fixed") || !frame.transform.parent.name.StartsWith("ClosedDoor_")) continue;
-                SpriteRenderer left = null, right = null;
-                foreach (var leaf in renderers)
-                {
-                    if (leaf.sprite == null || leaf.transform.parent != frame.transform.parent) continue;
-                    if (leaf.sprite.name.Contains("door_leaf_left")) left = leaf;
-                    if (leaf.sprite.name.Contains("door_leaf_right")) right = leaf;
-                }
-                if (left == null || right == null) continue;
-                Bounds bounds = frame.bounds; bounds.Encapsulate(left.bounds); bounds.Encapsulate(right.bounds);
-                foreach (var r in new[] { frame, left, right })
-                    result.Add(new DoorPart { sprite = r.sprite, offset = ((Vector2)r.bounds.center - (Vector2)bounds.center) / bounds.size.x,
-                        width = r.bounds.size.x / bounds.size.x, name = r == frame ? "DoorFrame" : "DoorLeaf" });
-                break;
-            }
-            return result;
-        }
-        SpriteRenderer Art(string name, Sprite sprite, Vector2 position, float width, int order)
-        {
-            var go = new GameObject(name); go.transform.SetParent(root, false);
-            float scale = width / Mathf.Max(.01f, sprite.bounds.size.x);
-            go.transform.localScale = Vector3.one * scale; go.transform.position = (Vector3)position - sprite.bounds.center * scale;
-            var r = go.AddComponent<SpriteRenderer>(); r.sprite = sprite; r.sharedMaterial = surfaceMaterial; r.sortingOrder = order; return r;
-        }
         void OnDestroy()
         {
             foreach (var mesh in meshes) if (mesh != null) Destroy(mesh);
-            foreach (var sprite in createdSprites) if (sprite != null) Destroy(sprite);
             if (surfaceMaterial != null) Destroy(surfaceMaterial);
         }
     }

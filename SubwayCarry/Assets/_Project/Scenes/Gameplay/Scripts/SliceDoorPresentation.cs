@@ -8,6 +8,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
     {
         struct Leaf { public Transform transform; public Vector3 closed, slide; }
         readonly List<Leaf> leaves = new List<Leaf>(24);
+        readonly List<SliceSlidingDoor> trainDoors = new List<SliceSlidingDoor>();
         SliceGameController world;
         SliceJourneyController journey;
         float opening;
@@ -20,7 +21,11 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         {
             // Restore the previous map before caching another one, so repeated trips never accumulate offsets.
             foreach (var leaf in leaves) if (leaf.transform != null) leaf.transform.localPosition = leaf.closed;
+            foreach (var door in trainDoors) if (door != null) door.SetOpening(0);
+            trainDoors.Clear();
             leaves.Clear(); opening = journey.CurrentDoorState.State == TrainDoorState.Open ? 1 : 0;
+            foreach (var door in world.CurrentMap.GetComponentsInChildren<SliceSlidingDoor>(false))
+                if (door.serviceSide) { trainDoors.Add(door); door.SetOpening(opening); }
             foreach (var renderer in world.CurrentMap.GetComponentsInChildren<SpriteRenderer>(false))
             {
                 if (renderer.sprite == null) continue;
@@ -54,6 +59,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             if (Mathf.Approximately(next, opening)) return;
             opening = next;
             foreach (var leaf in leaves) if (leaf.transform != null) leaf.transform.localPosition = leaf.closed + leaf.slide * opening;
+            foreach (var door in trainDoors) if (door != null) door.SetOpening(opening);
         }
         void OnDestroy()
         {

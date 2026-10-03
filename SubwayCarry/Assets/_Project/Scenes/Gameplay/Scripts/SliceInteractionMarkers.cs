@@ -17,20 +17,30 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             material = new Material(Shader.Find("Sprites/Default"));
             // The screen-space E key is the only interaction marker. Keep physical station signs.
             var layout = map.GetComponent<SliceStationLayout>();
+            signPixel = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, Texture2D.whiteTexture.width, Texture2D.whiteTexture.height), Vector2.one * .5f, Texture2D.whiteTexture.width);
             if (layout != null)
             {
-                signPixel = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, Texture2D.whiteTexture.width, Texture2D.whiteTexture.height), Vector2.one * .5f, Texture2D.whiteTexture.width);
                 for (int i = 0; i < layout.signs.Count; i++)
-                {
-                    var board = new GameObject("Mounted wayfinding board"); board.transform.SetParent(transform, false); board.transform.position = layout.signs[i];
-                    board.transform.localScale = new Vector3(Mathf.Max(1.8f, layout.signLabels[i].Length * .18f), .48f, 1);
-                    var back = board.AddComponent<SpriteRenderer>(); back.sprite = signPixel; back.color = new Color32(25, 40, 54, 255); back.sortingOrder = 20009;
-                    var go = new GameObject("Station sign " + i); go.transform.SetParent(transform, false); go.transform.position = layout.signs[i];
-                    var text = go.AddComponent<TextMesh>(); text.font = journey.Catalog.uiFont; text.fontSize = 48; text.characterSize = .085f;
-                    text.text = layout.signLabels[i]; text.anchor = TextAnchor.MiddleCenter; text.color = new Color32(237, 244, 234, 255);
-                    var renderer = text.GetComponent<MeshRenderer>(); renderer.sharedMaterial = text.font.material; renderer.sortingOrder = 20010;
-                }
+                    Sign(layout.signs[i], layout.signLabels[i], journey);
             }
+            else if (map.travelDirection != SliceTravelDirection.Unspecified)
+                Sign(map.entry + Vector2.up * 2.5f, map.travelDirection == SliceTravelDirection.Jeongja ? "정자 · 수원 방면" : "왕십리 · 청량리 방면", journey);
+        }
+        void Sign(Vector2 point, string label, SliceJourneyController journey)
+        {
+            var root = new GameObject("Mounted wayfinding board"); root.transform.SetParent(transform, false); root.transform.position = point;
+            root.transform.localScale = Vector3.one / Mathf.Max(.01f, transform.lossyScale.x);
+            var board = new GameObject("Sign panel"); board.transform.SetParent(root.transform, false);
+            var back = board.AddComponent<SpriteRenderer>(); back.sprite = signPixel; back.color = new Color32(25,40,54,255); back.sortingOrder = 20009;
+            var go = new GameObject("Direction label"); go.transform.SetParent(root.transform, false);
+            var text = go.AddComponent<TextMesh>(); text.font = journey.Catalog.uiFont; text.fontSize = 64; text.characterSize = .055f;
+            text.text = label; text.anchor = TextAnchor.MiddleCenter; text.color = new Color32(237,244,234,255);
+            var renderer = text.GetComponent<MeshRenderer>(); renderer.sharedMaterial = text.font.material; renderer.sortingOrder = 20010;
+            journey.Catalog.uiFont.RequestCharactersInTexture(label,64);
+            // Size from the actual font, not number of Korean characters times an unrelated constant.
+            float width = 0;
+            foreach (char c in label) if (text.font.GetCharacterInfo(c,out var info,64)) width += info.advance * .055f / 10f;
+            board.transform.localScale = new Vector3(Mathf.Max(2,width+.4f),.52f,1);
         }
         LineRenderer Ring(Vector2 point, Color color)
         {

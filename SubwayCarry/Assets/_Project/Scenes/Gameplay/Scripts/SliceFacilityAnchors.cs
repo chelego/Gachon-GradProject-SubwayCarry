@@ -11,6 +11,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         // Replaces only the integration builder's named collision cache, not teammate/manual colliders.
         public static void RepairImportedFurniture(SliceMap map)
         {
+            AlignFloorSurface(map);
             var oldRoot = map.transform.Find("SolidFootprints");
             if (oldRoot == null) return;
             oldRoot.gameObject.SetActive(false);
@@ -66,6 +67,27 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                     facing = facing, poseSortingOrder = order + 2 });
             }
             map.solidFootprints = solids.ToArray(); map.interests = spots.ToArray(); map.RebuildGrid();
+        }
+        static void AlignFloorSurface(SliceMap map)
+        {
+            if (map.floorTiles == null) return;
+            var grid = map.floorTiles.GetComponentInParent<Grid>(); if (grid == null) return;
+            Vector3 cellAxis = grid.CellToLocalInterpolated(Vector3.right) - grid.CellToLocalInterpolated(Vector3.zero);
+            float cellStep = Mathf.Abs(map.floorTiles.transform.TransformVector(cellAxis).x);
+            var floor = new List<SliceFloorDiamond>();
+            foreach (var cell in map.floorTiles.cellBounds.allPositionsWithin)
+            {
+                var sprite = map.floorTiles.GetSprite(cell); if (sprite == null) continue;
+                Vector3 local = grid.CellToLocalInterpolated((Vector3)cell + map.floorTiles.tileAnchor);
+                Bounds b = sprite.bounds;
+                // The visible TOP plane excludes the tile's downward slab/shadow and the old 0.25-cell expansion.
+                local += new Vector3(b.center.x,b.min.y+b.size.y*.515f,0);
+                Vector2 center = map.floorTiles.transform.TransformPoint(local);
+                float half = b.extents.x * Mathf.Abs(map.floorTiles.transform.lossyScale.x) * .984f;
+                half = SlicePresentationRules.FloorHalfWidth(half, cellStep);
+                floor.Add(new SliceFloorDiamond {center=center,halfSize=new Vector2(half,half*.5f)});
+            }
+            if (floor.Count > 0) map.floorDiamonds = floor.ToArray();
         }
         public static bool AlignBenchSeatHeight(SpriteRenderer renderer, out Vector2 contact, out Vector2 ground, out float slope)
         {

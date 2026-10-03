@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using SubwayCarry.Core.Contracts;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace SubwayCarry.Prototype.ArtMapSlice
 {
@@ -11,6 +10,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         sealed class Door
         {
             public Vector2 landing, cabin, inward;
+            public Vector2 foot;
+            public float halfWidth, height;
             public SpriteRenderer frame;
         }
         sealed class Rider
@@ -21,12 +22,12 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         readonly List<Door> doors = new List<Door>();
         readonly List<Rider> riders = new List<Rider>();
         readonly List<Collider2D> boundaryColliders = new List<Collider2D>();
-        readonly List<Mesh> meshes = new List<Mesh>();
+        readonly SliceTransitGeometry shell = new SliceTransitGeometry();
         SliceGameController world;
         SliceJourneyController flow;
         SliceMap map;
         Transform train;
-        Material glass, surfaces;
+        Material glass;
         Vector2 tangent;
         float offset, departureAt = -1000, nextAlighter;
         bool stocked;
@@ -41,49 +42,26 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public void Initialize(SliceGameController source, SliceJourneyController journey, SliceMap platform)
         {
             world = source; flow = journey; map = platform; tangent = new Vector2(1, map.depthSlope).normalized;
-            surfaces = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
             if (flow.Catalog.stationGlassShader != null) glass = new Material(flow.Catalog.stationGlassShader);
             var art = map.GetComponentsInChildren<SpriteRenderer>(true);
-            Sprite frame = null, left = null, right = null, window = null;
-            SpriteRenderer sourceFrame = null, sourceLeft = null, sourceRight = null;
-            var trainArt = world.maps[1].GetComponentsInChildren<SpriteRenderer>(true);
-            foreach (var r in trainArt)
-            {
-                if (r.sprite == null) continue;
-                string n = r.sprite.name.ToLowerInvariant();
-                if (n.Contains("door_fixed")) frame = r.sprite;
-                if (n.Contains("door_leaf_left")) left = r.sprite;
-                if (n.Contains("door_leaf_right")) right = r.sprite;
-                if (n.Contains("window")) window = r.sprite;
-                // The fixed sprite is only the header. Preserve the imported assembly's leaf offsets
-                // instead of centering that short header at the middle of a full-height doorway.
-                if (sourceFrame == null && n.Contains("door_fixed") && r.transform.parent.name.StartsWith("ClosedDoor_")) sourceFrame = r;
-            }
-            if (sourceFrame != null)
-                foreach (var r in trainArt)
-                {
-                    if (r.sprite == null || r.transform.parent != sourceFrame.transform.parent) continue;
-                    if (r.sprite.name.Contains("door_leaf_left")) sourceLeft = r;
-                    if (r.sprite.name.Contains("door_leaf_right")) sourceRight = r;
-                }
-            bool assembled = sourceFrame != null && sourceLeft != null && sourceRight != null;
-            Bounds assemblyBounds = assembled ? sourceFrame.bounds : default;
-            if (assembled) { assemblyBounds.Encapsulate(sourceLeft.bounds); assemblyBounds.Encapsulate(sourceRight.bounds); }
-            if (frame == null || left == null || right == null) { enabled = false; return; }
             train = new GameObject("ServiceTrain_Behind_PlatformGlass").transform; train.SetParent(map.transform, false);
             train.localScale = Vector3.one / map.transform.lossyScale.x;
             train.position = Vector3.zero;
+            var usedFrames = new HashSet<SpriteRenderer>();
             foreach (var portal in map.portals)
             {
                 if (portal.stationConnection) continue;
                 SpriteRenderer screen = null; float best = float.PositiveInfinity;
                 foreach (var r in art)
                 {
-                    if (r.sprite == null || !r.sprite.name.Contains("door_fixed")) continue;
-                    float d = Mathf.Abs(r.bounds.center.x - portal.position.x);
+                    if (r.sprite == null || !r.sprite.name.Contains("door_fixed") || usedFrames.Contains(r)) continue;
+                    Bounds candidate = OpeningBounds(r,art);
+                    Vector2 sill = new Vector2(candidate.center.x,candidate.min.y+candidate.size.x*Mathf.Abs(map.depthSlope)*.5f);
+                    float d = (sill-portal.position).sqrMagnitude;
                     if (d < best) { best = d; screen = r; }
                 }
                 if (screen == null) continue;
+                usedFrames.Add(screen);
                 Vector2 normal = new Vector2(map.depthSlope, -1).normalized;
                 float wallDistance = float.PositiveInfinity;
                 foreach (var wall in map.walls)
@@ -91,47 +69,21 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                     float d = Mathf.Abs(Vector2.Dot(portal.position - wall.point, wall.inwardNormal));
                     if (d < wallDistance) { wallDistance = d; normal = wall.inwardNormal; }
                 }
-                var door = new Door { landing = portal.position, inward = normal,
-                    cabin = portal.position - normal * 2.25f, frame = screen };
+                Bounds opening = OpeningBounds(screen,art);
+                float width = opening.size.x / tangent.x;
+                Vector2 foot = new Vector2(opening.center.x, opening.min.y + opening.size.x * Mathf.Abs(map.depthSlope) * .5f) - normal * .18f;
+                float height = Mathf.Max(2.5f, opening.size.y - opening.size.x * Mathf.Abs(map.depthSlope));
+                var door = new Door { landing = portal.position, inward = normal, cabin = foot - normal * .85f,
+                    frame = screen, foot = foot, halfWidth = width*.5f, height = height };
                 doors.Add(door);
-                Bounds opening = screen.bounds; bool foundLeaf = false;
-                foreach (var leaf in art)
-                {
-                    if (leaf.sprite == null || leaf.transform.parent != screen.transform.parent || !leaf.sprite.name.Contains("door_leaf")) continue;
-                    if (!foundLeaf) { opening = leaf.bounds; foundLeaf = true; } else opening.Encapsulate(leaf.bounds);
-                }
-                float width = opening.size.x;
-                // Parallel door planes: a narrow gap, not a second doorway shifted half a person's width.
-                Vector2 center = (Vector2)opening.center - normal * .12f;
-                int order = map.GroundOrder(door.cabin);
-                // Lit interior is behind the moving shell and passengers, not an opaque plate over the doorway.
-                Wall("Cabin light", center - tangent * width * .65f - Vector2.up * 1.4f,
-                    center + tangent * width * .65f - Vector2.up * 1.4f, 2.8f, new Color32(74, 94, 99, 255), order - 12, train);
-                if (assembled)
-                {
-                    float scale = width / Mathf.Max(.01f, assemblyBounds.size.x);
-                    DrawPart("TrainDoorFrame", sourceFrame, center, assemblyBounds.center, scale, order + 2);
-                    DrawPart("TrainDoorLeaf_ServiceSide_Left", sourceLeft, center, assemblyBounds.center, scale, order + 1);
-                    DrawPart("TrainDoorLeaf_ServiceSide_Right", sourceRight, center, assemblyBounds.center, scale, order + 1);
-                }
-                else
-                {
-                    Draw("TrainDoorFrame", frame, center + Vector2.up, width, order + 2);
-                    Draw("TrainDoorLeaf_ServiceSide_Left", left, center - tangent * width * .25f, width * .5f, order + 1);
-                    Draw("TrainDoorLeaf_ServiceSide_Right", right, center + tangent * width * .25f, width * .5f, order + 1);
-                }
+                int order = map.GroundOrder(foot);
+                var go = new GameObject("Train_Door_In_Shell"); go.transform.SetParent(train, false);
+                go.AddComponent<SliceSlidingDoor>().Build(foot, tangent, width, height, order);
+                shell.Panel(foot-tangent*width*.5f-normal, foot+tangent*width*.5f-normal, height,
+                    new Color32(105,126,130,255), order-110);
             }
             doors.Sort((a, b) => Vector2.Dot(a.landing, tangent).CompareTo(Vector2.Dot(b.landing, tangent)));
-            // Windows and shell panels move together; the platform's glass/frames remain stationary.
-            for (int i = 1; i < doors.Count; i++)
-            {
-                Vector2 a = doors[i - 1].cabin, b = doors[i].cabin;
-                float length = Vector2.Distance(a, b);
-                if (length > 20) continue;
-                Wall("Train body", a, b, 2.1f, new Color32(184, 195, 193, 255), map.GroundOrder(a) - 10, train);
-                if (window != null) Draw("Train window", window, (a + b) * .5f + Vector2.up * 1.15f,
-                    Mathf.Max(1, Mathf.Abs(b.x - a.x) * .55f), map.GroundOrder(a) + 2);
-            }
+            BuildShell();
             foreach (var r in art)
             {
                 if (r.sprite == null) continue;
@@ -145,6 +97,76 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             if (boundary != null) boundaryColliders.AddRange(boundary.GetComponentsInChildren<Collider2D>(true));
             flow.TrainDoorStateChanged += DoorChanged;
             Reenter();
+        }
+        static Bounds OpeningBounds(SpriteRenderer screen, SpriteRenderer[] art)
+        {
+            Bounds bounds = screen.bounds; bool found = false;
+            foreach (var leaf in art)
+            {
+                if (leaf.sprite == null || leaf.transform.parent != screen.transform.parent || !leaf.sprite.name.Contains("door_leaf")) continue;
+                if (!found) { bounds=leaf.bounds; found=true; } else bounds.Encapsulate(leaf.bounds);
+            }
+            return bounds;
+        }
+        void BuildShell()
+        {
+            if (doors.Count == 0) return;
+            // Island platforms have two opposed walls. Never join their doors into one folded train body.
+            var first = new List<Door>(); var opposite = new List<Door>();
+            foreach (var door in doors) (Vector2.Dot(door.inward,doors[0].inward) > .5f ? first : opposite).Add(door);
+            BuildShell(first); if (opposite.Count > 0) BuildShell(opposite);
+        }
+        void BuildShell(List<Door> sideDoors)
+        {
+            Vector2 normal = sideDoors[0].inward, rear = -normal * 2.7f;
+            Vector2 start = sideDoors[0].foot-tangent*(sideDoors[0].halfWidth+3.5f);
+            Vector2 end = sideDoors[sideDoors.Count-1].foot+tangent*(sideDoors[sideDoors.Count-1].halfWidth+3.5f);
+            float h = sideDoors[0].height + .36f; int order = map.GroundOrder(sideDoors[0].foot);
+            Vector2 next = start;
+            foreach (var door in sideDoors)
+            {
+                Vector2 left = door.foot-tangent*(door.halfWidth+.12f), right = door.foot+tangent*(door.halfWidth+.12f);
+                ShellBay(next, left, h, order);
+                shell.Panel(left+Vector2.up*(h-.2f), right+Vector2.up*(h-.2f), .2f, new Color32(215,221,221,255), order+3);
+                next = right;
+            }
+            ShellBay(next, end, h, order);
+            // Continuous roof, rounded eaves and both cab/end faces give the passing train real volume.
+            shell.Quad(start+Vector2.up*h, end+Vector2.up*h, end+rear+Vector2.up*(h+.18f), start+rear+Vector2.up*(h+.18f), new Color32(185,199,202,255), order+5);
+            shell.Rail(start+Vector2.up*h, end+Vector2.up*h, .1f, new Color32(237,240,233,255), order+6);
+            shell.Panel(start, start+rear, h, new Color32(180,187,175,255), order+4);
+            shell.Panel(end, end+rear, h, new Color32(140,158,166,255), order-4);
+            Vector2 noseA = start + rear*.08f, noseB = start + rear*.92f;
+            shell.Panel(noseA+Vector2.up*.55f, noseB+Vector2.up*.55f, .48f, new Color32(230,185,38,255), order+5);
+            shell.Panel(noseA+Vector2.up*1.35f, noseB+Vector2.up*1.35f, h-1.65f, new Color32(31,55,67,255), order+5);
+            shell.Rail(noseA+Vector2.up*(h-.27f), noseB+Vector2.up*(h-.27f), .12f, new Color32(36,86,126,255), order+6);
+            foreach (float fraction in new[] { .2f, .8f })
+            {
+                Vector2 p = Vector2.Lerp(start,start+rear,fraction) + Vector2.up*.68f;
+                shell.Rail(p-tangent*.10f,p+tangent*.10f,.12f,new Color32(251,243,191,255),order+6);
+            }
+            // Roof equipment is low and attached to the roof plane, never floating above the cabin.
+            for (float d = 3; d < Vector2.Distance(start,end)-2; d += 7)
+            {
+                Vector2 p = start+tangent*d+rear*.4f+Vector2.up*(h+.2f);
+                shell.Quad(p,p+tangent*2,p+tangent*2+rear*.28f,p+rear*.28f,new Color32(132,154,163,255),order+6);
+                for (int i = 0; i < 6; i++) shell.Rail(p+tangent*(.15f+i*.3f),p+tangent*(.15f+i*.3f)+rear*.28f,.035f,new Color32(82,102,115,255),order+7);
+            }
+            shell.Flush(train,"Exterior train shell");
+        }
+        void ShellBay(Vector2 a, Vector2 b, float height, int order)
+        {
+            if (Vector2.Dot(b-a,tangent) < .05f) return;
+            var metal = new Color32(198,209,209,255);
+            shell.Panel(a,b,.88f,metal,order+1);
+            shell.Panel(a+Vector2.up*.55f,b+Vector2.up*.55f,.14f,new Color32(220,176,32,255),order+2);
+            shell.Panel(a+Vector2.up*2.1f,b+Vector2.up*2.1f,Mathf.Max(.1f,height-2.1f),metal,order+1);
+            shell.Panel(a+Vector2.up*.88f,a+tangent*.2f+Vector2.up*.88f,1.22f,metal,order+1);
+            shell.Panel(b-tangent*.2f+Vector2.up*.88f,b+Vector2.up*.88f,1.22f,metal,order+1);
+            shell.Panel(a+tangent*.2f+Vector2.up*.88f,b-tangent*.2f+Vector2.up*.88f,1.22f,new Color32(61,91,108,145),order+2);
+            shell.Rail(a+Vector2.up*.88f,b+Vector2.up*.88f,.07f,new Color32(64,83,94,255),order+3);
+            shell.Rail(a+Vector2.up*2.1f,b+Vector2.up*2.1f,.06f,new Color32(64,83,94,255),order+3);
+            shell.Panel(a-Vector2.up*.15f,b-Vector2.up*.15f,.15f,new Color32(55,68,77,255),order);
         }
         public void Reenter()
         {
@@ -231,16 +253,6 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             body.color = world.PassengerColor(id); body.sortingOrder = map.GroundOrder(doors[index].cabin);
             riders.Add(new Rider { id = id, destination = destination, door = index, art = go.transform });
         }
-        void Draw(string label, Sprite sprite, Vector2 center, float width, int order)
-        {
-            var go = new GameObject(label); go.transform.SetParent(train, false);
-            float scale = width / Mathf.Max(.01f, sprite.bounds.size.x);
-            go.transform.localScale = Vector3.one * scale; go.transform.localPosition = (Vector3)center - sprite.bounds.center * scale;
-            var r = go.AddComponent<SpriteRenderer>(); r.sprite = sprite; r.sortingOrder = order; r.sharedMaterial = surfaces;
-            ApplyGlass(r);
-        }
-        void DrawPart(string label, SpriteRenderer source, Vector2 center, Vector2 assemblyCenter, float scale, int order)
-            => Draw(label, source.sprite, center + ((Vector2)source.bounds.center - assemblyCenter) * scale, source.bounds.size.x * scale, order);
         void ApplyGlass(SpriteRenderer renderer)
         {
             if (glass == null || renderer.sprite == null) return;
@@ -249,7 +261,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             string name = sprite.name.ToLowerInvariant();
             var block = new MaterialPropertyBlock(); renderer.GetPropertyBlock(block);
             // Only the platform screen is very transparent. Two near-transparent door skins looked like holes.
-            block.SetFloat("_GlassAlpha", name.Contains("screen_door") ? .24f : .72f);
+            block.SetFloat("_GlassAlpha", name.Contains("screen_door") ? .42f : .72f);
             if (!name.Contains("screen_door")) { renderer.SetPropertyBlock(block); return; }
             Vector2 min = Vector2.one, max = Vector2.zero;
             foreach (var uv in sprite.uv) { min = Vector2.Min(min, uv); max = Vector2.Max(max, uv); }
@@ -264,20 +276,11 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             }
             renderer.SetPropertyBlock(block);
         }
-        void Wall(string label, Vector2 a, Vector2 b, float height, Color color, int order, Transform parent)
-        {
-            var mesh = new Mesh { name = label };
-            mesh.vertices = new[] { (Vector3)a, (Vector3)b, (Vector3)(b + Vector2.up * height), (Vector3)(a + Vector2.up * height) };
-            mesh.triangles = new[] { 0, 2, 1, 0, 3, 2 }; mesh.colors = new[] { color, color, color, color };
-            mesh.uv = new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }; mesh.RecalculateBounds(); meshes.Add(mesh);
-            var go = new GameObject(label); go.transform.SetParent(parent, false); go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            var r = go.AddComponent<MeshRenderer>(); r.sharedMaterial = surfaces; r.sortingOrder = order;
-        }
         void OnDestroy()
         {
             if (flow != null) flow.TrainDoorStateChanged -= DoorChanged;
-            if (glass != null) Destroy(glass); if (surfaces != null) Destroy(surfaces);
-            foreach (var mesh in meshes) if (mesh != null) Destroy(mesh);
+            shell.Dispose();
+            if (glass != null) Destroy(glass);
         }
     }
 }

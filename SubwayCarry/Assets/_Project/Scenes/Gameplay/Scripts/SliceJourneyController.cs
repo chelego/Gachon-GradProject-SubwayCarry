@@ -157,7 +157,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                 float d = (portal.position - World.PlayerPosition).sqrMagnitude;
                 if (d >= distance) continue;
                 distance = d; position = portal.position;
-                caption = portal.stationConnection ? (World.CurrentMapIndex >= 3 ? "승강장으로" : "대합실로") : World.DoorsOpen ? (OnTrain ? "내리기" : "탑승하기") : "열차 기다리기";
+                caption = portal.stationConnection ? portal.label : World.DoorsOpen ? (OnTrain ? "내리기" : "탑승하기") : "열차 기다리기";
                 found = true;
             }
             bool facility = World.TryGetFacilityHint(out var spot);
@@ -194,10 +194,18 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public bool AllowsGateCrossing(Vector2 from, Vector2 to)
         {
             if (!World.CurrentMap.hasFareGate) return true;
-            float a = from.x * .5f + from.y - 6, b = to.x * .5f + to.y - 6;
-            if (a * b > 0 || Mathf.Approximately(a, b)) return true;
-            float across = to.y - to.x * .5f;
-            return gateOpen && across > 1.8f && across < 4.2f;
+            var gate = World.CurrentMap.GetComponent<SliceStationGate>();
+            return gate == null || gate.Allows(from, to, World.CurrentMap.characterRadius);
+        }
+        public SliceTravelDirection DepartureDirection
+        {
+            get
+            {
+                if (Order == null || Order.stops == null || Order.stops.Length < 2) return SliceTravelDirection.Unspecified;
+                string next = Order.stops[1].id;
+                return next == "moran" || next == "imae" || next == "jeongja" || next == "station_야탑"
+                    ? SliceTravelDirection.Jeongja : SliceTravelDirection.Wangsimni;
+            }
         }
 
         void Update()
@@ -299,6 +307,8 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             if (!OnTrain)
             {
                 if (Phase != DeliveryPhase.TravellingToDeparture) { Notice = "교통카드 단말기를 먼저 이용하세요."; return false; }
+                if (StopIndex == 0 && World.CurrentMap.travelDirection != SliceTravelDirection.Unspecified && World.CurrentMap.travelDirection != DepartureDirection)
+                { Notice = "반대 방향 승강장입니다. 대합실로 올라가 " + (DepartureDirection == SliceTravelDirection.Jeongja ? "정자" : "왕십리") + " 방면 계단을 이용하세요."; return false; }
                 if (World.PlatformTrain != null && !World.PlatformTrain.CanBoard) { Notice = "내리는 승객을 먼저 보내 주세요."; return false; }
                 SetPhase(DeliveryPhase.InTransit);
                 // Match the current station's boarding side; station destination is never encoded by left/right door.
@@ -336,7 +346,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             if (World.CurrentMapIndex == 3)
             {
                 if (Phase != DeliveryPhase.TravellingToDeparture || !departureGatePassed) { Notice = "배송 수락 후 교통카드를 찍고 개찰구를 통과하세요."; return false; }
-                target = 0; arrival = World.maps[0].entry;
+                target = portal.targetMap; arrival = World.maps[target].entry;
             }
             else if (World.CurrentMapIndex == 2)
             {

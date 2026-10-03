@@ -10,6 +10,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         readonly List<Mesh> meshes = new List<Mesh>();
         Material surfaces, floorMaterial;
         SliceStationArt art;
+        readonly SliceTransitGeometry stairs = new SliceTransitGeometry();
         public readonly List<Vector2> signs = new List<Vector2>();
         public readonly List<string> signLabels = new List<string>();
         static Vector2 P(float u, float v) => SliceTrainLayout.Project(u, v);
@@ -66,25 +67,30 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             for (int i = 0; i < 2; i++)
             {
                 Vector2 p = P(i * 3, 9);
-                layout.art.Draw(root.transform, 3, "Ticket and card machines", p, 2.1f, map.GroundOrder(p));
-                solids.Add(new SliceSolidFootprint { center = p, halfSize = new Vector2(.95f, .4f), slope = .5f });
+                var machine = layout.art.FloorProp(root.transform, 3, "Ticket and card machines", p, 2.1f, map.GroundOrder(p));
+                if (machine != null) solids.Add(SliceStationArt.PropFootprint(machine,3));
             }
             layout.signs.Add(P(1, 9) + Vector2.up * 2); layout.signLabels.Add("승차권 · 교통카드");
             layout.signs.Add(P(1, -2) + Vector2.up); layout.signLabels.Add(platform == 0 ? "출구 · 가천대 비전타워 방면" : "나가는 곳");
-            layout.signs.Add(P(9, 9) + Vector2.up * 3.5f); layout.signLabels.Add("수인분당선 · 타는 곳 →");
-            layout.art.Draw(root.transform, 4, "Customer service booth", P(8, 9.3f), 3.2f, map.GroundOrder(P(8, 9.3f)));
-            solids.Add(new SliceSolidFootprint { center = P(8, 9.7f), halfSize = new Vector2(1.3f, .65f), slope = .5f });
+            var booth = layout.art.FloorProp(root.transform, 4, "Customer service booth", P(8, 9.1f), 3.2f, map.GroundOrder(P(8, 9.1f)));
+            if (booth != null) solids.Add(SliceStationArt.PropFootprint(booth,4));
             // Visible barriers match the u=6 fare boundary outside the usable reader lane.
             if (gate)
             {
-                for (float v = -3; v < 1; v += 1.5f)
-                    layout.art.Draw(root.transform, 7, "Glass fare barrier", P(6, v) - new Vector2(.75f, 0), 1.65f, map.GroundOrder(P(6, v)), true);
-                for (float v = 4.5f; v < 11; v += 1.5f)
-                    layout.art.Draw(root.transform, 7, "Glass fare barrier", P(6, v) - new Vector2(.75f, 0), 1.65f, map.GroundOrder(P(6, v)), true);
+                layout.FareBarrier(map, -2.5f, 2, solids);
+                layout.FareBarrier(map, 4, 10.5f, solids);
+                foreach (float v in new[] { 2f, 4f })
+                {
+                    Vector2 p = P(6, v);
+                    var reader = layout.art.FloorProp(root.transform, 2, "Fare reader pedestal", p, 1.15f, map.GroundOrder(p));
+                    if (reader != null) solids.Add(SliceStationArt.PropFootprint(reader,2));
+                }
             }
             var portals = new List<SlicePortal>();
-            portals.Add(layout.Stairs(map, 14, 2, 1, platform, source.entry, solids));
-            portals.Add(layout.Stairs(map, 18, 7, -1, platform, source.entry, solids));
+            portals.Add(layout.Stairs(map, P(14, 6.4f), false, platform == 0 ? 6 : platform, source.entry, solids,
+                platform == 0 ? SliceTravelDirection.Wangsimni : SliceTravelDirection.Unspecified));
+            portals.Add(layout.Stairs(map, P(14, .4f), true, platform, source.entry, solids,
+                platform == 0 ? SliceTravelDirection.Jeongja : SliceTravelDirection.Unspecified));
             if (bench != null)
             {
                 Vector2 p = SliceTrainLayout.Project(2, 6);
@@ -106,62 +112,67 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             map.portals = portals.ToArray();
             map.exits = new SliceExit[0]; // Public concourse crowd is connected separately, never spawned through a closed fare gate.
             map.interests = interests.ToArray(); map.solidFootprints = solids.ToArray();
+            map.BuildFootprintColliders();
             map.EnsureGrid();
             if (gate) root.AddComponent<SliceStationGate>().Initialize(map);
             root.SetActive(false); return map;
         }
-        SlicePortal Stairs(SliceMap map, float u, float v, float direction, int target, Vector2 arrival, List<SliceSolidFootprint> solids)
+        void FareBarrier(SliceMap map, float start, float end, List<SliceSolidFootprint> solids)
         {
-            Vector2 entry = P(u, v);
-            var stair = art.Draw(transform, 6, "Recessed platform stairwell", entry,
-                4.8f, map.GroundOrder(entry) - 10, direction < 0);
-            Vector2 start = entry, finish = entry;
-            if (stair != null)
+            for (float v = start; v < end; v += 1.5f)
             {
-                // The near yellow landing is level with the hall. The flight descends toward the far dark opening.
-                // Both endpoints are sampled in the sprite's own coordinates (including its flipped view).
-                Vector2 landing = SliceStationArt.Point(stair, new Vector2(.32f, .22f));
-                stair.transform.position += (Vector3)(entry - landing);
-                Vector2 far = SliceStationArt.Point(stair, new Vector2(.75f, .70f));
-                Vector2 flight = (far - entry).normalized;
-                start = entry - flight * .42f;
-                finish = Vector2.Lerp(entry, far, .84f);
-                StairForeground(stair, map.GroundOrder(entry) + 4);
+                Vector2 a = P(6, v), b = P(6, Mathf.Min(end, v + 1.5f));
+                art.Barrier(transform, a, b, map.GroundOrder((a+b)*.5f));
+                solids.Add(new SliceSolidFootprint { center = (a+b)*.5f, halfSize = new Vector2(Mathf.Abs(b.x-a.x)*.5f + .045f, .06f), slope = -.5f });
             }
-            Vector2 floorCenter = (start + finish) * .5f;
-            // Solid ground footprint: only the guided entry can enter the stairwell, never a side wall.
-            solids.Add(new SliceSolidFootprint { center = floorCenter + new Vector2(direction, .5f) * .32f,
-                halfSize = new Vector2(Mathf.Abs(finish.x - start.x) * .5f + .30f, .55f), slope = direction * .5f });
-            return new SlicePortal { label = "승강장으로", stationConnection = true, guidedTraversal = true,
-                position = start - new Vector2(direction, .5f).normalized * .38f, traversalEnd = finish, traversalSeconds = 2.6f, targetMap = target, arrival = arrival };
         }
-        void StairForeground(SpriteRenderer stair, int order)
+        SlicePortal Stairs(SliceMap map, Vector2 entry, bool right, int target, Vector2 arrival, List<SliceSolidFootprint> solids, SliceTravelDirection direction)
         {
-            // Reuse only the near side/rim pixels as a foreground layer; walkers descend behind the rim.
-            var outline = new[] { new Vector2(.43f, .02f), new Vector2(.99f, .71f), new Vector2(.93f, .83f), new Vector2(.36f, .10f) };
-            var vertices = new Vector3[4]; var uv = new Vector2[4]; var colors = new Color[4]; var s = stair.sprite;
-            for (int i = 0; i < 4; i++)
+            // One common projection for landing, each tread, riser, wall cap and railing. No flipped painted hole.
+            Vector2 run = P(right ? 1 : 0, right ? 0 : 1), across = P(right ? 0 : 1, right ? 1 : 0);
+            const int count = 10; const float tread = .32f, rise = .12f, half = 1.05f;
+            Vector2 end = entry + run * (count * tread), left = across * half;
+            int backOrder = map.GroundOrder(entry) - 8, frontOrder = map.GroundOrder(entry) + 8;
+            Color dark = new Color32(31, 38, 40, 255), stone = new Color32(124, 131, 130, 255), edge = new Color32(224, 186, 46, 255);
+            stairs.Quad(entry-left, entry+left, end+left, end-left, dark, backOrder);
+            // The opening is never walkable from its sides. Traversal alone owns the descending feet.
+            for (int i = 0; i <= count; i++)
             {
-                vertices[i] = transform.InverseTransformPoint(SliceStationArt.Point(stair, outline[i]));
-                uv[i] = new Vector2((s.rect.x + s.rect.width * outline[i].x) / s.texture.width, (s.rect.y + s.rect.height * outline[i].y) / s.texture.height);
-                colors[i] = Color.white;
+                Vector2 ground = entry + run * (i * tread);
+                solids.Add(new SliceSolidFootprint { center = ground, halfSize = new Vector2(half + .12f, .20f), slope = right ? -.5f : .5f });
             }
-            var mesh = new Mesh { name = "Stairwell foreground rim" }; mesh.vertices = vertices; mesh.uv = uv; mesh.colors = colors;
-            mesh.triangles = new[] { 0, 1, 2, 0, 2, 3 }; mesh.RecalculateBounds(); meshes.Add(mesh);
-            var go = new GameObject(mesh.name); go.transform.SetParent(transform, false); go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            var renderer = go.AddComponent<MeshRenderer>(); renderer.sharedMaterial = stair.sharedMaterial; renderer.sortingOrder = order;
-            var block = new MaterialPropertyBlock(); block.SetTexture("_MainTex", s.texture); renderer.SetPropertyBlock(block);
-        }
-        void Panel(string name, Vector2 a, Vector2 b, float height, Color color, int order)
-            => Quad(name, a, b, b + Vector2.up * height, a + Vector2.up * height, color, order);
-        void Quad(string name, Vector2 a, Vector2 b, Vector2 c, Vector2 d, Color color, int order)
-        {
-            var mesh = new Mesh { name = name }; meshes.Add(mesh);
-            mesh.vertices = new[] { (Vector3)a, (Vector3)b, (Vector3)c, (Vector3)d };
-            mesh.triangles = new[] { 0, 2, 1, 0, 3, 2 }; mesh.colors = new[] { color, color, color, color };
-            mesh.uv = new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }; mesh.RecalculateBounds();
-            var go = new GameObject(name); go.transform.SetParent(transform, false); go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            var renderer = go.AddComponent<MeshRenderer>(); renderer.sharedMaterial = surfaces; renderer.sortingOrder = order;
+            for (int i = count - 1; i >= 0; i--)
+            {
+                Vector2 near = entry + run * (i * tread) - Vector2.up * (i * rise);
+                Vector2 far = entry + run * ((i+1)*tread) - Vector2.up * (i*rise);
+                stairs.Quad(near-left, near+left, far+left, far-left, i%2==0 ? stone : new Color32(115, 123, 124, 255), backOrder+1);
+                stairs.Quad(far-left, far+left, far+left-Vector2.up*rise, far-left-Vector2.up*rise, new Color32(67, 77, 80, 255), backOrder+1);
+                stairs.Rail(far-left, far+left, .035f, edge, backOrder+1);
+                stairs.Rail(near-left, far-left, .02f, dark, backOrder+1);
+            }
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Vector2 a = entry + left*side, b = end + left*side, outside = across * (.17f*side);
+                int order = (right ? side > 0 : side < 0) ? backOrder+2 : frontOrder;
+                stairs.Quad(a, b-Vector2.up*(count*rise), b+Vector2.up*.36f, a+Vector2.up*.36f, stone, order);
+                stairs.Quad(a+Vector2.up*.36f, b+Vector2.up*.36f, b+outside+Vector2.up*.36f, a+outside+Vector2.up*.36f, new Color32(191, 193, 184, 255), order+1);
+                for (int p = 0; p <= 2; p++)
+                {
+                    float t = p / 2f; Vector2 basePoint = Vector2.Lerp(a, b, t) - Vector2.up * count*rise*t;
+                    stairs.Rail(basePoint, basePoint+Vector2.up*.9f, .045f, new Color32(166, 184, 188, 255), order+2);
+                }
+                stairs.Rail(a+Vector2.up*.9f, b+Vector2.up*(.9f-count*rise), .07f, new Color32(220, 229, 228, 255), order+2);
+            }
+            // Top landing is exactly at hall level; only this edge accepts interaction.
+            stairs.Quad(entry-run*.45f-left, entry-run*.45f+left, entry+left, entry-left, edge, -23980);
+            for (int i = 0; i < 9; i++)
+                stairs.Rail(entry-run*.4f+across*(-.95f+i*.23f), entry-run*.08f+across*(-.95f+i*.23f), .025f, new Color32(164, 132, 36, 255), -23979);
+            stairs.Flush(transform, "Recessed stairwell structure");
+            string label = direction == SliceTravelDirection.Wangsimni ? "왕십리 방면 ↓" : direction == SliceTravelDirection.Jeongja ? "정자 방면 ↓" : "승강장 ↓";
+            signs.Add(entry + Vector2.up * 2.2f); signLabels.Add(label);
+            return new SlicePortal { label = label, stationConnection = true, guidedTraversal = true, direction = direction,
+                position = entry - run.normalized * .75f, traversalEnd = end - Vector2.up * (count*rise),
+                traversalSeconds = 2.6f, targetMap = target, arrival = arrival };
         }
         void FlatFloor(Sprite tile, List<SliceFloorDiamond> diamonds)
         {
@@ -187,7 +198,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             var go = new GameObject(mesh.name); go.transform.SetParent(transform, false); go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var renderer = go.AddComponent<MeshRenderer>(); renderer.sharedMaterial = floorMaterial; renderer.sortingOrder = -24000;
         }
-        void OnDestroy() { foreach (var mesh in meshes) Destroy(mesh); if (surfaces != null) Destroy(surfaces); if (floorMaterial != null) Destroy(floorMaterial); }
+        void OnDestroy() { stairs.Dispose(); foreach (var mesh in meshes) Destroy(mesh); if (surfaces != null) Destroy(surfaces); if (floorMaterial != null) Destroy(floorMaterial); }
         public static void ConnectPlatformAccess(SliceMap map, int target, Vector2 arrival)
         {
             var portals = new List<SlicePortal>(map.portals);
@@ -206,10 +217,14 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                 if (!found) map.entry = approach;
                 found = true;
             }
-            if (!found) return;
             map.solidFootprints = solids.ToArray(); map.portals = portals.ToArray(); map.RebuildGrid();
+            map.BuildFootprintColliders();
             map.entry = map.Grid.Nearest(map.entry);
-            for (int i = 0; i < map.portals.Length; i++) if (map.portals[i].stationConnection) map.portals[i].position = map.Grid.Nearest(map.portals[i].position);
+            // Imported anchors were authored with a padded floor mask. Keep all spawn/approach feet on the
+            // final visible top surface after furniture and access structures have been added.
+            for (int i = 0; i < map.portals.Length; i++) map.portals[i].position = map.Grid.Nearest(map.portals[i].position);
+            for (int i = 0; i < map.exits.Length; i++) map.exits[i].inside = map.Grid.Nearest(map.exits[i].inside);
+            for (int i = 0; i < map.interests.Length; i++) map.interests[i].position = map.Grid.Nearest(map.interests[i].position);
         }
         static SpriteRenderer AddArt(Transform root, string label, Sprite sprite, Vector2 p, float width, Material material, int order)
         {

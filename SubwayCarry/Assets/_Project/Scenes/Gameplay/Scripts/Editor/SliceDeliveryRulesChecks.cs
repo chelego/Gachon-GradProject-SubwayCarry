@@ -11,6 +11,16 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         public static void Run()
         {
             checks = 0;
+            Require(Math.Abs(SlicePresentationRules.FloorHalfWidth(2.45f*.984f,.5f)-2.505f)<.0001f, "Floor sprite spans five projected grid cells");
+            Require(Math.Abs(SlicePresentationRules.FloorHalfWidth(2.3f*.984f,.5f)-2.505f)<.0001f, "Tactile grout stays connected to ordinary floor");
+            Require(Math.Abs(SlicePresentationRules.FloorHalfWidth(2.45f*.984f*2,1)-5.005f)<.0001f, "Floor grid span follows map scale");
+            Require(Math.Abs(SlicePresentationRules.FloorHalfWidth(2.4f,0)-2.405f)<.0001f, "Degenerate grid axis retains visible floor width");
+            Require(!SlicePresentationRules.AllowsFarePassage(-.4f,.4f,3,.28f,false), "Closed fare gate blocks entering");
+            Require(!SlicePresentationRules.AllowsFarePassage(.4f,-.4f,3,.28f,false), "Closed fare gate blocks leaving");
+            Require(SlicePresentationRules.AllowsFarePassage(-.4f,.4f,3,.28f,true), "Valid open gate lane");
+            Require(!SlicePresentationRules.AllowsFarePassage(-.4f,.4f,6,.28f,true), "Open gate never opens the glass barrier");
+            Require(!SlicePresentationRules.AllowsFarePassage(-.4f,-.1f,3,.28f,false), "Feet radius stops before the flap plane");
+            Require(SlicePresentationRules.AllowsFarePassage(-.1f,-.2f,3,.28f,false), "Contact recovery can move away without freezing");
             var intact = SliceDeliveryRules.Evaluate(100, 100, false, 25000, 3000, 1500, 1500, true, true);
             Require(intact.Success && intact.NetIncome == 1500 && intact.ReturnFare == 0 && !intact.UsedInsurance && !intact.UsedFareSupport, "Intact/free return");
             var boxOnly = SliceDeliveryRules.Evaluate(99, 100, false, 25000, 3000, 1500, 1500, true, false);
