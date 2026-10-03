@@ -7,12 +7,10 @@ namespace SubwayCarry.UI
     public sealed class BalanceHudPresenter : MonoBehaviour
     {
         [SerializeField] private MonoBehaviour balanceProviderSource;
-        [SerializeField, Min(0f)] private float resultDisplayDuration = 0.65f;
 
         private IBalanceStateProvider balanceProvider;
         private BalanceStateSnapshot state;
         private bool subscribed;
-        private float resultVisibleUntil;
         private Texture2D whiteTexture;
         private Font font;
         private GUIStyle panelStyle;
@@ -93,23 +91,13 @@ namespace SubwayCarry.UI
         private void HandleBalanceStateChanged(BalanceStateSnapshot snapshot)
         {
             state = snapshot;
-            if (snapshot.Phase == BalanceChallengePhase.Succeeded ||
-                snapshot.Phase == BalanceChallengePhase.Failed)
-            {
-                resultVisibleUntil = Time.unscaledTime + resultDisplayDuration;
-            }
-            else if (snapshot.Phase == BalanceChallengePhase.Cancelled)
-            {
-                resultVisibleUntil = 0f;
-            }
         }
 
         private void OnGUI()
         {
             bool showResult =
                 (state.Phase == BalanceChallengePhase.Succeeded ||
-                 state.Phase == BalanceChallengePhase.Failed) &&
-                Time.unscaledTime <= resultVisibleUntil;
+                 state.Phase == BalanceChallengePhase.Failed);
             if (!state.IsActive && !showResult)
             {
                 return;
@@ -168,6 +156,10 @@ namespace SubwayCarry.UI
                 new Rect(panel.x + 18f, panel.y + 54f, panel.width - 36f, 58f),
                 success ? "중심을 잡았습니다" : "중심을 잃었습니다",
                 titleStyle);
+            GUI.Label(
+                new Rect(panel.x + 18f, panel.y + 111f, panel.width - 36f, 32f),
+                "이동 복귀까지 " + state.RemainingSeconds.ToString("0.0") + "초",
+                detailStyle);
         }
 
         private void DrawPatternGauge(Rect gauge)

@@ -46,6 +46,7 @@ namespace SubwayCarry.Gameplay
 
         [Header("Common")]
         [SerializeField, Min(0f)] private float warningDuration = 0.35f;
+        [SerializeField, Min(0f)] private float resultDisplayDuration = 2f;
         [SerializeField, Min(0f)] private float failureImpactSpeed = 2f;
 
         private ITrainMotionProvider trainMotionProvider;
@@ -77,7 +78,10 @@ namespace SubwayCarry.Gameplay
 
         public bool IsActive => phase == BalanceChallengePhase.Warning ||
                                 phase == BalanceChallengePhase.Active;
-        public bool ConsumesMovementInput => IsActive;
+        private bool IsShowingResult =>
+            phase == BalanceChallengePhase.Succeeded ||
+            phase == BalanceChallengePhase.Failed;
+        public bool ConsumesMovementInput => IsActive || IsShowingResult;
         public Key CurrentPromptKey => IsActive ? ToKey(requiredInput) : default;
         public float PromptTimeRemaining => phaseTimer;
         public float ProgressRatio => progress;
@@ -120,7 +124,7 @@ namespace SubwayCarry.Gameplay
 
         public void CancelCurrentChallenge()
         {
-            if (IsActive)
+            if (ConsumesMovementInput)
             {
                 ResolveChallenge(BalanceChallengePhase.Cancelled);
             }
@@ -147,6 +151,12 @@ namespace SubwayCarry.Gameplay
         private void Update()
         {
             if (InputSuspended) return;
+            if (IsShowingResult)
+            {
+                UpdateResultDisplay();
+                return;
+            }
+
             if (!IsActive)
             {
                 return;
@@ -187,7 +197,7 @@ namespace SubwayCarry.Gameplay
 
         private void HandleTrainMotionChanged(TrainMotionSnapshot snapshot)
         {
-            if (IsActive || snapshot.Intensity <= 0f || balanceParticipant == null ||
+            if (ConsumesMovementInput || snapshot.Intensity <= 0f || balanceParticipant == null ||
                 !CanBalanceInPosture(balanceParticipant.CurrentBalancePosture))
             {
                 return;
@@ -484,7 +494,26 @@ namespace SubwayCarry.Gameplay
         {
             phase = result;
             requiredInput = BalanceInputDirection.None;
-            phaseTimer = 0f;
+            phaseTimer = result == BalanceChallengePhase.Succeeded ||
+                         result == BalanceChallengePhase.Failed
+                ? resultDisplayDuration
+                : 0f;
+            NotifyBalanceStateChanged();
+        }
+
+        private void UpdateResultDisplay()
+        {
+            phaseTimer = Mathf.Max(0f, phaseTimer - Time.unscaledDeltaTime);
+            if (phaseTimer > 0f)
+            {
+                NotifyBalanceStateChanged();
+                return;
+            }
+
+            phase = BalanceChallengePhase.Inactive;
+            activePattern = BalanceChallengePattern.None;
+            inputAxis = BalanceInputAxis.None;
+            requiredInput = BalanceInputDirection.None;
             NotifyBalanceStateChanged();
         }
 

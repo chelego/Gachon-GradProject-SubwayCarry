@@ -14,6 +14,9 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         int preview;
         bool mapTab = true, help, services;
         bool wasMapOpen;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        bool confirmDebugRestart;
+#endif
         Vector2 scroll;
         string notice;
         float noticeUntil;
@@ -164,8 +167,22 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         }
         void DrawBalance()
         {
-            var b = flow.World.Balance.CurrentBalanceState; if (!b.IsActive) return;
+            var b = flow.World.Balance.CurrentBalanceState;
+            bool showResult = b.Phase == BalanceChallengePhase.Succeeded ||
+                              b.Phase == BalanceChallengePhase.Failed;
+            if (!b.IsActive && !showResult) return;
             Panel(new Rect(431, 516, 418, 94), Card);
+            if (showResult)
+            {
+                bool success = b.Phase == BalanceChallengePhase.Succeeded;
+                Color old = GUI.color;
+                GUI.color = success ? Mint : Red;
+                Label(451, 526, 378, success ? "중심을 잡았습니다" : "중심을 잃었습니다", center);
+                GUI.color = old;
+                Label(451, 563, 378, "이동 복귀까지 " + b.RemainingSeconds.ToString("0.0") + "초", small);
+                return;
+            }
+
             string key = flow.World.Balance.CurrentPromptKey.ToString();
             string hint = b.Pattern == BalanceChallengePattern.CenterGauge ? (b.InputAxis == BalanceInputAxis.Horizontal ? "A · D  중심 잡기" : "W · S  중심 잡기") : b.Pattern == BalanceChallengePattern.ImpactTiming ? key + "  타이밍 맞추기" : key + "  연타해서 버티기";
             Label(451, 528, 378, hint, center);
@@ -248,10 +265,34 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         }
         void DrawPause()
         {
-            Fill(new Rect(0, 0, 1280, 720), new Color(0, 0, 0, .55f)); Panel(new Rect(460, 223, 360, 264), Card);
+            Fill(new Rect(0, 0, 1280, 720), new Color(0, 0, 0, .55f));
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            Panel(new Rect(460, 166, 360, 388), Card);
+            Label(490, 193, 300, "잠시 쉬어가기", title);
+            if (Button(new Rect(490, 257, 300, 48), "저장")) flow.SaveProgress();
+            if (Button(new Rect(490, 325, 300, 48), "계속하기", true)) { confirmDebugRestart = false; flow.TogglePause(); }
+
+            // DEBUG ONLY: this control is compiled only for the Unity Editor and Development Builds.
+            if (!confirmDebugRestart)
+            {
+                if (Button(new Rect(490, 413, 300, 48), "처음부터 시작 (DEBUG)")) confirmDebugRestart = true;
+            }
+            else
+            {
+                Label(490, 391, 300, "저장 진행을 삭제합니다.", small);
+                if (Button(new Rect(490, 429, 204, 48), "정말 초기화", false))
+                {
+                    confirmDebugRestart = false;
+                    flow.DebugStartFromBeginning();
+                }
+                if (Button(new Rect(704, 429, 86, 48), "취소")) confirmDebugRestart = false;
+            }
+#else
+            Panel(new Rect(460, 223, 360, 264), Card);
             Label(490, 250, 300, "잠시 쉬어가기", title);
             if (Button(new Rect(490, 314, 300, 48), "저장")) flow.SaveProgress();
             if (Button(new Rect(490, 382, 300, 48), "계속하기", true)) flow.TogglePause();
+#endif
         }
         void DrawHelp()
         {

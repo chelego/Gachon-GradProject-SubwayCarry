@@ -63,6 +63,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         bool gateOpen, departureGatePassed, exitGatePassed;
         float gateClosesAt;
         float departureHold;
+        int initialMaximumPassengers;
         public bool ScholarshipAwarded { get; private set; }
         public bool GateOpen => gateOpen;
         PlayerPackageCarrier carrier;
@@ -72,6 +73,7 @@ namespace SubwayCarry.Prototype.ArtMapSlice
         {
             World = world; Catalog = catalog;
             if (!catalog.IsValid(out string error)) { Debug.LogError(error, catalog); enabled = false; return; }
+            initialMaximumPassengers = world.maximumPassengers;
             Economy = gameObject.AddComponent<EconomyService>();
             carrier = world.Player.GetComponent<PlayerPackageCarrier>();
             carrier.SetPackageAvailable(false);
@@ -576,6 +578,82 @@ namespace SubwayCarry.Prototype.ArtMapSlice
             save.scholarship = ScholarshipAwarded;
             PlayerPrefs.SetString(SaveKey, JsonUtility.ToJson(save)); PlayerPrefs.Save();
         }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // DEBUG ONLY: clears the integration prototype save and restores the same state as a first launch.
+        // This is intentionally excluded from non-development player builds.
+        public void DebugStartFromBeginning()
+        {
+            if (!initialized || World == null || World.IsChangingMap)
+            {
+                return;
+            }
+
+            PlayerPrefs.DeleteKey(SaveKey);
+            PlayerPrefs.Save();
+
+            restoring = true;
+            try
+            {
+                Paused = false;
+                PresentationPaused = false;
+                MapOpen = true;
+
+                World.Balance.CancelCurrentChallenge();
+                carrier.SetPackageAvailable(false);
+                World.ResetPassengerJourney();
+                World.Package.ResetToFull();
+                World.Posture.RestorePosture(CarryPosture.Standing, 1f);
+                World.maximumPassengers = initialMaximumPassengers;
+
+                Economy.ResetToInitial();
+                SelectedIndex = -1;
+                StopIndex = 0;
+                Insurance = 0;
+                FareSupport = 0;
+                StaminaLevel = 0;
+                BalanceLevel = 0;
+                AgilityLevel = 0;
+                ApplyUpgrades();
+
+                resumedOrder = null;
+                step = ServiceStep.Waiting;
+                timer = Catalog.travelSeconds;
+                travelled = 0f;
+                sequence = 0;
+                paidFare = 0;
+                transferred = false;
+                middleEvent = false;
+                gateOpen = false;
+                departureGatePassed = false;
+                exitGatePassed = false;
+                gateClosesAt = 0f;
+                departureHold = 0f;
+                ScholarshipAwarded = false;
+                Failure = DeliveryFailureReason.None;
+                ServiceReceipt = "";
+                LastSettlement = default;
+                CurrentTransitProgress = default;
+                CurrentTrainMotion = new TrainMotionSnapshot(
+                    sequence,
+                    TrainMotionPhase.Stopped,
+                    Vector2.zero,
+                    0f);
+                TrainMotionChanged?.Invoke(CurrentTrainMotion);
+
+                SetPhase(DeliveryPhase.None);
+                SetDoor(TrainDoorState.Closed);
+                Notice = "디버그 초기화 완료. 첫 배송부터 시작합니다.";
+                SetControl();
+                World.TravelTo(3, World.maps[3].entry);
+            }
+            finally
+            {
+                restoring = false;
+            }
+        }
+#endif
+
         void RestoreProgress()
         {
             if (!PlayerPrefs.HasKey(SaveKey)) return;
