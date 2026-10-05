@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b018ed18885745488f90c13f5e31c5f, type: 3}
+  m_Name: Metro3DSettings
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay3D.Metro3DSettings
+  deliveries: {fileID: 11400000, guid: f1b5904fb03a461c995323be468f5e93, type: 2}
+  renderPipeline: {fileID: 11400000, guid: 2a8ecad497a0ea84b95ad9642bb16cc1, type: 2}
+  passengerPrefab: {fileID: 2725969052962753867, guid: 3a6f2d54f2dc9ca40ba4611746e741ff, type: 3}
+  environmentLibrary: {fileID: 8747433725557183790, guid: 04b238b97722072478355149c2784f64, type: 3}
+  idle: {fileID: -7108391176444531828, guid: adbbaa6d4d5e8244db8f63570a2aec60, type: 3}
+  walk: {fileID: -5272937221406413491, guid: adbbaa6d4d5e8244db8f63570a2aec60, type: 3}
+  sit: {fileID: 7818904994963266402, guid: adbbaa6d4d5e8244db8f63570a2aec60, type: 3}
+  tile: {fileID: 2100000, guid: d20968033ad7d7842aae07c197f01a3a, type: 2}
+  stone: {fileID: 2100000, guid: 64bbcfe692714be4baee6584c18ff80e, type: 2}
+  metal: {fileID: 2100000, guid: 3158fe1422dd62d42b4c95429b0495fa, type: 2}
+  glass: {fileID: 2100000, guid: 8cfac8d9a4e7336498672d3ac05bf597, type: 2}
+  yellow: {fileID: 2100000, guid: 9127b0c9d654d594a8d34359c1dcfb0f, type: 2}
+  rubber: {fileID: 2100000, guid: 0d42b57a272fe8d48bb2bed4bf643066, type: 2}
+  seat: {fileID: 2100000, guid: efcbcac018e8ca84b99e739c5db2ad18, type: 2}
+  ceiling: {fileID: 2100000, guid: bc08d585303d9d647ac0e2bba5b94b3f, type: 2}
+  luminous: {fileID: 2100000, guid: 0fb85836298d1eb47a453866bb2918ec, type: 2}
+  box: {fileID: 2100000, guid: de4bb216e8c0654458de189009cb4e14, type: 2}
+  wood: {fileID: 2100000, guid: 052d8cf1b57e5a9488b15ecb4b6291a6, type: 2}
+  green: {fileID: 2100000, guid: 7ede06b88f6600f48977f1ba8111c67e, type: 2}
+  brown: {fileID: 2100000, guid: 4b42da6e22c6f1949ba1fcbc8febfe5e, type: 2}
+  blue: {fileID: 2100000, guid: 7caf5f4803eee9d45a9f27276621ac71, type: 2}
+  white: {fileID: 2100000, guid: bc08d585303d9d647ac0e2bba5b94b3f, type: 2}
+  red: {fileID: 2100000, guid: ae6749c0db9f57344bab243c470052dd, type: 2}
+  font: {fileID: 12800000, guid: c745ee20ef994724b6c663f049458e6c, type: 3}
+  walkSpeed: 2.3
+  runSpeed: 3.5
+  mouseSensitivity: 0.085
+  headBob: 0.012
+  passengerCount: 16
+  approachSeconds: 8
+  dwellSeconds: 22
+  travelSeconds: 30
+  doorSeconds: 1.25
+  departureFloor: 3.6
+  npcSpeed: 1.25
