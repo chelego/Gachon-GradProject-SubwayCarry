@@ -1,0 +1,10 @@
+Carnegie Mellon University Graphics Lab Motion Capture Database
+Source: https://mocap.cs.cmu.edu/
+Usage FAQ: https://mocap.cs.cmu.edu/faqs.php
+Checked: 2026-10-10
+
+The motion capture data may be copied, modified, or redistributed without permission.
+
+The original ASF skeleton and AMC joint samples are retained here. Blender
+retargeting and environment-contact corrections are authored for SubwayCarry;
+they are not claimed to be unmodified motion-capture recordings.

@@ -5,7 +5,7 @@ ModelImporter:
   internalIDToNameTable: []
   externalObjects: {}
   materials:
-    materialImportMode: 0
+    materialImportMode: 1
     materialName: 0
     materialSearch: 1
     materialLocation: 1
@@ -35,7 +35,7 @@ ModelImporter:
       takeName: Human Armature|Idle
       internalID: -7108391176444531828
       firstFrame: 0
-      lastFrame: 120
+      lastFrame: 90
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
@@ -151,7 +151,7 @@ ModelImporter:
       takeName: Human Armature|Walk
       internalID: -5272937221406413491
       firstFrame: 0
-      lastFrame: 30
+      lastFrame: 37
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
