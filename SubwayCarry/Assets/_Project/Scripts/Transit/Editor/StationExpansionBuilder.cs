@@ -120,12 +120,19 @@ namespace SubwayCarry.Transit.Editor
             solid = SpriteAt("StationSolid");
             font = AssetDatabase.LoadAssetAtPath<Font>(Root + "/Art/Fonts/NanumGothic-Regular.ttf");
             if (font == null) throw new InvalidOperationException("Station Korean font is missing.");
+            var spriteShader = ProjectShaderConnections.RequireShader(
+                "Packages/com.unity.render-pipelines.universal/Shaders/2D/Sprite-Unlit-Default.shader");
             string materialPath = Art + "/StationUnlit.mat";
             spriteMaterial = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
             if (spriteMaterial == null)
             {
-                spriteMaterial = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
+                spriteMaterial = new Material(spriteShader);
                 AssetDatabase.CreateAsset(spriteMaterial, materialPath);
+            }
+            else if (spriteMaterial.shader != spriteShader)
+            {
+                spriteMaterial.shader = spriteShader;
+                EditorUtility.SetDirty(spriteMaterial);
             }
             var geometryShader = RequireGeometryShader();
             string geometryPath = Art + "/StationGeometry.mat";

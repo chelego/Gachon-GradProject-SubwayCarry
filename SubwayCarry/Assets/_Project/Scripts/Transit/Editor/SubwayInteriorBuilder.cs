@@ -208,11 +208,18 @@ namespace SubwayCarry.Transit.Editor
             solid = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/_Project/Art/Sprites/StationSolid.png");
             if (solid == null) throw new InvalidOperationException("StationSolid sprite is required.");
             font = AssetDatabase.LoadAssetAtPath<Font>("Assets/_Project/Art/Fonts/NanumGothic-Regular.ttf");
+            var spriteShader = ProjectShaderConnections.RequireShader(
+                "Packages/com.unity.render-pipelines.universal/Shaders/2D/Sprite-Unlit-Default.shader");
             material = AssetDatabase.LoadAssetAtPath<Material>(Art + "InteriorUnlit.mat");
             if (material == null)
             {
-                material = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
+                material = new Material(spriteShader);
                 AssetDatabase.CreateAsset(material, Art + "InteriorUnlit.mat");
+            }
+            else if (material.shader != spriteShader)
+            {
+                material.shader = spriteShader;
+                EditorUtility.SetDirty(material);
             }
             string polePath = Art + "PoleCap.png";
             if (!File.Exists(polePath))

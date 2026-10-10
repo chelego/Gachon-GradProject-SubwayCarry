@@ -42,3 +42,10 @@ crashlytics-build.properties
 
 # Packages (if using local package cache, keep manifest but ignore lock artifacts as needed)
 /[Pp]ackages/*.log
+
+# Preserve shader and material references across machines.
+!/[Aa]ssets/**/*.shader.meta
+!/[Aa]ssets/**/*.shadergraph.meta
+!/[Aa]ssets/**/*.shadersubgraph.meta
+!/[Aa]ssets/**/*.mat.meta
+!/[Aa]ssets/_Project/Scripts/Transit/Editor/ProjectShaderConnections.cs.meta
