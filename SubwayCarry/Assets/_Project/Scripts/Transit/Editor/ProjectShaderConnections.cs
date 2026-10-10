@@ -72,6 +72,21 @@ namespace SubwayCarry.Transit.Editor
             return "supported=" + shader.isSupported + "; compiler errors=" + ShaderUtil.ShaderHasError(shader);
         }
 
+        private static string CompileCustomPasses(Material material)
+        {
+            if (!material.shader || !AssetDatabase.GetAssetPath(material.shader)
+                .StartsWith("Assets/", StringComparison.Ordinal)) return null;
+
+            // Shader variants compile on demand. Check the actual variant used by this material.
+            var passes = new List<string>();
+            for (int pass = 0; pass < material.passCount; pass++)
+            {
+                ShaderUtil.CompilePass(material, pass, true);
+                passes.Add(pass + "=" + ShaderUtil.IsPassCompiled(material, pass));
+            }
+            return string.Join(", ", passes);
+        }
+
         [MenuItem("SubwayCarry/Diagnostics/Audit Project Shader Connections")]
         public static void AuditProject()
         {
@@ -93,11 +108,13 @@ namespace SubwayCarry.Transit.Editor
                 foreach (var material in AssetDatabase.LoadAllAssetsAtPath(path).OfType<Material>())
                 {
                     materials++;
+                    string compiledPasses = CompileCustomPasses(material);
                     if (ShaderBroken(material.shader)) issues++;
                     report.AppendLine("MATERIAL " + path + " [" + material.name + "] -> "
                         + (material.shader ? material.shader.name : "MISSING")
                         + "; shader asset=" + AssetDatabase.GetAssetPath(material.shader)
                         + "; status=" + ShaderStatus(material.shader));
+                    if (compiledPasses != null) report.AppendLine("  Compiled custom shader passes: " + compiledPasses);
                     if (File.Exists(path) && path.EndsWith(".mat", StringComparison.Ordinal))
                     {
                         var stored = Regex.Match(File.ReadAllText(path), @"m_Shader:\s*\{[^}]*guid:\s*([a-f0-9]+)");
