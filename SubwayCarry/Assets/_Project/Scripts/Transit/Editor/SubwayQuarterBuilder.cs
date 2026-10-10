@@ -221,10 +221,61 @@ namespace SubwayCarry.Transit.Editor
             font=AssetDatabase.LoadAssetAtPath<Font>("Assets/_Project/Art/Fonts/NanumGothic-Regular.ttf");
         }
 
+        private static Shader RequireSurfaceShader()
+        {
+            const string path = Art + "SubwayQuarterSurface.shader";
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>(path);
+            if (shader == null)
+                throw new InvalidOperationException("Missing quarter-view shader. Restore " + path + " and its .meta from Git.");
+            if (ShaderUtil.ShaderHasError(shader) || !shader.isSupported)
+                throw new InvalidOperationException("Quarter-view shader cannot compile or is unsupported. Select " + path + " and check the Console.");
+            return shader;
+        }
+
+        [MenuItem("SubwayCarry/Train/Repair Quarter View Material Shaders")]
+        public static void RepairMaterialShaders()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new InvalidOperationException("Exit Play Mode before repairing quarter-view materials.");
+
+            const string shaderPath = Art + "SubwayQuarterSurface.shader";
+            AssetDatabase.ImportAsset(shaderPath, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+            var shader = RequireSurfaceShader();
+            var materials = new List<Material>();
+            foreach (string name in new[] { "QuarterSolid", "QuarterFloor", "QuarterDoor" })
+            {
+                string path = Art + name + ".mat";
+                var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (material == null)
+                    throw new InvalidOperationException("Missing quarter-view material: " + path);
+                materials.Add(material);
+            }
+
+            int repaired = 0;
+            foreach (var material in materials)
+            {
+                if (material.shader != shader)
+                {
+                    Undo.RecordObject(material, "Repair quarter-view shader");
+                    material.shader = shader;
+                    EditorUtility.SetDirty(material);
+                    AssetDatabase.SaveAssetIfDirty(material);
+                    repaired++;
+                }
+                AssetDatabase.ImportAsset(AssetDatabase.GetAssetPath(material),
+                    ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+            }
+            SceneView.RepaintAll();
+            Debug.Log("Quarter-view material shaders verified: 3/3; reassigned: " + repaired
+                + ". Door, floor and wall materials use " + shader.name + ".");
+        }
+
         private static Material MaterialAsset(string name, Texture texture)
         {
             string path=Art+name+".mat";var material=AssetDatabase.LoadAssetAtPath<Material>(path);
-            if(material==null){material=new Material(Shader.Find("SubwayCarry/Quarter Car Surface"));AssetDatabase.CreateAsset(material,path);}
+            var shader=RequireSurfaceShader();
+            if(material==null){material=new Material(shader);AssetDatabase.CreateAsset(material,path);}
+            else material.shader=shader;
             material.mainTexture=texture;EditorUtility.SetDirty(material);return material;
         }
 
