@@ -51,6 +51,42 @@ namespace SubwayCarry.Transit.Editor
             AssetDatabase.SaveAssets();
         }
 
+        private static Shader RequireGeometryShader()
+        {
+            const string path = Art + "/StationVertexColor.shader";
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>(path);
+            if (shader == null)
+                throw new InvalidOperationException("Missing station shader. Restore " + path + " and its .meta from Git.");
+            if (ShaderUtil.ShaderHasError(shader) || !shader.isSupported)
+                throw new InvalidOperationException("Station shader cannot compile or is unsupported. Select " + path + " and check the Console.");
+            return shader;
+        }
+
+        [MenuItem("SubwayCarry/Stations/Repair Bokjeong and Suseo Material Shader")]
+        public static void RepairMaterialShader()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+                throw new InvalidOperationException("Exit Play Mode before repairing station materials.");
+
+            const string shaderPath = Art + "/StationVertexColor.shader";
+            AssetDatabase.ImportAsset(shaderPath, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+            var shader = RequireGeometryShader();
+            const string materialPath = Art + "/StationGeometry.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+            if (material == null)
+                throw new InvalidOperationException("Missing station material: " + materialPath);
+            if (material.shader != shader)
+            {
+                Undo.RecordObject(material, "Repair station surface shader");
+                material.shader = shader;
+                EditorUtility.SetDirty(material);
+                AssetDatabase.SaveAssetIfDirty(material);
+            }
+            AssetDatabase.ImportAsset(materialPath, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+            SceneView.RepaintAll();
+            Debug.Log("Bokjeong and Suseo surface material verified: StationGeometry uses " + shader.name + ".");
+        }
+
         private static void PrepareAssets()
         {
             Directory.CreateDirectory(Art);
@@ -91,12 +127,18 @@ namespace SubwayCarry.Transit.Editor
                 spriteMaterial = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
                 AssetDatabase.CreateAsset(spriteMaterial, materialPath);
             }
+            var geometryShader = RequireGeometryShader();
             string geometryPath = Art + "/StationGeometry.mat";
             geometryMaterial = AssetDatabase.LoadAssetAtPath<Material>(geometryPath);
             if (geometryMaterial == null)
             {
-                geometryMaterial = new Material(Shader.Find("SubwayCarry/Station Vertex Color"));
+                geometryMaterial = new Material(geometryShader);
                 AssetDatabase.CreateAsset(geometryMaterial, geometryPath);
+            }
+            else if (geometryMaterial.shader != geometryShader)
+            {
+                geometryMaterial.shader = geometryShader;
+                EditorUtility.SetDirty(geometryMaterial);
             }
             string prefabPath = Root + "/Prefabs/Stations/AccessibleStationElevator.prefab";
             if (!File.Exists(prefabPath))
