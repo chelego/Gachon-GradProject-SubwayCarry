@@ -1,0 +1,93 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a89e59210c6bce438f7081b4622c19a, type: 3}
+  m_Name: StationData_Bokjeong
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Transit.StationData
+  stationId: Bokjeong
+  stationName: "\uBCF5\uC815"
+  isTransferStation: 1
+  connectedLines:
+  - "\uC218\uC778\uBD84\uB2F9\uC120"
+  - "8\uD638\uC120"
+  platforms:
+  - platformId: SB_NORTH
+    lineName: "\uC218\uC778\uBD84\uB2F9\uC120"
+    boundFor: "\uC655\uC2ED\uB9AC \xB7 \uCCAD\uB7C9\uB9AC"
+    doorOpeningSide: 1
+    facilities:
+    - facilityId: TransferEscalator
+      facilityType: 1
+      localPosition: {x: 13.2300005, y: 10.535}
+      rotationDegrees: 0
+    - facilityId: AccessibleElevator
+      facilityType: 2
+      localPosition: {x: 20.580002, y: 14.455001}
+      rotationDegrees: 0
+    - facilityId: TransferPassage
+      facilityType: 3
+      localPosition: {x: 10.290001, y: 9.065001}
+      rotationDegrees: 0
+    timeProfiles: []
+  - platformId: SB_SOUTH
+    lineName: "\uC218\uC778\uBD84\uB2F9\uC120"
+    boundFor: "\uBAA8\uB780 \xB7 \uC8FD\uC804 \xB7 \uC778\uCC9C"
+    doorOpeningSide: 1
+    facilities:
+    - facilityId: TransferEscalator
+      facilityType: 1
+      localPosition: {x: 13.2300005, y: 10.535}
+      rotationDegrees: 0
+    - facilityId: AccessibleElevator
+      facilityType: 2
+      localPosition: {x: 20.580002, y: 14.455001}
+      rotationDegrees: 0
+    - facilityId: TransferPassage
+      facilityType: 3
+      localPosition: {x: 10.290001, y: 9.065001}
+      rotationDegrees: 0
+    timeProfiles: []
+  - platformId: L8_NORTH
+    lineName: "8\uD638\uC120"
+    boundFor: "\uC7A0\uC2E4 \xB7 \uBCC4\uB0B4"
+    doorOpeningSide: 0
+    facilities:
+    - facilityId: TransferEscalator
+      facilityType: 1
+      localPosition: {x: 13.2300005, y: 10.535}
+      rotationDegrees: 0
+    - facilityId: AccessibleElevator
+      facilityType: 2
+      localPosition: {x: 20.580002, y: 14.455001}
+      rotationDegrees: 0
+    - facilityId: TransferPassage
+      facilityType: 3
+      localPosition: {x: 10.290001, y: 9.065001}
+      rotationDegrees: 0
+    timeProfiles: []
+  - platformId: L8_SOUTH
+    lineName: "8\uD638\uC120"
+    boundFor: "\uB0A8\uC704\uB840 \xB7 \uBAA8\uB780"
+    doorOpeningSide: 0
+    facilities:
+    - facilityId: TransferEscalator
+      facilityType: 1
+      localPosition: {x: 13.2300005, y: 10.535}
+      rotationDegrees: 0
+    - facilityId: AccessibleElevator
+      facilityType: 2
+      localPosition: {x: 20.580002, y: 14.455001}
+      rotationDegrees: 0
+    - facilityId: TransferPassage
+      facilityType: 3
+      localPosition: {x: 10.290001, y: 9.065001}
+      rotationDegrees: 0
+    timeProfiles: []

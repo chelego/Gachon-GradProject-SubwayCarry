@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a89e59210c6bce438f7081b4622c19a, type: 3}
+  m_Name: StationData_Suseo
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Transit.StationData
+  stationId: Suseo
+  stationName: "\uC218\uC11C"
+  isTransferStation: 1
+  connectedLines:
+  - "\uC218\uC778\uBD84\uB2F9\uC120"
+  - "3\uD638\uC120"
+  - GTX-A
+  - SRT
+  platforms:
+  - platformId: SB_NORTH
+    lineName: "\uC218\uC778\uBD84\uB2F9\uC120"
+    boundFor: "\uC655\uC2ED\uB9AC \xB7 \uCCAD\uB7C9\uB9AC"
+    doorOpeningSide: 0
+    facilities:
+    - facilityId: TransferEscalator
+      facilityType: 1
+      localPosition: {x: 21.805, y: 14.577499}
+      rotationDegrees: 0
+    - facilityId: AccessibleElevator
+      facilityType: 2
+      localPosition: {x: 24.500002, y: 17.395}
+      rotationDegrees: 0
+    - facilityId: TransferPassage
+      facilityType: 3
+      localPosition: {x: 18.865, y: 13.1075}
+      rotationDegrees: 0
+    timeProfiles: []
+  - platformId: SB_SOUTH
+    lineName: "\uC218\uC778\uBD84\uB2F9\uC120"
+    boundFor: "\uBAA8\uB780 \xB7 \uC8FD\uC804 \xB7 \uC778\uCC9C"
+    doorOpeningSide: 0
+    facilities:
+    - facilityId: TransferEscalator
+      facilityType: 1
+      localPosition: {x: 21.805, y: 14.577499}
+      rotationDegrees: 0
+    - facilityId: AccessibleElevator
+      facilityType: 2
+      localPosition: {x: 24.500002, y: 17.395}
+      rotationDegrees: 0
+    - facilityId: TransferPassage
+      facilityType: 3
+      localPosition: {x: 18.865, y: 13.1075}
+      rotationDegrees: 0
+    timeProfiles: []
