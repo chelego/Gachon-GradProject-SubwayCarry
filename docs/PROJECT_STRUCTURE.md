@@ -2,7 +2,9 @@
 
 프로젝트 전용 Unity Asset은 `SubwayCarry/Assets/_Project`에 저장한다.
 
-팀원 원본의 기존 경로를 유지하고 각자 담당 파일만 갱신한다. 통합은 `Scenes/Prototype/ArtMap_GameplaySlice`에서 원본을 참조하는 방식으로 관리한다. 역할별 소유 범위와 병합 절차는 [TEAM_WORKFLOW.md](TEAM_WORKFLOW.md)를 기준으로 한다. 팀원 구현을 복사해 별도 타입으로 만드는 검토 폴더는 사용하지 않는다.
+2026-10-11부터 `main` 기준의 3D 1인칭 작업을 우선한다. 통합 씬은 `Scenes/Gameplay3D/SubwayCarry_3D_FirstPerson_Delivery.unity`, 구현·제작은 같은 폴더의 `Scripts`, `Data`, `Prefabs`, `Art`, `Source~`를 사용한다. 팀원 맵 원본은 `Scenes/GachonUniv_3D.unity`, `Subway_3D.unity`, `Wangsimni_3D.unity`와 기존 아트·Transit 폴더에 유지한다.
+
+팀원 원본의 기존 경로를 유지하고 각자 담당 파일만 갱신한다. 통합은 3D `Scenes/Gameplay3D`와 기존 2D `Scenes/Prototype/ArtMap_GameplaySlice`에서 원본을 참조한다. 아래 공용 구조와 2D 씬·GUID·Namespace는 보존한다. 역할별 소유 범위와 병합 절차는 [TEAM_WORKFLOW.md](TEAM_WORKFLOW.md)를 따른다. 팀원 구현을 별도 타입으로 복제하지 않는다.
 
 ```text
 _Project/

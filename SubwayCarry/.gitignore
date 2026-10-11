@@ -52,3 +52,20 @@ crashlytics-build.properties
 /Assets/Screenshots.meta
 /ProjectSettings/SceneTemplateSettings.json
 /.vsconfig
+
+# Preserve shader and material references across machines.
+!/[Aa]ssets/**/*.shader.meta
+!/[Aa]ssets/**/*.shadergraph.meta
+!/[Aa]ssets/**/*.shadersubgraph.meta
+!/[Aa]ssets/**/*.mat.meta
+!/[Aa]ssets/_Project/Scripts/Transit/Editor/ProjectShaderConnections.cs.meta
+
+# Preserve every Unity asset GUID across machines.
+!/[Aa]ssets.meta
+!/[Aa]ssets/**/*.meta
+
+# Keep local recovery metadata excluded after the general GUID rules above.
+/Assets/_Recovery/
+/Assets/_Recovery.meta
+/Assets/Screenshots/
+/Assets/Screenshots.meta

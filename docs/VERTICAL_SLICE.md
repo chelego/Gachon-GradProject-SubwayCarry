@@ -1,5 +1,11 @@
 # 버티컬 슬라이스 — 아트 맵 / 플레이어 / 승객 AI
 
+## 현재 우선 작업: 3D
+
+팀 공유 기준은 `main`이며 3D 작업을 우선한다. Unity `6000.3.7f1`에서 `Assets/_Project/Scenes/Gameplay3D/SubwayCarry_3D_FirstPerson_Delivery.unity`를 직접 연다. 원본·에셋·코드·설정은 같은 폴더의 기존 하위 경로를 유지한다.
+
+`Scenes/GachonUniv_3D.unity`, `Subway_3D.unity`, `Wangsimni_3D.unity`는 팀원 맵 원본이며 배송·AI 전체 기능의 연결 완료를 뜻하지 않는다. 기존 2D 씬·공용 설정을 보존한다. 아래 설명은 2D 비교용 통합 씬에만 적용된다.
+
 ## 실행
 
 Unity 6000.3.7f1에서 `SubwayCarry` 프로젝트를 연 뒤 아래 Scene을 연다.

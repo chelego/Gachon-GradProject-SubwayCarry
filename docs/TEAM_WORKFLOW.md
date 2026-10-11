@@ -2,6 +2,8 @@
 
 ## 원칙
 
+2026-10-11부터 팀 공유 기준은 `main`, 우선 개발 대상은 3D 1인칭이다. `develop`과 역할 브랜치는 기존 이력을 보존하고 최신 `origin/main`을 기준으로 작업한다.
+
 각 팀원이 올린 원본 폴더, 씬 이름, 프리팹과 GUID를 그대로 채용한다. 통합 담당자가 팀원 구현을 별도 폴더로 복제하거나 `TeamReview` 네임스페이스로 다시 만들지 않는다. 원본을 참조하는 통합 씬과 연결 코드만 별도로 관리한다.
 
 | 구분 | 담당 | 기준 브랜치 | 기존 원본/작업 위치 |
@@ -10,14 +12,20 @@
 | 역·객차 아트 및 맵 | 정준호 | `feature-station` | `Assets/_Project/Art/Sprites`, `Scenes/GachonUniv.unity`, `Scenes/Subway.unity`, `Scenes/Wangsimni.unity`, 해당 문 프리팹 |
 | 배송·경제·강화·UI | 조재형 | `role/delivery-economy`, 기존 `stage-economy-test` | `Assets/_Project/Scripts/Delivery`, `Data/Delivery`, 관련 UI 및 기존 프로토타입 코드 |
 | 승객 AI와 회귀 테스트 | 신찬욱·조재형 | `role/passenger-ai` | `Assets/_Project/Scenes/Ai_v2`, `Scripts/AI` |
-| 전체 연결과 통합 테스트 | 신찬욱 | `develop` 통합 | `Assets/_Project/Scenes/Prototype/ArtMap_GameplaySlice` |
-| 공통 계약 | 관련 담당자 공동 | `develop` 기준 합의 | `Assets/_Project/Scripts/Core/Contracts` |
+| 전체 연결과 통합 테스트 | 신찬욱 | `main` 통합 | 3D: `Scenes/Gameplay3D`, 기존 2D: `Scenes/Prototype/ArtMap_GameplaySlice` |
+| 공통 계약 | 관련 담당자 공동 | `main` 기준 합의 | `Assets/_Project/Scripts/Core/Contracts` |
 
 위 표는 소유 범위를 설명한다. 파일을 이 표에 맞춰 새 경로로 옮기라는 지시가 아니다. 경로 앞의 `Assets`는 저장소의 `SubwayCarry/Assets`이다.
 
 ## 통합 폴더
 
-현재 `ArtMap_GameplaySlice`가 통합 테스트 폴더다. 테스트를 위해 이름을 바꾸거나 새 버전 폴더로 복제하지 않는다.
+우선 개발 폴더는 `Assets/_Project/Scenes/Gameplay3D`, 진입 씬은 `SubwayCarry_3D_FirstPerson_Delivery.unity`다. 코드·데이터·프리팹·아트·Blender 원본은 기존 하위 경로에서 수정한다.
+
+팀원 3D 맵 원본은 `Scenes/GachonUniv_3D.unity`, `Subway_3D.unity`, `Wangsimni_3D.unity`와 `Art/StationsSprite3D`, `Art/SubwayFirstPerson`, `Scripts/Transit`에 유지한다. 시설·충돌·이동 정보 연결과 실제 실행 검증은 별도 작업이다.
+
+2D 씬·스프라이트·프리팹·GUID·원래 경로와 공용 2D 렌더 설정·시작 씬을 보존한다. 통합을 이유로 `_dump`로 일괄 이동하지 않는다.
+
+아래는 보존하는 2D `ArtMap_GameplaySlice`의 기존 사용 기준이다. 이름을 바꾸거나 새 버전 폴더로 복제하지 않는다.
 
 - 진입 씬: `ArtMap_01_Gachon_Train_Wangsimni_Playable.unity`
 - `Scripts`: 원본 플레이어와 AI를 연결하는 어댑터, 이동 경계, 맵 전환 및 상황 제공 코드
@@ -28,12 +36,14 @@
 
 ## 반복 작업 순서
 
-1. 팀원은 자기 작업 브랜치에서 최신 `develop`을 확인한다. 로컬 수정과 충돌을 보존하며 수신한다.
+1. 팀원은 fetch 후 최신 `origin/main`을 확인한다. 로컬 수정·커밋을 보존하며 역할 브랜치에 병합하고, 갈라진 이력을 임의 rebase·강제 pull하지 않는다.
 2. 자신이 담당하는 원본 폴더의 기능을 수정하고 담당 씬에서 시험한다.
 3. 해당 파일과 필요한 `.meta`만 커밋하여 자기 브랜치에 올린다. 다른 담당자의 파일, 통합 씬, 개인 설정을 섞지 않는다.
-4. 통합 담당자가 변경 내용을 확인하고 `develop`에 병합한다. 연결 수정은 통합 폴더에서 처리한다.
+4. 통합 담당자가 변경 내용을 확인하고 `main`에 병합한다. 연결 수정은 해당 3D/2D 통합 폴더에서 처리한다.
 5. 공통 인터페이스 변경이 필요하면 생산자·소비자를 함께 확인하고 관련 담당자와 맞춘다. 각자 다른 계약 복사본을 만들지 않는다.
 6. 정적 참조·컴파일 검사와 사용자 플레이 확인을 구분한다. 문제를 팀원 원본으로 되돌려 고쳐야 한다면 담당자에게 파일과 증상을 전달한다.
+
+`main` 직접 작업도 가능하나 최신 원격·로컬 변경을 먼저 확인한다. 같은 씬·공유 파일의 동시 편집은 담당자를 정하고, 요청받은 경로만 Push한다.
 
 `Scenes/Prototype/GameplayFlow_Prototype.unity`처럼 여러 역할이 이미 함께 사용하는 파일은 각자 독립 소유 파일로 취급하지 않는다. 편집 전에 담당자를 정하고, 변경이 겹치면 통합 담당자가 3-way로 병합한다. 이 예외를 해결하려고 원본을 역할별 복사본으로 늘리지 않는다.
 

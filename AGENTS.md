@@ -22,12 +22,16 @@
 
 ## 2. 프로젝트 기준
 
+- 2026-10-11 사용자 확정: `main`을 팀 공유 기준으로 사용하고 3D 1인칭 작업을 우선한다. 기존 2D 씬·자산·GUID·원본 경로는 보존한다.
+- 3D 통합 씬: `Assets/_Project/Scenes/Gameplay3D/SubwayCarry_3D_FirstPerson_Delivery.unity`. 코드·데이터·프리팹·아트·Blender 원본은 같은 폴더의 기존 하위 경로를 사용한다.
+- `GachonUniv_3D`, `Subway_3D`, `Wangsimni_3D`는 팀원 맵 원본이다. 통합 기능이 연결됐다고 간주하거나 원본을 자동 재생성하지 않는다.
+
 - 엔진: Unity `6000.3.7f1`
 - 템플릿: Universal 2D
 - 렌더링: Universal Render Pipeline `17.3.0`
 - 입력: Unity Input System `1.18.0`
 - 플랫폼: PC
-- 시점: 2D 쿼터뷰
+- 현재 시점: 3D 1인칭. 기존 2D 쿼터뷰는 비교·기존 기능 보존용이다.
 - Root Namespace: `SubwayCarry`
 - Git 기준 브랜치: `main`, `develop`
 
@@ -375,8 +379,9 @@ Interface 변경은 이름만 바꾸지 않고 구현체, 소비 코드, Scene �
 
 ## 11. Git 반영 기준
 
-- 기능 통합 대상은 `develop`이다.
-- `main` 반영은 별도 요청이나 통합 확인 뒤 진행한다.
+- 팀 공유·기능 통합 기준은 `main`이다. 새 작업은 최신 `origin/main`에서 시작한다.
+- `develop`과 담당 브랜치는 기존 작업·검증 이력을 유지한다. 이름 변경·삭제·강제 동기화하지 않는다.
+- 직접 `main`에서 작업할 수도 있으나 최신 원격·로컬 변경·담당 파일을 먼저 확인한다. 동시 작업은 역할 브랜치에서 검증한 뒤 `main`에 반영한다.
 - 하나의 커밋에는 같은 기능에 필요한 코드, Asset과 `.meta`만 포함한다.
 - 다른 담당자의 변경과 생성 파일을 같은 커밋에 섞지 않는다.
 - 작업 중인 기능이 실제 Scene에서 검증되기 전에는 완료로 표현하지 않는다.
