@@ -49,3 +49,7 @@ crashlytics-build.properties
 !/[Aa]ssets/**/*.shadersubgraph.meta
 !/[Aa]ssets/**/*.mat.meta
 !/[Aa]ssets/_Project/Scripts/Transit/Editor/ProjectShaderConnections.cs.meta
+
+# Preserve every Unity asset GUID across machines.
+!/[Aa]ssets.meta
+!/[Aa]ssets/**/*.meta
