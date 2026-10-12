@@ -36,7 +36,11 @@ namespace SubwayCarry.Gameplay3D.Editor
                 mat.SetTexture("_BumpMap",AssetDatabase.LoadAssetAtPath<Texture2D>(textureRoot+name+"_Normal.png")); mat.SetFloat("_BumpScale",.22f); mat.EnableKeyword("_NORMALMAP");
                 mat.SetTexture("_MetallicGlossMap",AssetDatabase.LoadAssetAtPath<Texture2D>(textureRoot+name+"_MetallicSmoothness.png")); mat.SetFloat("_Smoothness",1); mat.EnableKeyword("_METALLICSPECGLOSSMAP");
                 mat.SetTexture("_OcclusionMap",AssetDatabase.LoadAssetAtPath<Texture2D>(textureRoot+name+"_AO.png"));
-                if(suffix=="Luminous") {mat.EnableKeyword("_EMISSION"); mat.SetColor("_EmissionColor",new Color(.87f,.93f,1)*2);}
+                if(suffix=="Luminous") {
+                    mat.SetColor("_EmissionColor",new Color(.87f,.93f,1)*2);
+                    mat.globalIlluminationFlags=MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                    mat.EnableKeyword("_EMISSION");
+                }
                 mat.enableInstancing=true; EditorUtility.SetDirty(mat); AssetDatabase.SaveAssetIfDirty(mat); result.Add(name,mat);
             }
             foreach(string path in Directory.GetFiles(root+"/Art/Materials/Circulation","*.mat")) {
