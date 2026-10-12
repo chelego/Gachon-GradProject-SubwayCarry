@@ -14,6 +14,7 @@ namespace SubwayCarry.Gameplay3D
         public PackageDurability package;
         public Metro3DFacility Target {get;private set;}
         public Metro3DFacility Using {get;private set;}
+        public Metro3DInteractionSelector InteractionSelector {get;private set;}
         public CarryPosture Posture {get;private set;}=CarryPosture.Standing;
         public float Stamina {get;private set;}=100;
         public Vector3 Velocity {get;private set;}
@@ -29,14 +30,14 @@ namespace SubwayCarry.Gameplay3D
         Vector3 lastTrainPosition;
         bool hasPackagePosition;
 
-        void Awake() { motor=GetComponent<CharacterController>(); }
+        void Awake() { motor=GetComponent<CharacterController>(); InteractionSelector=GetComponent<Metro3DInteractionSelector>(); }
         void Start() {
             bool free=world.session==null||world.session.Blocked;
             Cursor.lockState=free?CursorLockMode.None:CursorLockMode.Locked; Cursor.visible=free;
         }
         public void TeleportForReturn(Vector3 p)
         {
-            CancelFacility(); Riding=null; transform.SetParent(world.transform,true);
+            CancelFacility(); InteractionSelector?.ClearSelection(); Target=null; Riding=null; transform.SetParent(world.transform,true);
             motor.enabled=false; transform.position=p; transform.rotation=Quaternion.identity; motor.enabled=true;
             pitch=0; verticalSpeed=0; hasPackagePosition=false;
         }
@@ -59,7 +60,11 @@ namespace SubwayCarry.Gameplay3D
             input=Vector2.ClampMagnitude(input,1);
             bool interact=k.eKey.wasPressedThisFrame||k.fKey.wasPressedThisFrame;
             if(Using!=null) { if(input.sqrMagnitude>0||interact) CancelFacility(); else { UpdateView(0); return; } }
-            else { FindTarget(); if(interact&&Target!=null) Interact(Target); }
+            else {
+                if(InteractionSelector!=null&&InteractionSelector.isActiveAndEnabled) Target=InteractionSelector.RefreshSelection(mouse);
+                else FindTarget();
+                if(interact&&Target!=null) Interact(Target);
+            }
             if(Using!=null) return;
             bool overhead=mouse!=null&&mouse.rightButton.isPressed&&world.session.HasPackage&&Stamina>1;
             Posture=overhead?CarryPosture.OverheadCarry:CarryPosture.Standing;

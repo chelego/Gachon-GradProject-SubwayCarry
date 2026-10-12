@@ -51,11 +51,12 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                 area.height / (image.height * selectedBounds.height * 1.3f)), minimumZoom, 3);
             pan = area.size * .5f - Vector2.Scale(selectedBounds.center, new Vector2(image.width, image.height)) * zoom;
         }
-        public void Draw(Rect viewport, Texture2D source, SliceRouteHighlight route, GUIStyle style)
+        public void Draw(Rect viewport, Texture2D source, SliceRouteHighlight route, GUIStyle style, bool compactToolbar = false)
         {
             Color previous = GUI.color; GUI.color = Color.white;
             GUI.DrawTexture(viewport, Texture2D.whiteTexture);
-            Rect area = new Rect(viewport.x, viewport.y + 34, viewport.width, viewport.height - 34);
+            float toolbarHeight = compactToolbar ? 27 : 34;
+            Rect area = new Rect(viewport.x, viewport.y + toolbarHeight, viewport.width, viewport.height - toolbarHeight);
             if (toolbar == null) toolbar = new GUIStyle(style) { normal = { textColor = new Color32(35, 52, 63, 255) }, alignment = TextAnchor.MiddleCenter };
             if (source == null)
             {
@@ -98,9 +99,15 @@ namespace SubwayCarry.Prototype.ArtMapSlice
                     selectedBounds.width * destination.width, selectedBounds.height * destination.height);
                 DrawClipped(area, routeRect, selectedRoute);
             }
-            if (GUI.Button(new Rect(viewport.x + 4, viewport.y + 3, 84, 27), "선택 노선", toolbar)) FitSelected(area);
-            if (GUI.Button(new Rect(viewport.x + 94, viewport.y + 3, 72, 27), "전체 지도", toolbar)) Fit(area, false);
-            GUI.Label(new Rect(viewport.x + 178, viewport.y + 3, 260, 27), "휠 확대 · 드래그 이동", toolbar);
+            float toolbarY = viewport.y + (compactToolbar ? 2 : 3);
+            float toolbarButtonHeight = compactToolbar ? 23 : 27;
+            float selectedWidth = compactToolbar ? Mathf.Min(76, viewport.width * .27f) : 84;
+            float fullWidth = compactToolbar ? Mathf.Min(66, viewport.width * .23f) : 72;
+            float secondX = viewport.x + selectedWidth + (compactToolbar ? 7 : 10);
+            float hintX = secondX + fullWidth + (compactToolbar ? 7 : 12);
+            if (GUI.Button(new Rect(viewport.x + 4, toolbarY, selectedWidth, toolbarButtonHeight), "선택 노선", toolbar)) FitSelected(area);
+            if (GUI.Button(new Rect(secondX, toolbarY, fullWidth, toolbarButtonHeight), "전체 지도", toolbar)) Fit(area, false);
+            GUI.Label(new Rect(hintX, toolbarY, Mathf.Max(0, viewport.xMax - hintX - 4), toolbarButtonHeight), compactToolbar ? "휠 확대 · 드래그" : "휠 확대 · 드래그 이동", toolbar);
             GUI.color = previous;
         }
         static void DrawClipped(Rect clip, Rect imageRect, Texture2D texture)
