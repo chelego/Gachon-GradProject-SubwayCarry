@@ -15,6 +15,8 @@ namespace SubwayCarry.Gameplay3D
         public Metro3DFacility Target {get;private set;}
         public Metro3DFacility Using {get;private set;}
         public Metro3DInteractionSelector InteractionSelector {get;private set;}
+        public Metro3DPersonalBalanceBridge PersonalBalance {get;private set;}
+        public bool UsesPersonalBalance => PersonalBalance!=null&&PersonalBalance.isActiveAndEnabled;
         public CarryPosture Posture {get;private set;}=CarryPosture.Standing;
         public float Stamina {get;private set;}=100;
         public Vector3 Velocity {get;private set;}
@@ -30,13 +32,19 @@ namespace SubwayCarry.Gameplay3D
         Vector3 lastTrainPosition;
         bool hasPackagePosition;
 
-        void Awake() { motor=GetComponent<CharacterController>(); InteractionSelector=GetComponent<Metro3DInteractionSelector>(); }
+        void Awake()
+        {
+            motor=GetComponent<CharacterController>();
+            InteractionSelector=GetComponent<Metro3DInteractionSelector>();
+            PersonalBalance=GetComponent<Metro3DPersonalBalanceBridge>();
+        }
         void Start() {
             bool free=world.session==null||world.session.Blocked;
             Cursor.lockState=free?CursorLockMode.None:CursorLockMode.Locked; Cursor.visible=free;
         }
         public void TeleportForReturn(Vector3 p)
         {
+            PersonalBalance?.CancelCurrentChallenge();
             CancelFacility(); InteractionSelector?.ClearSelection(); Target=null; Riding=null; transform.SetParent(world.transform,true);
             motor.enabled=false; transform.position=p; transform.rotation=Quaternion.identity; motor.enabled=true;
             pitch=0; verticalSpeed=0; hasPackagePosition=false;
@@ -45,6 +53,16 @@ namespace SubwayCarry.Gameplay3D
         {
             if(Riding==null||Using!=null||!world.session.HasPackage) return;
             balanceSide=braking?-1:1; balanceTimer=1.8f+world.session.BalanceLevel*.25f;
+        }
+        public void TriggerBalanceMotion(TrainMotionPhase phase,Vector2 inertiaDirection,float intensity)
+        {
+            if(UsesPersonalBalance) {
+                balanceTimer=0;
+                PersonalBalance.PublishMotion(phase,inertiaDirection,intensity);
+                return;
+            }
+            if(phase==TrainMotionPhase.Departing) TriggerBalance(false);
+            else if(phase==TrainMotionPhase.Arriving) TriggerBalance(true);
         }
         void Update()
         {
@@ -58,16 +76,22 @@ namespace SubwayCarry.Gameplay3D
             Vector2 input=new Vector2((k.dKey.isPressed||k.rightArrowKey.isPressed?1:0)-(k.aKey.isPressed||k.leftArrowKey.isPressed?1:0),
                 (k.wKey.isPressed||k.upArrowKey.isPressed?1:0)-(k.sKey.isPressed||k.downArrowKey.isPressed?1:0));
             input=Vector2.ClampMagnitude(input,1);
-            bool interact=k.eKey.wasPressedThisFrame||k.fKey.wasPressedThisFrame;
+            bool personalBalanceBusy=UsesPersonalBalance&&PersonalBalance.ConsumesMovementInput;
+            if(personalBalanceBusy) input=Vector2.zero;
+            bool interact=!personalBalanceBusy&&(k.eKey.wasPressedThisFrame||k.fKey.wasPressedThisFrame);
             if(Using!=null) { if(input.sqrMagnitude>0||interact) CancelFacility(); else { UpdateView(0); return; } }
             else {
-                if(InteractionSelector!=null&&InteractionSelector.isActiveAndEnabled) Target=InteractionSelector.RefreshSelection(mouse);
+                if(personalBalanceBusy) { Target=null; InteractionSelector?.ClearSelection(); }
+                else if(InteractionSelector!=null&&InteractionSelector.isActiveAndEnabled) Target=InteractionSelector.RefreshSelection(mouse);
                 else FindTarget();
                 if(interact&&Target!=null) Interact(Target);
             }
             if(Using!=null) return;
-            bool overhead=mouse!=null&&mouse.rightButton.isPressed&&world.session.HasPackage&&Stamina>1;
-            Posture=overhead?CarryPosture.OverheadCarry:CarryPosture.Standing;
+            bool overhead=Posture==CarryPosture.OverheadCarry;
+            if(!personalBalanceBusy) {
+                overhead=mouse!=null&&mouse.rightButton.isPressed&&world.session.HasPackage&&Stamina>1;
+                Posture=overhead?CarryPosture.OverheadCarry:CarryPosture.Standing;
+            }
             bool running=k.leftShiftKey.isPressed&&input.y>0&&Stamina>5&&!overhead;
             float speed=(running?world.settings.runSpeed:world.settings.walkSpeed)*(1+world.session.AgilityLevel*.07f)*(overhead?.6f:1);
             Vector3 horizontal=(transform.right*input.x+transform.forward*input.y)*speed;
@@ -145,6 +169,7 @@ namespace SubwayCarry.Gameplay3D
             int count=Physics.OverlapBoxNonAlloc(p,new Vector3(.18f,.125f,.18f),contacts,cargo.rotation,~0,QueryTriggerInteraction.Ignore);
             for(int i=0;i<count;i++) {
                 var c=contacts[i]; if(c.transform.IsChildOf(transform)) continue;
+                if(UsesPersonalBalance&&PersonalBalance.NpcCollisionProtected&&c.GetComponentInParent<Metro3DPassenger>()!=null) continue;
                 ApplyImpact(c.gameObject,speed,c.ClosestPoint(p)); recoil=-transform.forward*.8f; break;
             }
         }
@@ -162,6 +187,7 @@ namespace SubwayCarry.Gameplay3D
             balanceTimer-=Time.deltaTime;
             if(balanceTimer<=0) { ApplyImpact(world.train.gameObject,3.5f,transform.position); recoil=-transform.forward*1.6f; }
         }
+        public void ApplyBalanceFallResponse() { recoil=-transform.forward*1.6f; }
         void OnDestroy() { if(Using!=null) Using.Release(this); Cursor.lockState=CursorLockMode.None; Cursor.visible=true; }
     }
 }

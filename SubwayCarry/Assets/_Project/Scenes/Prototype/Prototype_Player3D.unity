@@ -262512,6 +262512,7 @@ GameObject:
   - component: {fileID: 640465385}
   - component: {fileID: 640465386}
   - component: {fileID: 640465389}
+  - component: {fileID: 640465390}
   m_Layer: 0
   m_Name: Player_FirstPerson
   m_TagString: Untagged
@@ -262535,6 +262536,19 @@ MonoBehaviour:
   view: {fileID: 150135595}
   cargo: {fileID: 1867365887}
   package: {fileID: 640465386}
+--- !u!114 &640465390
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 640465384}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f25f08cb4c949d0a21c1adb84eb7dc1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay3D.Metro3DPersonalBalanceBridge
+  player: {fileID: 640465385}
 --- !u!114 &640465386
 MonoBehaviour:
   m_ObjectHideFlags: 0

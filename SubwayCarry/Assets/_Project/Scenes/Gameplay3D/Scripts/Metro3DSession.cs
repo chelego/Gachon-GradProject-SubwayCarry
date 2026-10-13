@@ -1,4 +1,5 @@
 using System;
+using SubwayCarry.Core.Contracts;
 using SubwayCarry.Delivery;
 using SubwayCarry.Prototype.ArtMapSlice;
 using UnityEngine;
@@ -39,7 +40,7 @@ namespace SubwayCarry.Gameplay3D
         int outboundPaid;
         Metro3DFacility openGate;
         Metro3DTrain departing;
-        bool gatePaid,transferNeeded;
+        bool gatePaid,transferNeeded,middleBalanceTriggered;
         const string SaveKey="SubwayCarry.3D.Progress.v1";
         [Serializable] class Save { public int cash,unlocked=1,stamina,balance,agility; }
 
@@ -57,7 +58,7 @@ namespace SubwayCarry.Gameplay3D
         public void Accept()
         {
             if(HasPackage) { PhoneOpen=false; SetCursor(); return; }
-            Order=World.settings.deliveries.orders[SelectedIndex]; StopIndex=0; HasPackage=true; gatePaid=false; outboundPaid=0;
+            Order=World.settings.deliveries.orders[SelectedIndex]; StopIndex=0; HasPackage=true; gatePaid=false; outboundPaid=0; middleBalanceTriggered=false;
             World.player.package.ResetToFull(); previousBox=previousCake=100; World.EnsureRoute();
             PhoneOpen=false; Notice="개찰구를 통과해 승강장으로 이동하세요."; SetCursor();
         }
@@ -92,10 +93,22 @@ namespace SubwayCarry.Gameplay3D
                     if(required&&World.player.Riding!=null) { Finish(true); break; }
                     if(StopIndex==Order.stops.Length-1) { step=ServiceStep.Off; Notice="계단을 올라가 출구로 이동하세요."; break; }
                     if(required&&!transferNeeded) { transferNeeded=true; BeginReplacement(true); break; }
-                    World.player.TriggerBalance(false); World.train.MoveTo(StopIndex+1,World.settings.travelSeconds); step=ServiceStep.Travel; timer=World.settings.travelSeconds;
+                    middleBalanceTriggered=false;
+                    World.player.TriggerBalanceMotion(TrainMotionPhase.Departing,Vector2.down,1f);
+                    World.train.MoveTo(StopIndex+1,World.settings.travelSeconds); step=ServiceStep.Travel; timer=World.settings.travelSeconds;
                     break;
                 case ServiceStep.Travel:
-                    if(timer<2.5f&&timer+Time.deltaTime>=2.5f) World.player.TriggerBalance(true);
+                    if(World.player.UsesPersonalBalance) {
+                        if(!middleBalanceTriggered&&timer<=World.settings.travelSeconds*.52f) {
+                            middleBalanceTriggered=true;
+                            bool emergency=Order.stars>=3&&StopIndex%2==1;
+                            World.player.TriggerBalanceMotion(emergency?TrainMotionPhase.EmergencyBraking:TrainMotionPhase.SpeedChanging,
+                                emergency?Vector2.up:Vector2.right,emergency?1.2f:.7f);
+                        }
+                        if(timer<4&&timer+Time.deltaTime>=4)
+                            World.player.TriggerBalanceMotion(TrainMotionPhase.Arriving,Vector2.up,.8f);
+                    } else if(timer<2.5f&&timer+Time.deltaTime>=2.5f)
+                        World.player.TriggerBalanceMotion(TrainMotionPhase.Arriving,Vector2.up,.8f);
                     if(!World.train.Moving) { StopIndex++; transferNeeded=false; World.SpawnPassengers(StopIndex,false); World.train.SetDoors(true); step=ServiceStep.Opening; timer=World.settings.doorSeconds; }
                     break;
                 case ServiceStep.TransferDeparture:
@@ -155,7 +168,7 @@ namespace SubwayCarry.Gameplay3D
             var oldTrains=GetComponentsInChildren<Metro3DTrain>(); foreach(var t in oldTrains) Destroy(t.gameObject);
             World.facilities.RemoveAll(f=>f==null||f.trainFacility);
             World.ResetServiceSide(); World.train=World.CreateTrain(World.ServiceSide,0); World.SpawnPassengers(0,true); World.SpawnPassengers(0,false);
-            HasPackage=false; ResultOpen=false; PhoneOpen=true; Paused=false; step=ServiceStep.Off; StopIndex=0; Order=null; transferNeeded=false;
+            HasPackage=false; ResultOpen=false; PhoneOpen=true; Paused=false; step=ServiceStep.Off; StopIndex=0; Order=null; transferNeeded=false; middleBalanceTriggered=false;
             Insurance=FareSupport=false; damageUntil=0;
             if(Economy.CurrentEconomyState.CurrentCash<0) { Economy.ResetToInitial(); Unlocked=1; StaminaLevel=BalanceLevel=AgilityLevel=0; Notice="새 배송을 시작하세요."; }
             SaveProgress(); SetCursor();

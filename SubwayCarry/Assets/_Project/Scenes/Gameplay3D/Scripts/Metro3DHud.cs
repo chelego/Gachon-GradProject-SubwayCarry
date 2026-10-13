@@ -64,7 +64,7 @@ namespace SubwayCarry.Gameplay3D
             }
             if(!s.Blocked) {
                 GUI.Label(new Rect(635,351,10,20),"·",normal);
-                if(world.player.Using==null&&world.player.Target!=null) {
+                if((!world.player.UsesPersonalBalance||!world.player.PersonalBalance.ConsumesMovementInput)&&world.player.Using==null&&world.player.Target!=null) {
                     if(world.player.InteractionSelector!=null&&world.player.InteractionSelector.isActiveAndEnabled) DrawInteractionOptions(world.player.InteractionSelector);
                     else DrawLegacyInteractionPrompt(scale);
                 }
