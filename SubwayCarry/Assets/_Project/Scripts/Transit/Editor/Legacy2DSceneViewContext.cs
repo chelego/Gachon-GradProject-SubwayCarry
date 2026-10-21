@@ -44,12 +44,32 @@ namespace SubwayCarry.Transit.Editor
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode) return;
             var scene = SceneManager.GetActiveScene();
-            if (!scene.IsValid() || !scene.isLoaded) return;
+            if (!scene.IsValid() || !scene.isLoaded || EditorSceneManager.IsPreviewScene(scene)) return;
+            SubwaySceneRenderPipeline3D scope = null;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                var candidate = root.GetComponent<SubwaySceneRenderPipeline3D>();
+                if (root.activeInHierarchy && candidate && candidate.enabled)
+                {
+                    scope = candidate;
+                    break;
+                }
+            }
+            if (scope)
+                scope.Apply();
+            else
+            {
+                // A saved 3D Quality override must not turn sprite scenes magenta on a fresh checkout.
+                var pipeline = AssetDatabase.LoadAssetAtPath<RenderPipelineAsset>("Assets/Settings/UniversalRP.asset");
+                if (pipeline)
+                {
+                    SubwaySceneRenderPipeline3D.InitializeRendererCache(pipeline);
+                    QualitySettings.renderPipeline = pipeline;
+                }
+            }
             var view = SceneView.lastActiveSceneView;
             if (IsLegacy2D(scene))
             {
-                var pipeline = AssetDatabase.LoadAssetAtPath<RenderPipelineAsset>("Assets/Settings/UniversalRP.asset");
-                if (pipeline) QualitySettings.renderPipeline = pipeline;
                 QualitySettings.antiAliasing = 0;
                 if (!view) return;
                 view.in2DMode = true;
