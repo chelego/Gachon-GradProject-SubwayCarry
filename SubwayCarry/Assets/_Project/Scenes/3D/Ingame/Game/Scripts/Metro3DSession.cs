@@ -10,6 +10,7 @@ namespace SubwayCarry.Gameplay3D
     public sealed class Metro3DSession : MonoBehaviour
     {
         public Metro3DWorld World {get;private set;}
+        internal void ConfigureWalkingReview(Metro3DWorld owner){World=owner;enabled=false;}
         public EconomyService Economy {get;private set;}
         public SliceDeliveryOrder Order {get;private set;}
         SliceDeliveryOrder activeRoute;
@@ -26,8 +27,8 @@ namespace SubwayCarry.Gameplay3D
         public bool PhoneOpen {get;private set;}=true;
         public bool Paused {get;private set;}
         public bool ResultOpen {get;private set;}
-        public bool Blocked => PhoneOpen||Paused||ResultOpen||Time.unscaledTime<damageUntil;
-        public bool SimulationPaused => Paused;
+        public bool Blocked => PhoneOpen||SimulationPaused||ResultOpen||Time.unscaledTime<damageUntil;
+        public bool SimulationPaused => Paused||(World!=null&&World.Observer!=null&&World.Observer.SimulationFrozen);
         public bool CanPassengersBoard => step==ServiceStep.Dwell&&timer>7&&!TransferAtCurrentStop;
         public bool TransferAtCurrentStop => Route.stops[StopIndex].transfer&&!transferNeeded;
         public float DamageRemaining => Mathf.Max(0,damageUntil-Time.unscaledTime);
@@ -67,15 +68,29 @@ namespace SubwayCarry.Gameplay3D
             Order=World.settings.deliveries.orders[SelectedIndex];activeRoute=Order;HasPackage=true;gatePaid=false;outboundPaid=0;middleBalanceTriggered=false;
             World.player.package.ResetToFull(); previousBox=previousCake=100; World.EnsureRoute();
             if(revision!=World.RouteRevision) { StopIndex=0; transferNeeded=false; World.SpawnPassengers(0,true); World.SpawnPassengers(0,false); StartIncoming(0); }
+            else World.Transit?.HandOverPrimary();
             PhoneOpen=false; Notice="개찰구를 통과해 승강장으로 이동하세요."; SetCursor();
         }
         public void TogglePhone() { PhoneOpen=!PhoneOpen; SetCursor(); }
-        void SetCursor() { bool free=Blocked; Cursor.lockState=free?CursorLockMode.None:CursorLockMode.Locked; Cursor.visible=free; }
+        internal void SetCursor() { bool free=Blocked||World.Observer!=null&&World.Observer.Active; Cursor.lockState=free?CursorLockMode.None:CursorLockMode.Locked; Cursor.visible=free; }
+        public void ObservationInput(bool active)
+        {
+            // Observer input ownership does not change phone, pause or timetable.
+            SetCursor();
+        }
+        public void ResumeService(Metro3DTrain service,float remaining)
+        {
+            StopIndex=service.CurrentStop;transferNeeded=false;
+            if(service.Moving&&StopIndex>0){StopIndex--;step=ServiceStep.Travel;timer=service.MovementRemaining;}
+            else if(service.Moving){step=ServiceStep.Approach;timer=service.MovementRemaining;}
+            else {service.SetDoors(true);step=ServiceStep.Opening;timer=Mathf.Max(7,remaining);}
+        }
         void Update()
         {
             var key=Keyboard.current;
-            if(key!=null&&key.tabKey.wasPressedThisFrame&&!ResultOpen) TogglePhone();
-            if(key!=null&&key.escapeKey.wasPressedThisFrame) { if(PhoneOpen) PhoneOpen=false; else Paused=!Paused; SetCursor(); }
+            bool observing=World.Observer!=null&&World.Observer.Active;
+            if(!observing&&key!=null&&key.tabKey.wasPressedThisFrame&&!ResultOpen) TogglePhone();
+            if(!observing&&key!=null&&key.escapeKey.wasPressedThisFrame) { if(PhoneOpen) PhoneOpen=false; else Paused=!Paused; SetCursor(); }
             // Opening the player's phone or a damage overlay does not stop the city.
             if(SimulationPaused) return;
             timer-=Time.deltaTime;
@@ -84,6 +99,7 @@ namespace SubwayCarry.Gameplay3D
                 else {openGate.blocker.enabled=true; openGate.anchor.localScale=Vector3.one;}
                 openGate=null;
             }
+            if(!HasPackage&&World.Transit!=null)return;
             switch(step) {
                 case ServiceStep.Approach:
                     if(!World.train.Moving) { World.train.SetDoors(true); step=ServiceStep.Opening; timer=World.settings.doorSeconds; }

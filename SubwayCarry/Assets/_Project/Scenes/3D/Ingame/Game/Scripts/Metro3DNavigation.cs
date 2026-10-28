@@ -18,6 +18,12 @@ namespace SubwayCarry.Gameplay3D
             public int Index(Vector3 p)=>Mathf.Clamp(Mathf.RoundToInt((p.z-minZ)/step),0,height-1)*width+Mathf.Clamp(Mathf.RoundToInt((p.x-minX)/step),0,width-1);
         }
         readonly Dictionary<(Transform,int),Grid> grids=new Dictionary<(Transform,int),Grid>();
+        readonly List<(Transform,int)> retiredGrids=new List<(Transform,int)>(8);
+        public void Forget(Transform root)
+        {
+            retiredGrids.Clear();foreach(var item in grids)if(item.Key.Item1==root)retiredGrids.Add(item.Key);
+            foreach(var key in retiredGrids)grids.Remove(key);
+        }
         readonly Collider[] overlaps=new Collider[24];
         readonly RaycastHit[] groundHits=new RaycastHit[24];
         readonly int[] reverse=new int[4096];
@@ -34,7 +40,7 @@ namespace SubwayCarry.Gameplay3D
             // .35m concourse grid can miss an entire lane.
             float step=train||upper?.16f:Step;
             float minX=train?-.48f:upper?-8.6f:(side<0?-8.6f:Metro3DWorld.ScreenDoorX+.32f);
-            float maxX=train?.48f:upper?8.6f:(side<0?-Metro3DWorld.ScreenDoorX-.32f:8.6f);
+            float maxX=train?.48f:upper?(side==3?16.6f:8.6f):(side<0?-Metro3DWorld.ScreenDoorX-.32f:8.6f);
             float minZ=train?Metro3DTrain.FloorStart+.35f:upper?(side==3?91.5f:-27):-1.5f;
             float maxZ=train?Metro3DTrain.FloorEnd-.35f:upper?(side==3?125.5f:15.5f):Metro3DWorld.PlatformLength-2.5f;
             var grid=new Grid {root=root,minX=minX,minZ=minZ,floor=upper?3.6f:0,step=step,width=Mathf.FloorToInt((maxX-minX)/step)+1,height=Mathf.FloorToInt((maxZ-minZ)/step)+1};

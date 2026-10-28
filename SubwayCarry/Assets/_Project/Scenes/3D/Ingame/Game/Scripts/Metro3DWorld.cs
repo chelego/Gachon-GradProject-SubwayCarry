@@ -13,6 +13,7 @@ namespace SubwayCarry.Gameplay3D
         public Vector3 HubSpawn => new Vector3(0, settings.departureFloor, -13);
         public int ServiceSide {get;private set;}=1;
         public Metro3DSettings settings;
+        [System.NonSerialized] public bool walkingReviewOnly;
         public Metro3DPlayer player;
         public Metro3DSession session;
         public Metro3DTrain train;
@@ -20,6 +21,9 @@ namespace SubwayCarry.Gameplay3D
         public List<Metro3DFacility> facilities = new List<Metro3DFacility>();
         public List<Metro3DPassenger> passengers = new List<Metro3DPassenger>();
         public Metro3DStationTraffic Traffic {get;private set;}
+        public Metro3DTransitSimulation Transit {get;private set;}
+        public Metro3DAiObserver Observer {get;private set;}
+        public readonly List<Metro3DTrain> Trains = new List<Metro3DTrain>();
         public int RouteRevision {get;private set;}
         string routeIdentity;
         readonly Dictionary<string, GameObject> modules = new Dictionary<string, GameObject>();
@@ -28,6 +32,10 @@ namespace SubwayCarry.Gameplay3D
 
         void Awake()
         {
+            if(walkingReviewOnly) {
+                Traffic=GetComponent<Metro3DStationTraffic>();Traffic.world=this;Traffic.enabled=false;
+                GetComponent<Metro3DCrowd>().world=this;session.ConfigureWalkingReview(this);enabled=false;return;
+            }
             if (player == null) BuildInitial();
             Metro3DWorldSign.PrepareExisting(transform);
             RepairLegacyFarFloorContacts();
@@ -37,6 +45,13 @@ namespace SubwayCarry.Gameplay3D
             var crowd=GetComponent<Metro3DCrowd>();
             if(crowd==null) crowd=gameObject.AddComponent<Metro3DCrowd>();
             crowd.world=this;
+            if(train!=null&&!Trains.Contains(train))Trains.Add(train);
+            Transit=GetComponent<Metro3DTransitSimulation>();
+            if(Transit==null) Transit=gameObject.AddComponent<Metro3DTransitSimulation>();
+            Transit.world=this;
+            Observer=GetComponent<Metro3DAiObserver>();
+            if(Observer==null) Observer=gameObject.AddComponent<Metro3DAiObserver>();
+            Observer.world=this;
             session.Initialize(this);
         }
 
@@ -45,9 +60,9 @@ namespace SubwayCarry.Gameplay3D
             if(player==null||Time.unscaledTime<nextStationVisibility) return;
             nextStationVisibility=Time.unscaledTime+.5f;
             foreach(var station in stations) if(station!=null) {
-                bool nearby=Mathf.Abs(player.transform.position.z-(station.position.z+PlatformLength*.5f-2))<145
-                    || Traffic.HasPassengers(station) || (train!=null&&Mathf.Abs(train.transform.position.z-station.position.z)<145);
-                if(station.gameObject.activeSelf!=nearby) station.gameObject.SetActive(nearby);
+                // A station is a simulation surface, not a camera visibility group.
+                // Disabling it also disables colliders, arrivals and its passengers.
+                if(!station.gameObject.activeSelf) station.gameObject.SetActive(true);
             }
         }
 
@@ -114,8 +129,10 @@ namespace SubwayCarry.Gameplay3D
             // Slab dimensions must not stretch the floor's physical-size tile texture.
             if(material!=null&&material.mainTexture!=null) {
                 Vector2 baseScale=material.mainTextureScale;
+                float repeat=material==settings.stone||material==settings.concourseFloor?2.4f:.5f;
+                float ratio=2.4f/repeat;
                 var uv=go.AddComponent<Metro3DSurfaceUv>();
-                uv.textureTransform=new Vector4(size.x*.5f*baseScale.x,-size.z*.5f*baseScale.y,center.x/ .6f*baseScale.x,-center.z/ .6f*baseScale.y); uv.Apply();
+                uv.textureTransform=new Vector4(size.x*.5f*baseScale.x*ratio,-size.z*.5f*baseScale.y*ratio,center.x/repeat*baseScale.x,-center.z/repeat*baseScale.y); uv.Apply();
             }
             if (collision) Box(parent, name + "_GroundContact", center, size);
             return go;
@@ -153,8 +170,11 @@ namespace SubwayCarry.Gameplay3D
         {
             var fixture=Module("FluorescentLight",root,p,yaw); fixture.transform.localScale=new Vector3(length/1.35f,1,1);
             var o=new GameObject("Fluorescent illumination"); o.transform.SetParent(root,false); o.transform.localPosition=p+new Vector3(0,2.62f,0);
-            var l=o.AddComponent<Light>(); l.type=LightType.Point; l.color=new Color(.91f,.94f,1); l.intensity=2.2f;
-            l.range=range; l.shadows=shadow?LightShadows.Hard:LightShadows.None; l.shadowStrength=.52f; l.shadowBias=.02f; l.shadowNormalBias=.15f;
+            // A downward fixture must not illuminate the opposite side of a floor/wall.
+            o.transform.localRotation=Quaternion.Euler(90,0,0);
+            var l=o.AddComponent<Light>(); l.type=LightType.Spot; l.spotAngle=138; l.innerSpotAngle=100;
+            l.color=new Color(.94f,.965f,1); l.intensity=8.4f;
+            l.range=range; l.shadows=shadow?LightShadows.Soft:LightShadows.None; l.shadowStrength=.78f; l.shadowBias=.025f; l.shadowNormalBias=.10f;
             if(shadow) o.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalLightData>();
         }
 
@@ -239,7 +259,25 @@ namespace SubwayCarry.Gameplay3D
             Text(t,new Vector3(0,2.15f,10.05f),"수인분당선  |  Suin–Bundang",Color.black,.07f,180,1.4f,.13f);
             Text(t,new Vector3(0,1.23f,Metro3DTrain.FloorStart+.11f),"승무원실  |  출입 금지",Color.black,.055f,180,.72f,.10f);
             Text(t,new Vector3(0,1.23f,Metro3DTrain.FloorEnd-.11f),"승무원실  |  출입 금지",Color.black,.055f,0,.72f,.10f);
+            Trains.Add(trainComponent);
             return trainComponent;
+        }
+
+        public int StationAt(Vector3 position)
+        {
+            int nearest=0;float distance=float.PositiveInfinity;
+            for(int i=0;i<stations.Count;i++) if(stations[i]!=null) {
+                Vector3 p=stations[i].InverseTransformPoint(position);
+                float d=Mathf.Abs(p.z-Mathf.Clamp(p.z,0,PlatformLength));
+                if(d<distance) {distance=d;nearest=i;}
+            }
+            return nearest;
+        }
+
+        public string StopLabel(int stop)
+        {
+            var stops=session.Route.stops;
+            return stops[Mathf.Clamp(stop,0,stops.Length-1)].label;
         }
 
         void TrainSide(Transform root,float x,float start,float end)
@@ -263,7 +301,7 @@ namespace SubwayCarry.Gameplay3D
             if(routeIdentity!=null) {
                 Traffic.RecycleAll();
                 facilities.RemoveAll(f=>f==null||f.trainFacility);
-                Destroy(train.gameObject); train=CreateTrain(direction,0);
+                if(train!=null)Destroy(train.gameObject); train=CreateTrain(direction,0);
             }
             ServiceSide=direction; routeIdentity=identity; RouteRevision++;
             // Different deliveries reuse the hub, but never retain another route's station labels/decks.

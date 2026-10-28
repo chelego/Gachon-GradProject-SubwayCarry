@@ -1,0 +1,253 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 452e172eed9030b46bd49df8df483d8f, type: 3}
+  m_Name: PassengerPhoneReview
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay3D.AnimationLab.AnimationLabPhoneMotion
+  situationsEnabled: 1
+  normalEnabled: 1
+  upperLoop: 1
+  displayName: "\uAC77\uAE30 \xB7 \uD3F0\uBCF4\uAE30 \xB7 \uC624\uB978\uD314\uC720\uC9C0
+    \xB7 \uC0C1\uCCB4"
+  sourceId: f5d832eacb34462c9d9d6a37e63aa49d
+  publishedRevision: BF9A897DC527
+  authored: {fileID: 11400000, guid: 28147727cb077b14987fa29c12662a66, type: 2}
+  rig: {fileID: 1648686333044378150, guid: 9d1a15a96145a924e838aae19388632a, type: 3}
+  phonePrefab: {fileID: 4999690810530116688, guid: e9e9163eca97b0f4caae2b6f82dc49e9, type: 3}
+  idle: {fileID: 110800018, guid: d5fbd327e22a8dc47b77a6347810996e, type: 3}
+  walk: {fileID: -8349492526526354690, guid: d5fbd327e22a8dc47b77a6347810996e, type: 3}
+  upperBody: {fileID: 7400000, guid: 568e6ccfd34846846ae4ac06d6a609e9, type: 2}
+  animatorPath: HumanModel/Quaternius_TestMannequin
+  rightHandPath: HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R
+  neckPath: HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-neck
+  headPath: HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-neck/DEF-head
+  upperPaths:
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_index.01.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_index.01.R/DEF-f_index.02.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_index.01.R/DEF-f_index.02.R/DEF-f_index.03.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_middle.01.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_middle.01.R/DEF-f_middle.02.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_middle.01.R/DEF-f_middle.02.R/DEF-f_middle.03.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_pinky.01.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_pinky.01.R/DEF-f_pinky.02.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_pinky.01.R/DEF-f_pinky.02.R/DEF-f_pinky.03.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_ring.01.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_ring.01.R/DEF-f_ring.02.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_ring.01.R/DEF-f_ring.02.R/DEF-f_ring.03.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-thumb.01.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-thumb.01.R/DEF-thumb.02.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-thumb.01.R/DEF-thumb.02.R/DEF-thumb.03.R
+  phoneLocalPosition: {x: 0.017313195, y: 0.09503129, z: -0.0013470873}
+  phoneLocalRotation: {x: -0.0015030244, y: 0.7085225, z: -0.008000706, w: 0.7056418}
+  referenceSpeed: 1.0220767
+  font: {fileID: 12800000, guid: c745ee20ef994724b6c663f049458e6c, type: 3}
+  start: {x: 0, y: -6}
+  destination: {x: 0, y: 7}
+  peerStart: {x: 0.1, y: 6}
+  peerDestination: {x: 0.1, y: -6}
+  bounds:
+    serializedVersion: 2
+    x: -7
+    y: -9
+    width: 14
+    height: 18
+  pillar:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 0
+    height: 0
+  actions:
+  - role: 0
+    sourceId: 407a5f8d640f4562907668ff2f636e2d
+    displayName: "\uD3F0 \xB7 \uC8FC\uBA38\uB2C8\uC5D0\uC11C\uAEBC\uB0B4\uAE30"
+    revision: A623705B53FD
+    authored: {fileID: 11400000, guid: 5660980dd5c1eee4b8a8a150225ae094, type: 2}
+    clip: {fileID: 7400000, guid: 7bbe701a58274404ca6a1b6f0df85eaa, type: 2}
+    loop: 0
+    contactFrame: 18
+    carryFrame: 33
+    contactStart: 0.18
+    contactEnd: 0.27
+  - role: 1
+    sourceId: 0e3e535ea48943a595dbaa462995a44b
+    displayName: "\uD3F0 \xB7 \uC8FC\uBA38\uB2C8\uC5D0\uB123\uAE30"
+    revision: 5E08F6F80318
+    authored: {fileID: 11400000, guid: d482259a3370db54e8d1c37166a98e00, type: 2}
+    clip: {fileID: 7400000, guid: 397c741bea5c7264ea05446438fa54b9, type: 2}
+    loop: 0
+    contactFrame: 42
+    carryFrame: 27
+    contactStart: 0.58
+    contactEnd: 0.67
+  - role: 2
+    sourceId: 2ed67953958a48f88fa2594455343438
+    displayName: "\uD3F0 \xB7 \uC62C\uB824\uBCF4\uAE30"
+    revision: BD0AAD05AEB7
+    authored: {fileID: 11400000, guid: 68bca4bef52299e44bc95a3af7da9877, type: 2}
+    clip: {fileID: 7400000, guid: 300e86e05b4a31f4a9efb38272e2616f, type: 2}
+    loop: 0
+    contactFrame: -1
+    carryFrame: -1
+    contactStart: 0
+    contactEnd: 0
+  - role: 3
+    sourceId: f33edf4f383d4fdd879cf2757f714c47
+    displayName: "\uD3F0 \xB7 \uB0B4\uB824\uB4E4\uAE30"
+    revision: 0E638D4E27C0
+    authored: {fileID: 11400000, guid: 34d87eaa563be134f821bc0132502e39, type: 2}
+    clip: {fileID: 7400000, guid: b1e6473db2afba94da378615238095d9, type: 2}
+    loop: 0
+    contactFrame: -1
+    carryFrame: -1
+    contactStart: 0
+    contactEnd: 0
+  - role: 4
+    sourceId: 058a51a1e1b64c18a33d6608fc887993
+    displayName: "\uD3F0 \xB7 \uC591\uC190\uAC00\uB85C\uC7A1\uAE30"
+    revision: 147548B2B8E8
+    authored: {fileID: 11400000, guid: 740eefc1c8e097748ab3642f82ed8ef4, type: 2}
+    clip: {fileID: 7400000, guid: 511913b17a7eeac428b139d8fdfacacf, type: 2}
+    loop: 0
+    contactFrame: -1
+    carryFrame: -1
+    contactStart: 0
+    contactEnd: 0
+  - role: 5
+    sourceId: 055a2f91e8c448b08725e50b8510102b
+    displayName: "\uD3F0 \xB7 \uC591\uC190\uD480\uAE30"
+    revision: 173BC42595CF
+    authored: {fileID: 11400000, guid: 07bf48fefd7f7ef4b9667a2f556f1951, type: 2}
+    clip: {fileID: 7400000, guid: f4cdd55331434674f8df5e30119b4264, type: 2}
+    loop: 0
+    contactFrame: -1
+    carryFrame: -1
+    contactStart: 0
+    contactEnd: 0
+  - role: 6
+    sourceId: 853a2a81b39548fba99f4182dddb3d53
+    displayName: "\uD3F0 \xB7 \uC591\uC190\uAC00\uB85C\uC720\uC9C0"
+    revision: 10872150811C
+    authored: {fileID: 11400000, guid: c7710964edbe33045a5e175123d6a641, type: 2}
+    clip: {fileID: 7400000, guid: b26d0e82de19ff545a31dbefdcdc82e2, type: 2}
+    loop: 1
+    contactFrame: -1
+    carryFrame: -1
+    contactStart: 0
+    contactEnd: 0
+  - role: 7
+    sourceId: 5c3bc90831064d62bfbd47e057477a25
+    displayName: "\uD3F0 \xB7 \uB4E4\uACE0\uAC77\uAE30"
+    revision: A6F8F49417C7
+    authored: {fileID: 11400000, guid: b570cfafcfb804a4e916d7697baf1914, type: 2}
+    clip: {fileID: 7400000, guid: 79e5306af8c598c4f951f5a0263c96d4, type: 2}
+    loop: 1
+    contactFrame: -1
+    carryFrame: -1
+    contactStart: 0
+    contactEnd: 0
+  squeeze:
+  - phase: 0
+    side: -1
+    sourceId: 516a28cabc0a4520b52d6740f7edd8a5
+    revision: 1F3D60225617
+    authored: {fileID: 11400000, guid: 10a9aa4908cf0d545a6b622e758e0ef3, type: 2}
+    clip: {fileID: 7400000, guid: 0250d34f441d3764ea0edcc8c0ff5c29, type: 2}
+  - phase: 1
+    side: -1
+    sourceId: 320d8029f2b944d191e7a6384991e17a
+    revision: 513CF7BD07C9
+    authored: {fileID: 11400000, guid: 4ec26788d78e2a946a1b3a35a97ff312, type: 2}
+    clip: {fileID: 7400000, guid: 8f9741c8e0d19e145bac3818cfa346fc, type: 2}
+  - phase: 2
+    side: -1
+    sourceId: e355abe99cba4c8781ef84957470f5f6
+    revision: CE2BF1A876FF
+    authored: {fileID: 11400000, guid: 38cc50513ff87e241ae653a08bef5ab7, type: 2}
+    clip: {fileID: 7400000, guid: 175f7425e4bf30649a7e03a33e7723d0, type: 2}
+  - phase: 0
+    side: 1
+    sourceId: b61785e03455442b99cb82a9af21728c
+    revision: 121C3FD5448D
+    authored: {fileID: 11400000, guid: 7a128bba30ebdf9448e97d34e898d808, type: 2}
+    clip: {fileID: 7400000, guid: cb6a778bd4b18be4abc1d79d44798bd9, type: 2}
+  - phase: 1
+    side: 1
+    sourceId: 394ebddaa56d4d56bf115c6ad3c1e06a
+    revision: 0B0A575A8FDD
+    authored: {fileID: 11400000, guid: fa5faddcdc675954b8e853c73ae6696f, type: 2}
+    clip: {fileID: 7400000, guid: cc27dd11ba61f7842a59cca5eb253358, type: 2}
+  - phase: 2
+    side: 1
+    sourceId: b5149581b1f64ea9a9cb421c586d1258
+    revision: BD74B3C70ED1
+    authored: {fileID: 11400000, guid: ee4f157327e6f7d4e9f8bb636058c65f, type: 2}
+    clip: {fileID: 7400000, guid: 2cdfb322959ce8a47b4dbd1e8f656321, type: 2}
+  squeezeStride: 0.28
+  squeezeSpeed: 0.28
+  bothArmPaths:
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-f_index.01.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-f_index.01.L/DEF-f_index.02.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-f_index.01.L/DEF-f_index.02.L/DEF-f_index.03.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-f_middle.01.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-f_middle.01.L/DEF-f_middle.02.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-f_middle.01.L/DEF-f_middle.02.L/DEF-f_middle.03.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-f_pinky.01.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-f_pinky.01.L/DEF-f_pinky.02.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-f_pinky.01.L/DEF-f_pinky.02.L/DEF-f_pinky.03.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-f_ring.01.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-f_ring.01.L/DEF-f_ring.02.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-f_ring.01.L/DEF-f_ring.02.L/DEF-f_ring.03.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-thumb.01.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-thumb.01.L/DEF-thumb.02.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L/DEF-thumb.01.L/DEF-thumb.02.L/DEF-thumb.03.L
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_index.01.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_index.01.R/DEF-f_index.02.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_index.01.R/DEF-f_index.02.R/DEF-f_index.03.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_middle.01.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_middle.01.R/DEF-f_middle.02.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_middle.01.R/DEF-f_middle.02.R/DEF-f_middle.03.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_pinky.01.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_pinky.01.R/DEF-f_pinky.02.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_pinky.01.R/DEF-f_pinky.02.R/DEF-f_pinky.03.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_ring.01.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_ring.01.R/DEF-f_ring.02.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-f_ring.01.R/DEF-f_ring.02.R/DEF-f_ring.03.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-thumb.01.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-thumb.01.R/DEF-thumb.02.R
+  - HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R/DEF-hand.R/DEF-thumb.01.R/DEF-thumb.02.R/DEF-thumb.03.R
+  hipsPath: HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips
+  leftUpperPath: HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L
+  leftLowerPath: HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L
+  leftHandPath: HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.L/DEF-upper_arm.L/DEF-forearm.L/DEF-hand.L
+  rightUpperPath: HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R
+  rightLowerPath: HumanModel/Quaternius_TestMannequin/Rig/root/DEF-hips/DEF-spine.001/DEF-spine.002/DEF-spine.003/DEF-shoulder.R/DEF-upper_arm.R/DEF-forearm.R
+  pocketPrefab: {fileID: 5495589241604103240, guid: 3ae09f5295fb66543ae5562d0e64f3f2, type: 3}
+  pocketLocalPosition: {x: 0.20578292, y: 0.048202656, z: 0.1057994}
+  pocketPhonePosition: {x: 0, y: -0.085, z: 0}
+  pocketLocalRotation: {x: 0.0492667, y: 0.7822256, z: -0.0623683, w: -0.6179047}
+  pocketPhoneRotation: {x: 0, y: 0, z: 1, w: -0.00000004371139}
+  landscapePhonePosition: {x: 0.008280533, y: 0.13717389, z: -0.06176392}
+  landscapeLeftPosition: {x: -0.10207034, y: -0.10938619, z: -0.017785186}
+  landscapePhoneRotation: {x: 0.59087646, y: 0.3923748, z: 0.5886154, w: 0.38786557}
+  landscapeLeftRotation: {x: 0.39340073, y: 0.59019446, z: -0.38888693, w: 0.58794063}

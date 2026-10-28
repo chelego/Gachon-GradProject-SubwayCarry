@@ -42,7 +42,7 @@ namespace SubwayCarry.Gameplay3D
         }
         void Update()
         {
-            if(steps==null||steps.Length==0||world.session==null||world.session.Blocked) return;
+            if(steps==null||steps.Length==0||world.session==null||world.session.SimulationPaused) return;
             distance+=direction*.5f*Time.deltaTime;
             float length=arc[159],pitch=length/steps.Length;
             for(int i=0;i<steps.Length;i++) {
@@ -54,7 +54,7 @@ namespace SubwayCarry.Gameplay3D
         }
         void OnTriggerStay(Collider other)
         {
-            if(assembly==null||world==null||world.session==null||world.session.Blocked) return;
+            if(assembly==null||world==null||world.session==null||world.session.SimulationPaused) return;
             var controller=other.GetComponent<CharacterController>();
             if(controller==null||!controller.enabled) return;
             var feet=assembly.InverseTransformPoint(controller.transform.position); float y=-feet.z;

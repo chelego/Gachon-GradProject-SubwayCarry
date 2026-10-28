@@ -1,0 +1,27 @@
+Motion-matching trial data provenance (verified 2026-10-22)
+
+Character skeleton and Idle_Loop:
+Quaternius Universal Animation Library, CC0. The unchanged original and full
+license are in Assets/ThirdParty/Quaternius/UniversalAnimationLibrary/.
+No character mesh or Avatar is replaced by this trial.
+
+Motion recordings:
+Carnegie Mellon University Graphics Lab Motion Capture Database.
+Official usage terms: https://mocap.cs.cmu.edu/faqs.php
+The FAQ permits copying, modification, and redistribution without permission.
+It also warns that capture quality and descriptions are not guaranteed.
+
+Original Acclaim files are retained in Game/Source~/MotionCapture/:
+69.asf, 69_01.amc, 69_13.amc, 69_16.amc, 69_18.amc, 69_28.amc,
+69_31.amc, 91.asf, 91_10.amc.
+Sources: https://mocap.cs.cmu.edu/subjects/69/ and /subjects/91/.
+Per-file URLs and checksums are in Sources.json.
+
+The FBX, curves, root samples and matching database are locally processed
+derivatives of these recordings on the retained CC0 skeleton. Capture rate:
+120 Hz; baked pose/root samples: 30 Hz; database pose interval: 1/15 second.
+
+MxM program code has its own MIT license and upstream NOTICE in
+Packages/com.frost-blade-studios.motion-matching/. That code license is not a
+license for unrelated demo animation data. No MxM demo mocap, Epic Game
+Animation Sample, UE-Only content, paid pack, or unverified motion is imported.

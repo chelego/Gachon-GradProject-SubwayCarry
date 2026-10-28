@@ -31,6 +31,7 @@ namespace SubwayCarry.Gameplay3D
         float pitch,verticalSpeed,bobPhase,impactCooldown,balanceTimer;
         int balanceSide;
         readonly Collider[] contacts=new Collider[16];
+        readonly RaycastHit[] interactionHits=new RaycastHit[32];
         Vector3 recoil;
         Vector3 lastPackagePosition;
         Vector3 lastTrainPosition;
@@ -70,6 +71,7 @@ namespace SubwayCarry.Gameplay3D
         }
         void Update()
         {
+            if(world.Observer!=null&&world.Observer.Active){Velocity=Vector3.zero;return;}
             var k=Keyboard.current; var mouse=Mouse.current;
             if(k==null||world.session==null) return;
             if(world.session.Blocked) { Velocity=Vector3.zero; return; }
@@ -109,7 +111,8 @@ namespace SubwayCarry.Gameplay3D
 
         void UpdateRiding()
         {
-            var next=world.train!=null&&world.train.Contains(transform.position)?world.train:null;
+            Metro3DTrain next=null;
+            foreach(var service in world.Trains)if(service!=null&&service.Contains(transform.position)){next=service;break;}
             if(next==Riding) return;
             if(Riding!=null&&!Riding.DoorsOpen) return;
             Riding=next; transform.SetParent(Riding!=null?Riding.transform:world.transform,true);
@@ -138,9 +141,22 @@ namespace SubwayCarry.Gameplay3D
                 Vector3 to=f.transform.position-view.transform.position;
                 if(Vector3.Dot(view.transform.forward,to.normalized)<.15f) continue;
                 // A facility on another side of a wall cannot be selected through that wall.
-                if(Physics.Raycast(view.transform.position,to.normalized,out var hit,to.magnitude,~0,QueryTriggerInteraction.Ignore)&&hit.collider!=f.blocker&&hit.transform!=f.transform&&hit.distance<to.magnitude-.25f) continue;
+                if(!HasClearInteractionPath(f,to)) continue;
                 nearest=distance; Target=f;
             }
+        }
+        bool HasClearInteractionPath(Metro3DFacility facility,Vector3 to)
+        {
+            int count=Physics.RaycastNonAlloc(view.transform.position,to.normalized,interactionHits,to.magnitude,~0,QueryTriggerInteraction.Ignore);
+            // Inspect every hit: the first hit can be our own CharacterController near
+            // the camera. Ignoring only that hit must not also ignore a wall behind it.
+            if(count==interactionHits.Length) return false;
+            for(int i=0;i<count;i++) {
+                var hit=interactionHits[i];
+                if(hit.transform.IsChildOf(transform)||hit.collider==facility.blocker||hit.transform.IsChildOf(facility.transform)) continue;
+                if(hit.distance<to.magnitude-.25f) return false;
+            }
+            return true;
         }
         void Interact(Metro3DFacility f)
         {

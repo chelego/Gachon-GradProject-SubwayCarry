@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
 
 namespace SubwayCarry.Gameplay3D
 {
@@ -25,7 +26,14 @@ namespace SubwayCarry.Gameplay3D
         static void FontAtlasChanged(Font font)
         {
             if (font != null && materials.TryGetValue(font, out var material) && material != null)
+            {
                 material.mainTexture = font.material.mainTexture;
+                foreach(var sign in Resources.FindObjectsOfTypeAll<Metro3DWorldSign>()) {
+                    var text=sign.GetComponent<TextMesh>(); if(text.font!=font) continue;
+                    var renderer=sign.GetComponent<MeshRenderer>(); var block=new MaterialPropertyBlock(); renderer.GetPropertyBlock(block);
+                    block.SetTexture("_MainTex",material.mainTexture); renderer.SetPropertyBlock(block);
+                }
+            }
         }
 
         public void Configure(float width, float height)
@@ -54,18 +62,58 @@ namespace SubwayCarry.Gameplay3D
             text.font.RequestCharactersInTexture(text.text, text.fontSize, text.fontStyle);
             material.mainTexture = text.font.material.mainTexture;
             renderer.sharedMaterial = material;
+            var color=new MaterialPropertyBlock(); renderer.GetPropertyBlock(color);
+            color.SetColor("_Color",text.color); color.SetTexture("_MainTex",material.mainTexture); renderer.SetPropertyBlock(color);
             var bounds = renderer.localBounds;
             float width = bounds.size.x * Mathf.Abs(transform.localScale.x);
             float height = bounds.size.y * Mathf.Abs(transform.localScale.y);
             float factor = Mathf.Min(1f, maximumWidth / Mathf.Max(.0001f, width), maximumHeight / Mathf.Max(.0001f, height));
             text.characterSize *= factor;
+            // Native dynamic TextMesh UVs can become stale after atlas repacking. A
+            // persistent SDF atlas supplies visible lettering; TextMesh stays metadata.
+            renderer.enabled = false;
+            var sdf = transform.Find("Depth-tested lettering")?.GetComponent<TextMeshPro>();
+            if (sdf == null)
+            {
+                var child = new GameObject("Depth-tested lettering");
+                child.transform.SetParent(transform, false);
+                sdf = child.AddComponent<TextMeshPro>();
+            }
+            sdf.font = Resources.Load<TMP_FontAsset>("Metro3DSignFont");
+            if (sdf.font == null) throw new System.InvalidOperationException("Missing station SDF font asset.");
+            // This licensed Korean face has no circled exit-number glyphs. Keep the
+            // actual numbers readable instead of allowing missing-glyph squares.
+            sdf.text = text.text.Replace('①','1').Replace('②','2').Replace('③','3').Replace('④','4').Replace('⑤','5');
+            sdf.color = text.color;
+            sdf.richText = false;
+            sdf.alignment = TextAlignmentOptions.Center;
+            sdf.textWrappingMode = TextWrappingModes.NoWrap;
+            sdf.overflowMode = TextOverflowModes.Overflow;
+            sdf.enableAutoSizing = true;
+            sdf.fontSizeMin = .01f;
+            sdf.fontSizeMax = 100f;
+            sdf.rectTransform.sizeDelta = new Vector2(maximumWidth, maximumHeight);
+            sdf.ForceMeshUpdate(true, true);
+            var signBounds = sdf.textBounds;
+            float fit = Mathf.Min(1f, maximumWidth / Mathf.Max(.0001f, signBounds.size.x), maximumHeight / Mathf.Max(.0001f, signBounds.size.y));
+            sdf.transform.localScale = Vector3.one * fit;
         }
 
         // Repair labels in the already-saved scene without regenerating/saving that scene.
         public static void PrepareExisting(Transform root)
         {
-            foreach (var text in root.GetComponentsInChildren<TextMesh>(true))
+            // Reserve one stable atlas before fitting individual labels. Repacking it label-by-label
+            // can leave TextMesh geometry referring to earlier glyph UVs after a scene reload.
+            var labels=root.GetComponentsInChildren<TextMesh>(true);
+            var characters=new Dictionary<Font,HashSet<char>>();
+            foreach(var label in labels) if(label.font!=null) {
+                if(!characters.TryGetValue(label.font,out var glyphs)) characters[label.font]=glyphs=new HashSet<char>();
+                foreach(char c in label.text) glyphs.Add(c);
+            }
+            foreach(var group in characters) group.Key.RequestCharactersInTexture(new string(new List<char>(group.Value).ToArray()),64,FontStyle.Bold);
+            foreach (var text in labels)
             {
+                string content=text.text; text.text=string.Empty; text.text=content;
                 var existing = text.GetComponent<Metro3DWorldSign>();
                 if (existing != null) { existing.Apply(); continue; }
                 float width = 3f, height = .24f;

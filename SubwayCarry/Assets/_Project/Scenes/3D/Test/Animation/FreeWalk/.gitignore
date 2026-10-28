@@ -1,0 +1,7 @@
+# Local licensed test assets. Embedded game use is allowed; raw redistribution is not.
+*
+!.gitignore
+!License.txt
+!License.txt.meta
+!Sources.json
+!Sources.json.meta

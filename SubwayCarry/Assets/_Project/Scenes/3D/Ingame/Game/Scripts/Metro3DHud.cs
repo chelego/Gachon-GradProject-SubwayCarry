@@ -53,9 +53,13 @@ namespace SubwayCarry.Gameplay3D
         }
         void OnGUI()
         {
+            if(world.Observer!=null&&world.Observer.Active)return;
             if(world.session==null||world.session.Economy==null) return; Styles(); var s=world.session;
             float scale=Mathf.Min(Screen.width/1280f,Screen.height/720f); GUI.matrix=Matrix4x4.TRS(new Vector3((Screen.width-1280*scale)/2,(Screen.height-720*scale)/2,0),Quaternion.identity,Vector3.one*scale);
-            Panel(new Rect(24,24,365,82)); GUI.Label(new Rect(42,35,330,28),s.StationLabel,title); GUI.Label(new Rect(42,72,330,24),s.HasPackage?s.ServiceLabel:"TAB · 배달 앱",small);
+            var riding=world.player.Riding;
+            int here=riding!=null?riding.CurrentStop:world.StationAt(world.player.transform.position);
+            string location=riding!=null?(riding.Moving?"이동 중 · ":"정차 · ")+world.StopLabel(here):world.StopLabel(here)+"역 · "+(world.player.transform.position.y>world.settings.departureFloor-1?"대합실":"승강장");
+            Panel(new Rect(24,24,365,82)); GUI.Label(new Rect(42,35,330,28),location,title); GUI.Label(new Rect(42,72,330,24),riding!=null?(riding.Moving?"다음 역 · "+world.StopLabel(here):"출입문 "+(riding.DoorsOpen?"열림":"닫힘")):"TAB · 배달 앱",small);
             Panel(new Rect(991,24,265,s.HasPackage?135:52)); GUI.Label(new Rect(1010,35,225,30),"₩ "+s.Economy.CurrentEconomyState.CurrentCash.ToString("N0"),normal);
             if(s.HasPackage) {
                 var d=world.player.package.CurrentDurability; GUI.Label(new Rect(1010,73,210,24),"케이크  "+Mathf.RoundToInt(d.CakeDurability)+"%",normal);
@@ -63,6 +67,8 @@ namespace SubwayCarry.Gameplay3D
                 Bar(new Rect(1010,147,225,4),d.BoxDurability/100,new Color(.6f,.72f,.7f));
             }
             if(!s.Blocked) {
+                Panel(new Rect(408,24,560,44));
+                GUI.Label(new Rect(424,34,528,26),s.Notice,small);
                 GUI.Label(new Rect(635,351,10,20),"·",normal);
                 if((!world.player.UsesPersonalBalance||!world.player.PersonalBalance.ConsumesMovementInput)&&world.player.Using==null&&world.player.Target!=null) {
                     if(world.player.InteractionSelector!=null&&world.player.InteractionSelector.isActiveAndEnabled) DrawInteractionOptions(world.player.InteractionSelector);
@@ -146,8 +152,11 @@ namespace SubwayCarry.Gameplay3D
             if(screen.z<=0) return;
             Vector2 margin=new Vector2((Screen.width-1280*scale)*.5f,(Screen.height-720*scale)*.5f);
             Vector2 p=(new Vector2(screen.x,Screen.height-screen.y)-margin)/scale;
-            Panel(new Rect(Mathf.Clamp(p.x+32,40,1200),Mathf.Clamp(p.y-20,130,630),38,36));
-            GUI.Label(new Rect(Mathf.Clamp(p.x+40,48,1208),Mathf.Clamp(p.y-17,133,633),25,30),"E",normal);
+            bool gate=world.player.Target.kind==Metro3DFacilityKind.FareGate||world.player.Target.kind==Metro3DFacilityKind.ExitGate;
+            float width=gate?190:38;
+            float x=Mathf.Clamp(p.x+32,40,1240-width),y=Mathf.Clamp(p.y-20,130,630);
+            Panel(new Rect(x,y,width,36));
+            GUI.Label(new Rect(x+8,y+3,width-16,30),gate?"E · 교통카드 태그":"E",normal);
         }
         void DrawPhone()
         {

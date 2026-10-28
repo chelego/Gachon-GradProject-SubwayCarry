@@ -64,7 +64,8 @@ namespace SubwayCarry.Gameplay3D
                     WallName(t,new Vector3(-side*8.82f,1.96f,z),label,index==0?"Gachon Univ.":StationEnglish(english),side==1?270:90,index==0?"K223":"");
                 }
                 for(float z=10;z<39+PlatformExpansion;z+=4) Lighting(t,new Vector3(-side*6.2f,0,z),7,3.9f,0,z==22);
-                foreach(float z in new[]{16f,32f+PlatformExpansion}) {
+                // Keep the rear suspended board two metres clear of the lift header.
+                foreach(float z in new[]{16f,30f+PlatformExpansion}) {
                     Board(t,new Vector3(-side*5.7f,2.55f,z),DirectionBoard(index,side),settings.blue,Color.white,0,4.1f);
                     Board(t,new Vector3(-side*5.7f,2.55f,z+.18f),index==0?"← 나가는 곳  1 · 2 · 3 · 4 · 5":"← 나가는 곳 / Exit",settings.yellow,Color.black,180,4.1f);
                 }
@@ -101,7 +102,9 @@ namespace SubwayCarry.Gameplay3D
             Board(t,new Vector3(-6.45f,h+2.35f,47.17f),"↓ "+DirectionBoard(index,1),settings.blue,Color.white,180,3.5f);
             Board(t,new Vector3(6.45f,h+2.35f,47.17f),"↓ "+DirectionBoard(index,-1),settings.blue,Color.white,180,3.5f);
             Board(t,new Vector3(0,h+2.55f,-8.2f),index==0?"↓ 타는 곳  |  수인분당선":"↑ 나가는 곳  |  Exit",settings.blue,Color.white,0,5.5f);
-            Board(t,new Vector3(0,h+2.55f,-8.4f),index==0?"① 가천대학교 · 비전타워  ↑":"↑ 나가는 곳 / Exit",settings.yellow,Color.black,180,5.5f);
+            // Opposite-facing boards sit back-to-back: the exit board must be behind,
+            // not in front of the blue boarding face as approached from the entrance.
+            Board(t,new Vector3(0,h+2.55f,-8.10f),index==0?"① 가천대학교 · 비전타워  ↑":"↑ 나가는 곳 / Exit",settings.yellow,Color.black,180,5.5f);
             Board(t,new Vector3(0,h+2.55f,50),index==0?"④ EX-HUB 판교방향  |  ⑤ 송파방향 ↑":"↑ 나가는 곳 / Exit",settings.yellow,Color.black,0,6.2f);
             for(float z=-16;z<-6;z+=.6f) Module("TactileGuideBlock",t,new Vector3(0,h,z));
             for(float x=-7.2f;x<7.3f;x+=.6f) Module("TactileGuideBlock",t,new Vector3(x,h,-2),90);
@@ -126,26 +129,46 @@ namespace SubwayCarry.Gameplay3D
             }
             // Structural columns stay outside gate lanes, stair approaches and tactile route.
             foreach(float z in new[]{-11f,49f}) foreach(float x in new[]{-5f,5f}) {
-                Module("Pillar",t,new Vector3(x,h,z)); Box(t,"Column actual footprint",new Vector3(x,h+1.5f,z),new Vector3(.68f,3,.68f));
+                Module("Pillar",t,new Vector3(x,h,z));
+                var column=new GameObject("Column actual footprint"); column.transform.SetParent(t,false); column.transform.localPosition=new Vector3(x,h,z);
+                var contact=column.AddComponent<CapsuleCollider>(); contact.radius=.563f; contact.height=3; contact.center=Vector3.up*1.5f;
             }
             // Move the entire far B1 concourse (including its matching floor cuts), not merely its stair art.
             // B2 platform geometry and the connecting corridor already use the expanded dimensions.
             foreach(Transform child in t) if(child!=connection&&child.localPosition.z>=30
                 &&(child.localPosition.y>=h-.01f||(child.name.EndsWith("_GroundContact")&&child.localPosition.y>=h-.3f)))
                 child.localPosition+=Vector3.forward*PlatformExpansion;
+            ConfigureStationReflections(t);
             return t;
         }
 
         public void RepairLegacyFarFloorContacts()
         {
-            // The saved station's visible far floor was moved with the expansion,
-            // but its below-floor collider was excluded by the old y>=h filter.
+            // The saved station's visible far floor was moved with the platform expansion,
+            // but its lower-centred collision slabs were omitted by the previous height filter.
+            // Repair only these known contacts at runtime; preserve the user's saved scene.
             float h=settings.departureFloor;
             foreach(var station in stations) foreach(Transform child in station) {
                 Vector3 p=child.localPosition;
                 if(child.name.EndsWith("_GroundContact")&&p.y>=h-.3f&&p.y<h-.01f&&p.z>=30&&p.z<=65.1f) child.localPosition+=Vector3.forward*PlatformExpansion;
             }
             Physics.SyncTransforms();
+        }
+
+        public void ConfigureStationReflections(Transform station)
+        {
+            if(settings.concourseReflection==null||settings.westPlatformReflection==null||settings.eastPlatformReflection==null) return;
+            if(station.Find("Station reflection - Concourse")!=null) return;
+            var maps=new[]{settings.concourseReflection,settings.westPlatformReflection,settings.eastPlatformReflection};
+            string[] zones={"Concourse","WestPlatform","EastPlatform"};
+            Vector3[] centers={new Vector3(0,settings.departureFloor+1.5f,-7),new Vector3(-6.25f,1.5f,42),new Vector3(6.25f,1.5f,42)};
+            for(int i=0;i<zones.Length;i++) {
+                var go=new GameObject("Station reflection - "+zones[i]); go.transform.SetParent(station,false); go.transform.localPosition=centers[i];
+                var probe=go.AddComponent<ReflectionProbe>(); probe.mode=UnityEngine.Rendering.ReflectionProbeMode.Custom; probe.customBakedTexture=maps[i];
+                probe.boxProjection=true; probe.blendDistance=.8f; probe.intensity=.85f; probe.importance=1;
+                probe.size=i==0?new Vector3(18,3,34):new Vector3(5.48f,3,PlatformLength);
+                probe.center=new Vector3(0,0,i==0?6:PlatformLength*.5f-44);
+            }
         }
 
         void StationWall(Transform t,Vector3 p,float yaw,bool concourse,float width=2)
@@ -169,7 +192,7 @@ namespace SubwayCarry.Gameplay3D
                 var r=Rect.MinMaxRect(xx[i],zz[j],xx[i+1],zz[j+1]); bool cut=false;
                 if(holes!=null) foreach(var hole in holes) if(hole.Contains(r.center)) {cut=true;break;}
                 if(cut||r.width<.001f||r.height<.001f) continue;
-                if(!ceiling) Slab(name,t,new Vector3(r.center.x,floor-.12f,r.center.y),new Vector3(r.width,.24f,r.height),settings.stone);
+                if(!ceiling) Slab(name,t,new Vector3(r.center.x,floor-.12f,r.center.y),new Vector3(r.width,.24f,r.height),floor>.1f&&settings.concourseFloor!=null?settings.concourseFloor:settings.stone);
                 else {
                     int nx=Mathf.CeilToInt(r.width/2),nz=Mathf.CeilToInt(r.height/2);
                     float sx=r.width/nx,sz=r.height/nz;
@@ -256,16 +279,15 @@ namespace SubwayCarry.Gameplay3D
             for(int i=0;i<6;i++) {
                 float x=first+i*spacing;
                 Module("FareGate",t,new Vector3(x,floor,z));
-                Box(t,"Fare gate visible steel footprint",new Vector3(x,floor+.53f,z),new Vector3(.34f,1.06f,1.2f));
+                Box(t,"Fare gate visible steel footprint",new Vector3(x,floor+.54f,z),new Vector3(.36f,1.08f,1.30f));
                 if(i==5) continue;
                 float lane=x+spacing*.5f;
                 var barrier=Box(t,"FareGate_Interaction",new Vector3(lane,floor+.65f,z),new Vector3(.76f,1.3f,.06f));
-                var motor=barrier.gameObject.AddComponent<Metro3DFareDoor>(); motor.blocker=barrier;
-                foreach(int s in new[]{-1,1}) {
-                    var hinge=new GameObject("Fare leaf physical hinge"); hinge.transform.SetParent(t,false); hinge.transform.localPosition=new Vector3(lane+s*.38f,floor,z);
-                    var leaf=Module("FareLeaf",hinge.transform,new Vector3(-s*.19f,0,0)); leaf.transform.localScale=new Vector3(.5f,1,1);
-                    if(s<0) motor.left=hinge.transform; else motor.right=hinge.transform;
-                }
+                var motor=barrier.gameObject.AddComponent<Metro3DFareDoor>(); motor.blocker=barrier;motor.passageHalfLength=1.30f*.5f;
+                var hinge=new GameObject("Fare tripod spindle"); hinge.transform.SetParent(t,false);
+                hinge.transform.localPosition=new Vector3(x+.198f,floor+.89f,z);
+                Module("FareLeaf",hinge.transform,Vector3.zero);
+                motor.tripod=true; motor.left=hinge.transform;
                 var f=barrier.gameObject.AddComponent<Metro3DFacility>(); f.kind=index==0?Metro3DFacilityKind.FareGate:Metro3DFacilityKind.ExitGate;
                 f.blocker=barrier; f.anchor=motor.left; f.gateDoor=motor; f.caption="개찰구"; facilities.Add(f);
             }
@@ -335,7 +357,7 @@ namespace SubwayCarry.Gameplay3D
         void Notice(Transform t,Vector3 p,float yaw,string heading,bool gachon)
         {
             Module("NoticeBoard",t,p,yaw); yaw+=180; var rot=Quaternion.Euler(0,yaw,0);
-            Text(t,p+rot*new Vector3(0,2.03f,-.075f),heading,Color.white,.055f,yaw,.87f,.13f);
+            Text(t,p+rot*new Vector3(0,2.00f,-.075f),heading,Color.white,.055f,yaw,1.34f,.075f);
             Text(t,p+rot*new Vector3(0,1.75f,-.074f),"B1  대합실  /  B2  승강장",Color.black,.065f,yaw,.87f,.13f);
             Text(t,p+rot*new Vector3(0,1.47f,-.074f),gachon?"① 가천대  ② 서초교  ③ 태평중\n④ 판교방향  ⑤ 송파방향":"나가는 곳은 위층 대합실\n계단 · 에스컬레이터 · 엘리베이터",Color.black,.061f,yaw,.87f,.29f);
             Text(t,p+rot*new Vector3(0,1.15f,-.074f),"먼저 내린 뒤 탑승하세요",Color.black,.062f,yaw,.87f,.13f);

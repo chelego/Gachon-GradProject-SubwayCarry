@@ -12,6 +12,57 @@ namespace SubwayCarry.Gameplay3D
         public int LastStaticRejects {get;private set;}
         public long SteeringTicks {get;private set;}
         public int SteeringCalls {get;private set;}
+        public long WalkingStepTicks {get;private set;}
+        public int WalkingStepCalls {get;private set;}
+        public Metro3DStopReason LastWalkingRejection {get;private set;}
+        public int WalkCorridorQueries {get;private set;}
+        public long WalkCorridorTicks {get;private set;}
+        public long WalkCorridorAllocated {get;private set;}
+        public bool CanShortenWalkingPath(Metro3DPassenger actor,Vector3 target)
+            =>CanShortenWalkingPath(actor,actor.transform.position,target);
+        // Prediction queries start at their predicted position, not repeatedly at
+        // the live capsule. This is a read-only corridor test, never a Motor write.
+        public bool CanShortenWalkingPath(Metro3DPassenger actor,Vector3 start,Vector3 target)
+        {
+            long started=System.Diagnostics.Stopwatch.GetTimestamp(),allocated=System.GC.GetAllocatedBytesForCurrentThread();
+            try{
+            WalkCorridorQueries++;
+            Vector3 delta=target-start;
+            float length=new Vector2(delta.x,delta.z).magnitude;
+            if(Mathf.Abs(delta.y)>.25f||length>20)return false;
+            if(length<.03f)return true;
+            Vector3 direction=new Vector3(delta.x,0,delta.z)/length;
+            int n=Physics.CapsuleCastNonAlloc(start+Vector3.up*.33f,start+Vector3.up*1.45f,.27f,direction,hits,length,~0,QueryTriggerInteraction.Ignore);
+            if(n==hits.Length)return false;
+            for(int i=0;i<n;i++)if(!(hits[i].collider is CharacterController)&&!hits[i].collider.transform.IsChildOf(actor.transform))return false;
+            Transform root=actor.transform.parent;
+            Vector3 side=Vector3.Cross(Vector3.up,direction)*.24f;
+            int steps=Mathf.CeilToInt(length/.35f);
+            Vector3 previous=root.InverseTransformPoint(start);
+            for(int i=1;i<=steps;i++) {
+                Vector3 p=Vector3.Lerp(start,target,i/(float)steps),local=root.InverseTransformPoint(p);
+                if(!OnOwnedSurface(actor,previous,local))return false;
+                for(int edge=-1;edge<=1;edge+=2) {
+                    int supports=Physics.RaycastNonAlloc(p+side*edge+Vector3.up*.35f,Vector3.down,hits,.65f,~0,QueryTriggerInteraction.Ignore);
+                    if(supports==hits.Length)return false;
+                    bool supported=false;
+                    for(int k=0;k<supports;k++)if(!(hits[k].collider is CharacterController)&&hits[k].collider.transform.IsChildOf(root)&&hits[k].normal.y>.65f&&Mathf.Abs(hits[k].point.y-p.y)<.16f){supported=true;break;}
+                    if(!supported)return false;
+                }
+                previous=local;
+            }
+            int claims=world.Traffic.PassageClaims(actor,passageStarts,passageEnds);
+            for(int i=0;i<claims;i++)if(SegmentGapSquared(start,target,passageStarts[i],passageEnds[i])<.52f*.52f)return false;
+            foreach(var claim in standSpaces)if(claim.Key!=actor&&claim.Value.root!=null&&Mathf.Abs(claim.Value.root.TransformPoint(claim.Value.local).y-start.y)<.7f&&SegmentDistanceSquared(claim.Value.root.TransformPoint(claim.Value.local),start,target)<.52f*.52f)return false;
+            return true;
+            }finally{WalkCorridorTicks+=System.Diagnostics.Stopwatch.GetTimestamp()-started;WalkCorridorAllocated+=System.GC.GetAllocatedBytesForCurrentThread()-allocated;}
+        }
+        readonly Dictionary<System.Guid,Metro3DPassenger> representations=new Dictionary<System.Guid,Metro3DPassenger>();
+        public bool TryPassenger(System.Guid id,out Metro3DPassenger passenger)
+        {
+            if(representations.TryGetValue(id,out passenger)&&passenger!=null&&passenger.PersistentId==id&&passenger.isActiveAndEnabled)return true;
+            passenger=null;return false;
+        }
         public int PathRequests {get;private set;}
         public int PathSolves {get;private set;}
         public long PathTicks {get;private set;}
@@ -38,13 +89,14 @@ namespace SubwayCarry.Gameplay3D
         readonly Dictionary<Metro3DPassenger,StandClaim> standSpaces=new Dictionary<Metro3DPassenger,StandClaim>();
         readonly Collider[] contacts=new Collider[24];
         Metro3DNavigation navigation;
+        public void ForgetSurface(Transform root) {navigation?.Forget(root);}
         float nextHash;
         static readonly Unity.Profiling.ProfilerMarker SteeringMarker=new Unity.Profiling.ProfilerMarker("SubwayCarry.Crowd.Steering");
         static readonly float[] Angles={0,25,50,75,-25,-50,-75,90,-90,135,-135,180};
         static readonly float[] Speeds={1,.65f,.3f,0};
         Vector3Int Cell(Vector3 p)=>new Vector3Int(Mathf.FloorToInt(p.x/1.6f),Mathf.FloorToInt(p.y/2),Mathf.FloorToInt(p.z/1.6f));
-        public void Register(Metro3DPassenger p) { if(!agents.Contains(p)) {agents.Add(p);hashDirty=true; if(buckets.Count<agents.Count) buckets.Add(new List<Metro3DPassenger>(8));} }
-        public void Unregister(Metro3DPassenger p) {agents.Remove(p);hashDirty=true; queued.Remove(p);standSpaces.Remove(p);}
+        public void Register(Metro3DPassenger p) { if(!agents.Contains(p)) {agents.Add(p);hashDirty=true; if(buckets.Count<agents.Count) buckets.Add(new List<Metro3DPassenger>(8));} if(p.PersistentId!=System.Guid.Empty)representations[p.PersistentId]=p; }
+        public void Unregister(Metro3DPassenger p) {agents.Remove(p);hashDirty=true; queued.Remove(p);standSpaces.Remove(p);if(representations.TryGetValue(p.PersistentId,out var bound)&&bound==p)representations.Remove(p.PersistentId);}
         public void Request(Metro3DPassenger p) { if(queued.Add(p)) {paths.Enqueue(p);PathRequests++;} }
         void Update()
         {
@@ -279,6 +331,69 @@ namespace SubwayCarry.Gameplay3D
             if(selectedSide!=0&&selected.sqrMagnitude>.02f) actor.CommitPassingSide(selectedSide);
             return selected;
         }
+        // One bounded candidate check after turn/acceleration constraints. The
+        // steering search remains staggered at 10 Hz; this is not another solver.
+        public Vector3 ValidateWalkingVelocity(Metro3DPassenger actor,Vector3 candidate)
+        {
+            LastWalkingRejection=Metro3DStopReason.None;
+            if(candidate.sqrMagnitude<.000001f)return Vector3.zero;
+            long started=System.Diagnostics.Stopwatch.GetTimestamp();WalkingStepCalls++;
+            try {
+                Vector3 origin=actor.transform.position;
+                float speed=candidate.magnitude;
+                float lookahead=speed*(Time.fixedDeltaTime+.08f)+speed*speed/(2*3.8f);
+                if(Clearance(actor,origin+Vector3.up*.72f,candidate/speed,lookahead)<lookahead)return RejectWalking(Metro3DStopReason.StaticObstacle);
+                var frame=actor.transform.parent;
+                if(!OnOwnedSurface(actor,frame.InverseTransformPoint(origin),frame.InverseTransformPoint(origin+candidate*.45f)))return RejectWalking(Metro3DStopReason.Surface);
+                int claims=world.Traffic.PassageClaims(actor,passageStarts,passageEnds);
+                for(int i=0;i<claims;i++) {
+                    float before=SegmentDistanceSquared(origin,passageStarts[i],passageEnds[i]);
+                    float after=SegmentDistanceSquared(origin+candidate*.55f,passageStarts[i],passageEnds[i]);
+                    if(after<.52f*.52f&&!(before<.52f*.52f&&after>before+.002f))return RejectWalking(Metro3DStopReason.ReservedPassage);
+                }
+                foreach(var reservation in standSpaces) {
+                    if(reservation.Key==actor||reservation.Key==null||reservation.Value.root==null)continue;
+                    Vector3 offset=reservation.Value.root.TransformPoint(reservation.Value.local)-origin;
+                    if(Mathf.Abs(offset.y)>1.2f)continue;offset.y=0;
+                    if(offset.sqrMagnitude<.55f*.55f&&Vector3.Dot(offset,candidate)<-.015f)continue;
+                    if((offset-candidate*.5f).sqrMagnitude<.52f*.52f)return RejectWalking(Metro3DStopReason.ReservedPassage);
+                }
+                Query(origin,2);
+                foreach(var other in nearby) {
+                    if(!Related(actor,other))continue;
+                    Vector3 offset=other.transform.position-origin;offset.y=0;
+                    if(offset.sqrMagnitude<.48f*.48f&&Vector3.Dot(offset,candidate-other.Velocity)<-.015f)continue;
+                    if(CollisionCost(offset,actor.Velocity,candidate,other.Velocity,other.IsSeated?.34f:.48f,actor.PortalCommitted?.03f:.06f)>=35)return RejectWalking(Metro3DStopReason.Passenger);
+                }
+                var player=world.player;
+                if(player!=null&&Mathf.Abs(player.transform.position.y-origin.y)<1.5f&&
+                    !(actor.inTrain&&actor.Riding!=null&&actor.Riding.Moving&&player.Riding!=actor.Riding)) {
+                    Vector3 offset=player.transform.position-origin;offset.y=0;
+                    if(CollisionCost(offset,actor.Velocity,candidate,measuredPlayerVelocity,.48f,.06f)>=35)return RejectWalking(Metro3DStopReason.Passenger);
+                }
+                return candidate;
+            } finally {WalkingStepTicks+=System.Diagnostics.Stopwatch.GetTimestamp()-started;}
+        }
+        Vector3 RejectWalking(Metro3DStopReason reason) {LastWalkingRejection=reason;return Vector3.zero;}
+        public bool CanFollowWalkingSegment(Metro3DPassenger actor,Vector3 target)
+        {
+            if(!CanApproachDirect(actor,target))return false;
+            var frame=actor.transform.parent;Vector3 start=actor.transform.position;
+            if(!OnOwnedSurface(actor,frame.InverseTransformPoint(start),frame.InverseTransformPoint(target)))return false;
+            int count=world.Traffic.PassageClaims(actor,passageStarts,passageEnds);
+            for(int i=0;i<count;i++)if(SegmentGapSquared(start,target,passageStarts[i],passageEnds[i])<.52f*.52f)return false;
+            return true;
+        }
+        static float SegmentGapSquared(Vector3 a,Vector3 b,Vector3 c,Vector3 d)
+        {
+            Vector3 u=b-a,v=d-c,w=c-a;
+            float cross=u.x*v.z-u.z*v.x;
+            if(Mathf.Abs(cross)>.00001f) {
+                float s=(w.x*v.z-w.z*v.x)/cross,t=(w.x*u.z-w.z*u.x)/cross;
+                if(s>=0&&s<=1&&t>=0&&t<=1)return 0;
+            }
+            return Mathf.Min(Mathf.Min(SegmentDistanceSquared(a,c,d),SegmentDistanceSquared(b,c,d)),Mathf.Min(SegmentDistanceSquared(c,a,b),SegmentDistanceSquared(d,a,b)));
+        }
         bool Related(Metro3DPassenger actor,Metro3DPassenger other)
         {
             if(other==null||other==actor||!other.isActiveAndEnabled||Mathf.Abs(other.transform.position.y-actor.transform.position.y)>1.5f) return false;
@@ -292,9 +407,12 @@ namespace SubwayCarry.Gameplay3D
             if(actor.PortalCommitted)return true;
             if(!world.Traffic.GateSurfaceAllowed(actor,current,candidate))return false;
             if(actor.Journey.OnStairs) {
+                if(actor.WalkReviewCandidate&&actor.Journey.ReviewStairActive) {
+                    return actor.Journey.ReviewStairSurface(current,candidate);
+                }
                 // Authored handrail clearance 1.648m minus two .24m body
                 // radii leaves +/- .584m; retain .024m edge safety per side.
-                float center=-world.ServiceSide*7.76f;
+                float center=-actor.Journey.TrainSide*7.76f;
                 float oldSide=Mathf.Max(0,Mathf.Abs(current.x-center)-.56f);
                 float newSide=Mathf.Max(0,Mathf.Abs(candidate.x-center)-.56f);
                 if(newSide>.0001f&&newSide>=oldSide-.002f)return false;
@@ -303,7 +421,7 @@ namespace SubwayCarry.Gameplay3D
             if(actor.inTrain) {before=Mathf.Max(0,Mathf.Abs(current.x)-1.13f);after=Mathf.Max(0,Mathf.Abs(candidate.x)-1.13f);}
             else if(candidate.y<2) {
                 float limit=Metro3DWorld.ScreenDoorX+.28f;
-                before=Mathf.Max(0,limit+world.ServiceSide*current.x);after=Mathf.Max(0,limit+world.ServiceSide*candidate.x);
+                before=Mathf.Max(0,limit+actor.Journey.TrainSide*current.x);after=Mathf.Max(0,limit+actor.Journey.TrainSide*candidate.x);
             } else return true;
             // Normal movement cannot enter the track/leave the aisle. If a
             // moving collider has displaced someone, only motion restoring

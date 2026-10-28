@@ -50,6 +50,7 @@ crashlytics-build.properties
 /Assets/_Recovery.meta
 /Assets/Screenshots/
 /Assets/Screenshots.meta
+
 /ProjectSettings/SceneTemplateSettings.json
 /.vsconfig
 
@@ -69,3 +70,9 @@ crashlytics-build.properties
 /Assets/_Recovery.meta
 /Assets/Screenshots/
 /Assets/Screenshots.meta
+
+# Kubold LITE permits local modification/game distribution, not source sharing.
+# Keep both original and derived motion data out of the team repository.
+/Assets/_Project/Scenes/3D/Ingame/Game/MotionMatching/Source~/Kubold/
+/Assets/_Project/Scenes/3D/Ingame/Game/MotionMatching/LocalSample/
+/Assets/_Project/Scenes/3D/Ingame/Game/MotionMatching/LocalSample.meta

@@ -71,6 +71,15 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             data.StoreKey(Capture(data,rig,0));return data;
         }
         public static void StripAnimators(GameObject rig){foreach(var a in rig.GetComponentsInChildren<Animator>(true))UnityEngine.Object.DestroyImmediate(a);}
+        public static Motion CreateFullClipCopy(GameObject rig,AnimationClip clip)
+        {
+            RequireSharedClip(clip);if(clip.isHumanMotion)throw new InvalidOperationException("Humanoid 원본은 현재 직접 편집하지 않습니다. 권리/리그가 확인된 Generic 타깃 베이크가 필요합니다.");
+            var animator=rig.GetComponentInChildren<Animator>();var animationRoot=animator!=null?animator.gameObject:rig;
+            bool owned=AssetDatabase.GetAssetPath(clip).StartsWith(Exports+"/",StringComparison.Ordinal);var data=CreateSource(rig,clip,0);
+            data.clipName=clip.name.Replace("Rig|","")+"_편집";data.loop=clip.isLooping||clip.wrapMode==WrapMode.Loop;data.lastFrame=Mathf.Max(1,Mathf.CeilToInt(clip.length*data.sampleRate));data.keys.Clear();data.drafts.Clear();var bones=Bind(data,rig);
+            var reference=new Motion.Pose{root=data.bindPositions[0],hips=data.bindPositions[data.hipsIndex],rotations=data.bindRotations};
+            for(int f=0;f<=data.lastFrame;f++){Apply(data,bones,reference);clip.SampleAnimation(owned?rig:animationRoot,Mathf.Min(clip.length,f/(float)data.sampleRate));data.StoreKey(Capture(data,rig,f));}return data;
+        }
         static string[] CommonRigPaths(GameObject rig)
         {
             var map=new Dictionary<HumanBodyBones,string>{{HumanBodyBones.Hips,"DEF-hips"},{HumanBodyBones.Spine,"DEF-spine.001"},{HumanBodyBones.Chest,"DEF-spine.002"},{HumanBodyBones.UpperChest,"DEF-spine.003"},{HumanBodyBones.Neck,"DEF-neck"},{HumanBodyBones.Head,"DEF-head"}};
@@ -117,7 +126,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
                 if(bone==0||bone==data.hipsIndex)
                     for(int axis=0;axis<3;axis++){int b=bone,a=axis;Curve(clip,data.paths[b],"localPosition."+"xyz"[a],poses.Select(p=>(b==0?p.root:p.hips)[a]).ToArray(),data.sampleRate);}
             }
-            clip.EnsureQuaternionContinuity();return clip;
+            clip.EnsureQuaternionContinuity();clip.wrapMode=data.loop?WrapMode.Loop:WrapMode.ClampForever;var settings=AnimationUtility.GetAnimationClipSettings(clip);settings.loopTime=data.loop;AnimationUtility.SetAnimationClipSettings(clip,settings);return clip;
         }
         static void Curve(AnimationClip clip,string path,string property,float[] values,int rate)
         {
@@ -141,7 +150,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
                 string result=ModelExporter.ExportObject(Path.GetFullPath(path),rig,options);
                 if(string.IsNullOrEmpty(result)||!File.Exists(path))throw new InvalidOperationException("FBX Exporter가 파일을 내보내지 못했습니다.");
                 AssetDatabase.ImportAsset(path,ImportAssetOptions.ForceSynchronousImport);
-                var importer=(ModelImporter)AssetImporter.GetAtPath(path);importer.animationType=ModelImporterAnimationType.Generic;importer.importAnimation=true;importer.animationCompression=ModelImporterAnimationCompression.Off;importer.importCameras=false;importer.importLights=false;importer.materialImportMode=ModelImporterMaterialImportMode.None;importer.SaveAndReimport();
+                var importer=(ModelImporter)AssetImporter.GetAtPath(path);importer.animationType=ModelImporterAnimationType.Generic;importer.importAnimation=true;importer.animationCompression=ModelImporterAnimationCompression.Off;importer.importCameras=false;importer.importLights=false;importer.materialImportMode=ModelImporterMaterialImportMode.None;ApplyLoop(importer,data.loop);importer.SaveAndReimport();
                 return path;
             }
             finally{UnityEngine.Object.DestroyImmediate(rig);}
@@ -151,6 +160,8 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         {
             if(clip==null)throw new InvalidOperationException("재임포트된 FBX에 애니메이션이 없습니다.");
             var rig=CreateRig(data.sourceRig);float angle=0;positionError=0;
+            // Verify the stored terminal key, not the wrapped first frame of a translating loop.
+            var sampleClip=UnityEngine.Object.Instantiate(clip);sampleClip.wrapMode=WrapMode.ClampForever;var sampleSettings=AnimationUtility.GetAnimationClipSettings(sampleClip);sampleSettings.loopTime=false;AnimationUtility.SetAnimationClipSettings(sampleClip,sampleSettings);
             try
             {
                 StripAnimators(rig);var bones=Bind(data,rig);
@@ -158,12 +169,12 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
                 {
                     var expected=data.Evaluate(f,false);
                     // Reset to the base pose, not to expected. Missing/wrong FBX channels must fail.
-                    Apply(data,bones,new Motion.Pose{root=data.bindPositions[0],hips=data.bindPositions[data.hipsIndex],rotations=data.bindRotations});clip.SampleAnimation(rig,f/(float)data.sampleRate);
+                    Apply(data,bones,new Motion.Pose{root=data.bindPositions[0],hips=data.bindPositions[data.hipsIndex],rotations=data.bindRotations});sampleClip.SampleAnimation(rig,f/(float)data.sampleRate);
                     for(int b=0;b<bones.Length;b++){angle=Mathf.Max(angle,Quaternion.Angle(expected.rotations[b],bones[b].localRotation));var p=b==0?expected.root:b==data.hipsIndex?expected.hips:data.bindPositions[b];positionError=Mathf.Max(positionError,Vector3.Distance(p,bones[b].localPosition));if(Vector3.Distance(bones[b].localScale,data.bindScales[b])>.0001f)throw new InvalidOperationException("재임포트에서 본 스케일 변경");}
                 }
                 return angle;
             }
-            finally{UnityEngine.Object.DestroyImmediate(rig);}
+            finally{UnityEngine.Object.DestroyImmediate(sampleClip);UnityEngine.Object.DestroyImmediate(rig);}
         }
         public static string Revision(Motion source)
         {
@@ -175,12 +186,13 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             if(!draft.Validate(out string reason))throw new InvalidOperationException(reason);
             RequireSharedClip(draft.startingClip);
             if(draft.keys.Count==0)throw new InvalidOperationException("F3으로 키를 하나 이상 저장하세요.");
-            if(source!=null&&Revision(source)!=expectedJson)throw new InvalidOperationException("원본이 외부에서 변경됐습니다. 현재 초안을 유지하고 원본을 다시 확인하세요.");
+            if(source!=null&&!RevisionUnchanged(source,expectedJson))throw new InvalidOperationException("원본이 외부에서 변경됐습니다. 현재 초안을 유지하고 원본을 다시 확인하세요.");
             Directory.CreateDirectory(Authored);Directory.CreateDirectory(Exports);AssetDatabase.Refresh();
             if(source==null&&string.IsNullOrWhiteSpace(draft.author))throw new InvalidOperationException("새 원본은 제작자 이름/고유 별칭을 입력한 뒤 저장하세요.");
             var currentSource=source;
             if(AssetDatabase.FindAssets("t:AnimationLabAuthoredMotion",new[]{Authored}).Select(g=>AssetDatabase.LoadAssetAtPath<Motion>(AssetDatabase.GUIDToAssetPath(g))).Any(m=>m!=null&&m!=currentSource&&m.id==draft.id))throw new InvalidOperationException("같은 원본 ID의 복사 파일이 있습니다. 제작 창의 내 사본 만들기로 독립 원본을 만들어 주세요.");
-            string sourcePath=source!=null?AssetDatabase.GetAssetPath(source):AssetDatabase.GenerateUniqueAssetPath(Authored+"/"+SafeName(draft.author)+"_"+SafeName(draft.clipName)+".asset");
+            string sourcePath=source!=null?AssetDatabase.GetAssetPath(source):Authored+"/"+SafeName(draft.author)+"_"+SafeName(draft.clipName)+".asset";
+            if(source==null&&File.Exists(sourcePath))throw new InvalidOperationException("같은 제작자/동작 이름의 원본이 있습니다. 기존 원본을 열거나 독립 사본 이름을 지정하세요.");
             string stem=Path.GetFileNameWithoutExtension(sourcePath),animPath=Exports+"/"+stem+".anim",fbxPath=Exports+"/"+stem+".fbx";
             if(source!=null&&source.generatedClip!=null)animPath=AssetDatabase.GetAssetPath(source.generatedClip);
             if(source!=null&&source.generatedFbx!=null)fbxPath=AssetDatabase.GetAssetPath(source.generatedFbx);
@@ -188,20 +200,47 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             if(source==null&&(File.Exists(animPath)||File.Exists(fbxPath)))throw new InvalidOperationException("동일 이름의 출력이 있습니다. 다른 클립 이름을 선택하세요.");
             if(source!=null&&(File.Exists(animPath)&&source.generatedClip!=AssetDatabase.LoadAssetAtPath<AnimationClip>(animPath)||File.Exists(fbxPath)&&source.generatedFbx!=AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath)))throw new InvalidOperationException("다른 파일이 출력 경로를 사용하고 있습니다. 기존 출력 참조를 임의 교체하지 않습니다.");
             if(source!=null)foreach(string output in new[]{animPath,fbxPath})if(File.Exists(output)&&AssetImporter.GetAtPath(output).userData!="SubwayCarry.MotionAuthoring:"+draft.id)throw new InvalidOperationException("출력의 제작 원본 ID가 다릅니다. 다른 파일은 덮지 않습니다.");
-            if(source==null){source=UnityEngine.Object.Instantiate(draft);source.hideFlags=HideFlags.None;AssetDatabase.CreateAsset(source,sourcePath);}
-            else{if(source.id!=draft.id)throw new InvalidOperationException("다른 제작 원본은 덮지 않습니다.");JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(draft),source);EditorUtility.SetDirty(source);AssetDatabase.SaveAssetIfDirty(source);}
-            var baked=Bake(draft);var existing=AssetDatabase.LoadAssetAtPath<AnimationClip>(animPath);
-            if(existing==null)AssetDatabase.CreateAsset(baked,animPath);else{EditorUtility.CopySerialized(baked,existing);UnityEngine.Object.DestroyImmediate(baked);baked=existing;EditorUtility.SetDirty(existing);AssetDatabase.SaveAssetIfDirty(existing);}
-            draft.generatedClip=source.generatedClip=baked;EditorUtility.SetDirty(source);AssetDatabase.SaveAssetIfDirty(source);
-            SetOwner(animPath,draft.id);
+            if(source!=null&&source.id!=draft.id)throw new InvalidOperationException("다른 제작 원본은 덮지 않습니다.");
+            var targets=AnimationLabPhonePublication.Targets(draft);var oldSource=source;var oldClip=draft.generatedClip;var oldFbx=draft.generatedFbx;
+            var backups=new Dictionary<string,byte[]>();bool publishing=false;AnimationClip baked=null;string token=Guid.NewGuid().ToString("N"),candidateFbx=Exports+"/__Candidate_"+token+".fbx";
             try
             {
-                ExportFbx(draft,baked,fbxPath);SetOwner(fbxPath,draft.id);draft.generatedFbx=source.generatedFbx=AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath);EditorUtility.SetDirty(source);AssetDatabase.SaveAssetIfDirty(source);var imported=ImportedClip(fbxPath);float angle=Compare(draft,imported,out float position);
-                if(angle>.15f||position>.001f||Mathf.Abs(imported.length-draft.Duration)>1f/draft.sampleRate+.0001f)throw new InvalidOperationException($"FBX 왕복 오차: 회전 {angle:F3}°, 위치 {position:F4}m, 길이 {imported.length:F3}s");
+                // Check temporary candidates before touching the last-good source, playback clip or binding.
+                baked=Bake(draft);ExportFbx(draft,baked,candidateFbx);CandidateValidationProbe?.Invoke();
+                ValidateRoundTrip(draft,baked);ValidateRoundTrip(draft,ImportedClip(candidateFbx));AnimationLabPhonePublication.Validate(draft,baked,targets);
+                if(source!=null&&!RevisionUnchanged(source,expectedJson))throw new InvalidOperationException("검증 중 원본이 외부에서 변경됐습니다. 현재 초안과 기존 재생본을 유지합니다.");
+                var paths=new[]{sourcePath,animPath,fbxPath}.Concat(targets.Select(AssetDatabase.GetAssetPath)).ToArray();
+                foreach(string path in paths)foreach(string file in new[]{path,path+".meta"})backups[file]=File.Exists(file)?File.ReadAllBytes(file):null;
+                var existing=AssetDatabase.LoadAssetAtPath<AnimationClip>(animPath);
+                if(existing!=null&&EditorUtility.IsDirty(existing))throw new InvalidOperationException("재생 클립에 저장하지 않은 외부 편집이 있습니다. 덮어쓰지 않습니다.");
+                publishing=true;
+                if(existing==null){existing=UnityEngine.Object.Instantiate(baked);AssetDatabase.CreateAsset(existing,animPath);}else{EditorUtility.CopySerialized(baked,existing);existing.name=Path.GetFileNameWithoutExtension(animPath);EditorUtility.SetDirty(existing);AssetDatabase.SaveAssetIfDirty(existing);}
+                SetOwner(animPath,draft.id);File.Copy(candidateFbx,fbxPath,true);AssetDatabase.ImportAsset(fbxPath,ImportAssetOptions.ForceSynchronousImport);
+                var importer=(ModelImporter)AssetImporter.GetAtPath(fbxPath);importer.animationType=ModelImporterAnimationType.Generic;importer.importAnimation=true;importer.animationCompression=ModelImporterAnimationCompression.Off;importer.importCameras=false;importer.importLights=false;importer.materialImportMode=ModelImporterMaterialImportMode.None;importer.userData="SubwayCarry.MotionAuthoring:"+draft.id;ApplyLoop(importer,draft.loop);importer.SaveAndReimport();
+                ValidateRoundTrip(draft,existing);ValidateRoundTrip(draft,ImportedClip(fbxPath));
+                if(source==null){source=UnityEngine.Object.Instantiate(draft);source.hideFlags=HideFlags.None;AssetDatabase.CreateAsset(source,sourcePath);}else JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(draft),source);
+                draft.generatedClip=source.generatedClip=existing;draft.generatedFbx=source.generatedFbx=AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath);EditorUtility.SetDirty(source);AssetDatabase.SaveAssetIfDirty(source);
+                PublicationProbe?.Invoke();AnimationLabPhonePublication.Publish(source,existing,targets);AssetDatabase.ImportAsset(sourcePath,ImportAssetOptions.ForceUpdate|ImportAssetOptions.ForceSynchronousImport);source=AssetDatabase.LoadAssetAtPath<Motion>(sourcePath);if(source==null)throw new InvalidOperationException("저장한 편집 원본을 재임포트할 수 없습니다.");
                 return sourcePath;
             }
-            catch(Exception error){throw new InvalidOperationException("원본/.anim 저장됨 · FBX 검증 미완성: "+error.Message,error);}
+            catch(Exception error)
+            {
+                if(publishing)
+                {
+                    foreach(var backup in backups)if(backup.Value!=null)File.WriteAllBytes(backup.Key,backup.Value);else if(File.Exists(backup.Key))File.Delete(backup.Key);
+                    foreach(string path in backups.Keys.Where(p=>!p.EndsWith(".meta",StringComparison.Ordinal)))AssetDatabase.ImportAsset(path,ImportAssetOptions.ForceSynchronousImport);
+                }
+                source=oldSource!=null?AssetDatabase.LoadAssetAtPath<Motion>(sourcePath):null;draft.generatedClip=oldClip;draft.generatedFbx=oldFbx;
+                throw new InvalidOperationException("저장·적용 실패 · 이전 정상 재생본과 현재 초안 유지: "+error.Message,error);
+            }
+            finally{AssetDatabase.DeleteAsset(candidateFbx);if(baked!=null)UnityEngine.Object.DestroyImmediate(baked);}
         }
+        internal static Action CandidateValidationProbe,PublicationProbe;
+        static bool RevisionUnchanged(Motion source,string expected)
+        {string actual=Revision(source);return actual==expected||expected!=null&&!expected.Contains("\"loop\":")&&actual.Replace(",\"loop\":false","")==expected;}
+        static void ApplyLoop(ModelImporter importer,bool repeat){var takes=importer.clipAnimations;if(takes.Length==0)takes=importer.defaultClipAnimations;foreach(var take in takes){take.loopTime=repeat;take.loopPose=false;}importer.clipAnimations=takes;}
+        static void ValidateRoundTrip(Motion data,AnimationClip clip)
+        {float angle=Compare(data,clip,out float position);if(angle>.15f||position>.001f||Mathf.Abs(clip.length-data.Duration)>1f/data.sampleRate+.0001f)throw new InvalidOperationException($"출력 왕복 오차: 회전 {angle:F3}°, 위치 {position:F4}m, 길이 {clip.length:F3}s");}
         static void SetOwner(string path,string id){var importer=AssetImporter.GetAtPath(path);importer.userData="SubwayCarry.MotionAuthoring:"+id;AssetDatabase.WriteImportSettingsIfDirty(path);}
         static string SafeName(string text){var invalid=Path.GetInvalidFileNameChars();string name=new string(text.Trim().Where(c=>!invalid.Contains(c)).ToArray());if(name.Length==0)throw new InvalidOperationException("클립 이름이 필요합니다.");return name;}
     }

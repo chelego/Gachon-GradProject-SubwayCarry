@@ -1,0 +1,13 @@
+{
+  "upstream": "https://github.com/Frost-Blade-Studios/Motion-Matching-for-Unity",
+  "commit": "b84345b01a15126d75aec4f9dfb57729bccb457c",
+  "packageVersion": "2.3.3",
+  "license": "MIT; see LICENSE and NOTICE",
+  "demoDataImported": false,
+  "testedEditor": "6000.3.7f1",
+  "localChanges": [
+    "Replace invalid UNITY_6_1_OR_NEWER checks with UNITY_6000_0_OR_NEWER for AnimatorUpdateMode.Fixed (five files)",
+    "Offline preprocessing normalizes the sampled instance scale and enables root-motion analysis without changing the production prefab",
+    "Add profiler markers SubwayCarry.MM.Schedule and SubwayCarry.MM.Collect; no search algorithm replacement"
+  ]
+}

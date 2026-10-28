@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "checkedOn": "2026-10-22",
+  "framework": {
+    "name": "MxM",
+    "version": "2.3.3",
+    "commit": "b84345b01a15126d75aec4f9dfb57729bccb457c",
+    "codeLicense": "MIT",
+    "localPatches": "Packages/com.frost-blade-studios.motion-matching/SubwayCarryPatch.json"
+  },
+  "recordingTerms": "https://mocap.cs.cmu.edu/faqs.php",
+  "recordings": [
+    {
+      "file": "Assets/_Project/Scenes/3D/Ingame/Game/Source~/MotionCapture/69.asf",
+      "url": "https://mocap.cs.cmu.edu/subjects/69/69.asf",
+      "role": "Acclaim source skeleton",
+      "sha256": "c3019031ae5789b1d43d3bba424229ac544ccc68bb8c06e7d67bf75b1c41605f"
+    },
+    {
+      "file": "Assets/_Project/Scenes/3D/Ingame/Game/Source~/MotionCapture/69_01.amc",
+      "url": "https://mocap.cs.cmu.edu/subjects/69/69_01.amc",
+      "role": "forward walking",
+      "sha256": "db7976c321c0a637049ca28e2f663caead4ab23e11930837d986150b4c2b6d75"
+    },
+    {
+      "file": "Assets/_Project/Scenes/3D/Ingame/Game/Source~/MotionCapture/69_13.amc",
+      "url": "https://mocap.cs.cmu.edu/subjects/69/69_13.amc",
+      "role": "walking and turning in place",
+      "sha256": "4db2376e8b8591b4222eb925efe62f899f9ed2ba93235c057afdd25da8f2db38"
+    },
+    {
+      "file": "Assets/_Project/Scenes/3D/Ingame/Game/Source~/MotionCapture/69_16.amc",
+      "url": "https://mocap.cs.cmu.edu/subjects/69/69_16.amc",
+      "role": "turn in place",
+      "sha256": "2d9848b05cb7b69e7abe65f5405ec25f4971cfd764707560a3cb8bddad2afe91"
+    },
+    {
+      "file": "Assets/_Project/Scenes/3D/Ingame/Game/Source~/MotionCapture/69_18.amc",
+      "url": "https://mocap.cs.cmu.edu/subjects/69/69_18.amc",
+      "role": "opposite turn in place",
+      "sha256": "ab26d17f420194b74a0434ad1a9ac400f364f839298bb3a10f37e15b98e81429"
+    },
+    {
+      "file": "Assets/_Project/Scenes/3D/Ingame/Game/Source~/MotionCapture/69_28.amc",
+      "url": "https://mocap.cs.cmu.edu/subjects/69/69_28.amc",
+      "role": "smooth right walking turn",
+      "sha256": "0051d48286a64cde0fc1077785c14ceeee7c49c4b6d8855578f0dc2c2057250a"
+    },
+    {
+      "file": "Assets/_Project/Scenes/3D/Ingame/Game/Source~/MotionCapture/69_31.amc",
+      "url": "https://mocap.cs.cmu.edu/subjects/69/69_31.amc",
+      "role": "smooth left walking turn",
+      "sha256": "ed06e2dfbe783ff29f90737e3ef907f5b581f9ff46b6db26a78296871c6fb817"
+    },
+    {
+      "file": "Assets/_Project/Scenes/3D/Ingame/Game/Source~/MotionCapture/91.asf",
+      "url": "https://mocap.cs.cmu.edu/subjects/91/91.asf",
+      "role": "Acclaim source skeleton",
+      "sha256": "de06a1ee5d917e4bd23461e22e49b43591ed8d9bd84a92d6b6927f423a972b30"
+    },
+    {
+      "file": "Assets/_Project/Scenes/3D/Ingame/Game/Source~/MotionCapture/91_10.amc",
+      "url": "https://mocap.cs.cmu.edu/subjects/91/91_10.amc",
+      "role": "slow walking",
+      "sha256": "1067d0edf7e662c1d497251b6b2319484f1c652cd057e5e183d68f316d1d70ce"
+    }
+  ],
+  "model": {
+    "file": "Assets/ThirdParty/Quaternius/UniversalAnimationLibrary/AnimationLibrary_Unity_Standard.fbx",
+    "license": "CC0",
+    "originalPreserved": true
+  },
+  "sampling": {
+    "captureHz": 120,
+    "bakeHz": 30,
+    "databaseHz": 15,
+    "predictionSeconds": [
+      -0.4,
+      -0.2,
+      0.2,
+      0.4,
+      0.7,
+      1
+    ],
+    "queryJoints": [
+      "DEF-hips",
+      "DEF-foot.L",
+      "DEF-foot.R",
+      "DEF-toe.L",
+      "DEF-toe.R"
+    ],
+    "continuationCostMultiplier": 0.85,
+    "maximumPlaybackRateCorrection": [
+      0.85,
+      1.15
+    ],
+    "runtimeRootMotion": false
+  },
+  "unverified": [
+    "separate left/right support-foot start and stop coverage",
+    "runtime foot locking and terrain contact",
+    "crowd-scale performance and player-build memory",
+    "user Play visual approval"
+  ]
+}

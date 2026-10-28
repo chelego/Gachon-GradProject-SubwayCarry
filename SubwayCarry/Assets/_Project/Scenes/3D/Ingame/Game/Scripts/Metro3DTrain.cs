@@ -23,6 +23,12 @@ namespace SubwayCarry.Gameplay3D
         public int CurrentStop {get;private set;}
         public bool DoorsOpen => OpenAmount>.92f;
         public bool Moving {get;private set;}
+        public int TravelDirection {get;private set;}=1;
+        public bool Autonomous {get;set;}
+        public bool BoardingWindow {get;set;}
+        public bool CanBoard => DoorsOpen&&!Moving&&(Autonomous?BoardingWindow:world.session.CanPassengersBoard);
+        public float MovementRemaining => Moving?Mathf.Max(0,duration-elapsed):0;
+        public void ConfigureService(int direction,int stop) {TravelDirection=direction<0?-1:1;CurrentStop=stop;}
         float startZ,endZ,duration,elapsed,targetDoors;
         Vector3[] panelRest;
 
@@ -39,7 +45,7 @@ namespace SubwayCarry.Gameplay3D
         public void SetDoors(bool open) { targetDoors=open?1:0; }
         public void DepartOutOfRoute(float seconds)
         {
-            startZ=transform.localPosition.z; endZ=(world.session.Route.stops.Length+2)*Metro3DWorld.StationSpacing;
+            startZ=transform.localPosition.z; endZ=(TravelDirection>0?world.session.Route.stops.Length+1:-2)*Metro3DWorld.StationSpacing;
             duration=seconds; elapsed=0; Moving=true; SetDoors(false);
         }
         void Update()
@@ -66,5 +72,6 @@ namespace SubwayCarry.Gameplay3D
         public Vector3 DoorPoint(int i,bool platform)
             => transform.TransformPoint(new Vector3(platform?-side*(Metro3DWorld.ScreenDoorX- Metro3DWorld.TrackCenterX+.55f):-side*.63f,0,DoorZ[Mathf.Clamp(i,0,DoorZ.Length-1)]));
         public int NearestDoor(Vector3 point) {float z=transform.InverseTransformPoint(point).z,best=float.PositiveInfinity;int result=0;for(int i=0;i<DoorZ.Length;i++) {float d=Mathf.Abs(z-DoorZ[i]);if(d<best){best=d;result=i;}}return result;}
+        void OnDestroy() {if(world!=null)world.Trains.Remove(this);}
     }
 }

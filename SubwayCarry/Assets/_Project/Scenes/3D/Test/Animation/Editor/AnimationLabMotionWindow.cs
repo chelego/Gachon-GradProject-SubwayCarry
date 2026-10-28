@@ -19,6 +19,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         [SerializeField] float opacity=.18f,ghostSpacing;
         [SerializeField] string sourcePath="",baseline="",search="";
         Motion draft,source;
+        AnimationLabPhoneAuthoringPreview phonePreview;
         GameObject rig,ghost;
         Transform[] bones,ghostBones;
         Material ghostMaterial;
@@ -27,12 +28,20 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         bool playing,ownsTools,previousTools;
         double playStarted;float playFrame;
         Vector2 scroll,jointScroll;
+        string boundRole="";
         string status="F1으로 제작 시작. 조작은 이 작업창 또는 Scene 뷰에서 합니다.";
         AnimationClip startingClip;
         float startingTime;
         [SerializeField] bool moveTool=true;
+        [SerializeField] int pelvisFootLock;
         struct Limb {public int upper,mid,end;public bool leg;public bool Valid=>upper>=0&&mid>=0&&end>=0;}
+        struct PelvisPin
+        {
+            public Limb limb;public Vector3 foot,origin,bend;public Quaternion rotation;public float a,b,minimum,maximum;
+        }
         Limb[] limbs;
+        PelvisPin[] pelvisPins;
+        Vector3 pelvisDragOrigin;
         int positionDragJoint=-1;
         Vector3 positionDragPlane;
         Quaternion positionDragTip;
@@ -48,9 +57,11 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         public int Frame=>frame;
         public string Status=>status;
         internal GameObject Ghost=>ghost;
+        internal GameObject PhoneProp=>phonePreview!=null?phonePreview.Phone:null;
         internal bool Previewing=>playing;
         internal float PreviewFrame=>playFrame;
         internal bool PositionTool=>moveTool;
+        internal int PelvisFootLock {get=>pelvisFootLock;set{pelvisFootLock=Mathf.Clamp(value,0,3);ResetPositionDrag();}}
         string BoneLabel(int i){int human=Array.IndexOf(draft.humanPaths,draft.paths[i]);return i==0?"ROOT · 위치/회전":human>=0?((HumanBodyBones)human)+" · "+bones[i].name:bones[i].name;}
         bool Context=>!EditorApplication.isPlayingOrWillChangePlaymode&&SceneManager.GetActiveScene().path==AnimationLabMotionAuthoring.ScenePath;
         [MenuItem("SubwayCarry/Animation/동작 제작 · MotionAuthoring")]
@@ -58,16 +69,38 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         [UnityEditor.Callbacks.OnOpenAsset]
         public static bool OpenSavedAsset(int instanceId,int line)
         {
-            var value=EditorUtility.InstanceIDToObject(instanceId) as Motion;if(value==null)return false;
+            var clicked=EditorUtility.InstanceIDToObject(instanceId);Motion value;
+            try{value=AnimationLabPhonePublication.OwnedSource(clicked,out bool owned);if(!owned)return false;}
+            catch(Exception e){var errorPanel=GetWindow<AnimationLabMotionWindow>("동작 제작");errorPanel.status=e.Message;errorPanel.Show();return true;}
+            if(value==null)return false;
             var panel=GetWindow<AnimationLabMotionWindow>("동작 제작");panel.Show();
             if(EditorApplication.isPlayingOrWillChangePlaymode||!panel.Context&&Enumerable.Range(0,SceneManager.sceneCount).Any(i=>SceneManager.GetSceneAt(i).isDirty))
             {panel.status="Play 또는 저장하지 않은 씬이 있어 원본 열기를 보류했습니다. 씬은 변경하지 않았습니다.";panel.Repaint();return true;}
             if(!File.Exists(AnimationLabMotionAuthoring.ScenePath)){panel.status="MotionAuthoring 제작 씬이 없습니다.";panel.Repaint();return true;}
             if(panel.draft!=null&&JsonUtility.ToJson(panel.draft)!=JsonUtility.ToJson(value)&&!EditorUtility.DisplayDialog("저장 원본 열기","현재 미저장 초안을 선택한 저장 원본으로 바꿀까요? 초안을 보존하려면 취소 후 F2로 먼저 저장하세요.","저장 원본 열기","현재 초안 유지"))return true;
-            if(!panel.Context)EditorSceneManager.OpenScene(AnimationLabMotionAuthoring.ScenePath);
+            string sourceAssetPath=AssetDatabase.GetAssetPath(value);if(!panel.Context){EditorSceneManager.OpenScene(AnimationLabMotionAuthoring.ScenePath);value=AssetDatabase.LoadAssetAtPath<Motion>(sourceAssetPath);}if(value==null){panel.status="씬 전환 후 편집 원본을 찾지 못했습니다. 원본은 변경하지 않았습니다.";return true;}
             panel.LoadSource(value);return true;
         }
         internal void SelectSaved(UnityEngine.Object value){if(value==null)return;Selection.activeObject=value;EditorGUIUtility.PingObject(value);}
+        internal void SelectMotionFolder(bool originals=false)
+        {
+            string path=originals?AnimationLabMotionAuthoring.Authored:AnimationLabMotionAuthoring.Exports;var folder=AssetDatabase.LoadAssetAtPath<DefaultAsset>(path);
+            if(folder==null){status="프로젝트 제작 폴더가 없습니다: "+path;return;}EditorUtility.FocusProjectWindow();Selection.activeObject=folder;EditorGUIUtility.PingObject(folder);
+            status=originals?"Authored · 다시 편집할 원본":"Exports · 이 도구의 FBX/.anim 더블클릭 → 연결된 편집 원본";
+        }
+        internal void LoadFullClipCopy(AnimationClip clip)
+        {
+            GameObject preview=null;Motion copied=null;
+            try
+            {
+                if(!Context)throw new InvalidOperationException("MotionAuthoring 씬의 Edit Mode에서만 편집 사본을 만듭니다.");
+                preview=AnimationLabMotionAuthoring.CreateRig();copied=AnimationLabMotionAuthoring.CreateFullClipCopy(preview,clip);
+                Remember();Detach();if(draft!=null)DestroyImmediate(draft);draft=copied;copied=null;source=null;sourcePath=baseline="";frame=0;rangeStart=0;rangeEnd=draft.lastFrame;active=true;Attach();ApplyFrame();Remember();
+                status="전체 모션을 프레임별 키로 보존한 독립 편집 사본 · 원본 FBX/Avatar 유지";
+            }
+            catch(Exception e){status=e.Message;}
+            finally{if(preview!=null)DestroyImmediate(preview);if(copied!=null)DestroyImmediate(copied);Repaint();}
+        }
         void OnEnable()
         {
             minSize=new Vector2(420,620);RestoreDraft();
@@ -100,7 +133,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             {
             AnimationLabMotionAuthoring.ResolveSharedRig(draft);
             authoringPipeline=AssetDatabase.LoadAssetAtPath<RenderPipelineAsset>("Assets/_Project/Scenes/3D/Ingame/Game/Data/Pipeline3D.asset");previousPipeline=QualitySettings.renderPipeline;QualitySettings.renderPipeline=authoringPipeline;ownsPipeline=true;
-            rig=AnimationLabMotionAuthoring.CreateRig(draft.sourceRig);AnimationLabMotionAuthoring.StripAnimators(rig);SceneManager.MoveGameObjectToScene(rig,SceneManager.GetActiveScene());bones=AnimationLabMotionAuthoring.Bind(draft,rig);
+            rig=AnimationLabMotionAuthoring.CreateRig(draft.sourceRig);AnimationLabMotionAuthoring.StripAnimators(rig);SceneManager.MoveGameObjectToScene(rig,SceneManager.GetActiveScene());bones=AnimationLabMotionAuthoring.Bind(draft,rig);phonePreview=AnimationLabPhoneAuthoringPreview.Create(draft,rig);boundRole=phonePreview!=null?phonePreview.Description:"";
             limbs=new[]{MakeLimb(HumanBodyBones.LeftUpperArm,HumanBodyBones.LeftLowerArm,HumanBodyBones.LeftHand,false),MakeLimb(HumanBodyBones.RightUpperArm,HumanBodyBones.RightLowerArm,HumanBodyBones.RightHand,false),MakeLimb(HumanBodyBones.LeftUpperLeg,HumanBodyBones.LeftLowerLeg,HumanBodyBones.LeftFoot,true),MakeLimb(HumanBodyBones.RightUpperLeg,HumanBodyBones.RightLowerLeg,HumanBodyBones.RightFoot,true)};
             jointRest=new Quaternion[bones.Length];jointAxis=new Vector3[bones.Length];
             for(int i=0;i<bones.Length;i++){var reference=draft.paths[i].Length==0?draft.sourceRig.transform:draft.sourceRig.transform.Find(draft.paths[i]);jointRest[i]=reference!=null?reference.localRotation:draft.bindRotations[i];jointAxis[i]=reference!=null&&reference.childCount>0&&reference.GetChild(0).localPosition.sqrMagnitude>.0000001f?reference.GetChild(0).localPosition.normalized:Vector3.right;}
@@ -115,8 +148,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             }
             catch{Detach();throw;}
         }
-        void Detach()
-        {
+        void Detach(){phonePreview?.Dispose();phonePreview=null;
             playing=false;sceneNavigating=false;ResetPositionDrag();limbs=null;if(rig!=null)DestroyImmediate(rig);if(ghost!=null)DestroyImmediate(ghost);if(ghostMaterial!=null)DestroyImmediate(ghostMaterial);rig=ghost=null;bones=ghostBones=null;
             if(ownsTools){Tools.hidden=previousTools;ownsTools=false;}
             if(ownsPipeline){if(QualitySettings.renderPipeline==authoringPipeline)QualitySettings.renderPipeline=previousPipeline;ownsPipeline=false;}
@@ -130,18 +162,18 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         }
         internal void LoadSource(Motion value)
         {
-            if(value==null)return;Remember();Detach();if(draft!=null)DestroyImmediate(draft);source=value;sourcePath=AssetDatabase.GetAssetPath(value);baseline=AnimationLabMotionAuthoring.Revision(value);draft=Instantiate(value);draft.hideFlags=HideFlags.HideAndDontSave;frame=0;rangeStart=0;rangeEnd=draft.lastFrame;selected=draft.hipsIndex;active=true;Attach();FocusRig();Remember();Repaint();
+            if(value==null)return;Remember();Detach();if(draft!=null)DestroyImmediate(draft);source=value;boundRole=AnimationLabPhonePublication.Targets(value).Length>0?"Normal 연결 · 오른팔/손 마스크 (하체·시선은 기존 실행)":"";sourcePath=AssetDatabase.GetAssetPath(value);baseline=AnimationLabMotionAuthoring.Revision(value);draft=Instantiate(value);draft.hideFlags=HideFlags.HideAndDontSave;frame=0;rangeStart=0;rangeEnd=draft.lastFrame;selected=draft.hipsIndex;active=true;Attach();FocusRig();Remember();Repaint();
         }
         internal void ForkForAuthor()
         {
-            if(draft==null)return;playing=false;Undo.ClearUndo(draft);draft.id=Guid.NewGuid().ToString("N");draft.author="";draft.generatedClip=null;draft.generatedFbx=null;source=null;sourcePath=baseline="";Changed();status="독립 사본 · 제작자 이름/고유 별칭을 입력한 뒤 F2로 저장하세요. 기존 원본과 출력은 유지됩니다.";
+            if(draft==null)return;playing=false;Undo.ClearUndo(draft);boundRole="";draft.id=Guid.NewGuid().ToString("N");draft.author="";draft.generatedClip=null;draft.generatedFbx=null;source=null;sourcePath=baseline="";Changed();status="독립 사본 · 제작자 이름/고유 별칭을 입력한 뒤 F2로 저장하세요. 기존 원본과 출력은 유지됩니다.";
         }
         internal void Seek(int value)
         {if(draft==null)return;playing=false;ResetPositionDrag();frame=Mathf.Clamp(value,0,draft.lastFrame);ApplyFrame();Remember();Repaint();}
         internal void FocusRig(){var view=SceneView.lastActiveSceneView;if(view==null||rig==null)return;view.in2DMode=false;view.drawGizmos=false;view.LookAt(rig.transform.position+Vector3.up*.88f,Quaternion.Euler(10,155,0),1.2f);}
         void ApplyFrame(float at=-1)
         {
-            if(rig==null||draft==null)return;AnimationLabMotionAuthoring.Apply(draft,bones,draft.Evaluate(at<0?frame:at,at<0));
+            if(rig==null||draft==null)return;AnimationLabMotionAuthoring.Apply(draft,bones,draft.Evaluate(at<0?frame:at,at<0));phonePreview?.Apply(at<0?frame:at);
             var previous=draft.keys.Where(p=>p.frame<(at<0?frame:at)).OrderByDescending(p=>p.frame).FirstOrDefault();
             bool visible=ghostOn&&previous!=null;ghost.SetActive(visible);
             if(visible){AnimationLabMotionAuthoring.Apply(draft,ghostBones,previous);ghost.transform.position+=Vector3.right*ghostSpacing;ghostMaterial.SetColor("_BaseColor",new Color(.25f,.75f,1,opacity));}
@@ -155,6 +187,8 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         }
         internal void SetPosition(int joint,Vector3 local)
         {
+            if(draft!=null&&rig!=null&&joint==draft.hipsIndex&&pelvisFootLock!=3)
+            {ResetPositionDrag();MovePelvisWorld(bones[joint].parent!=null?bones[joint].parent.TransformPoint(local):local);ResetPositionDrag();return;}
             if(draft==null||joint!=0&&joint!=draft.hipsIndex)return;playing=false;ResetPositionDrag();Undo.RecordObject(draft,"루트/골반 위치 수정");var pose=draft.Evaluate(frame);if(joint==0)pose.root=local;else pose.hips=local;draft.StoreDraft(pose);Changed();
         }
         int Joint(HumanBodyBones human){int h=(int)human;return draft!=null&&h<draft.humanPaths.Length&&!string.IsNullOrEmpty(draft.humanPaths[h])?Array.IndexOf(draft.paths,draft.humanPaths[h]):-1;}
@@ -165,8 +199,13 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             foreach(bool left in new[]{true,false}){int shoulder=Joint(left?HumanBodyBones.LeftShoulder:HumanBodyBones.RightShoulder),arm=Joint(left?HumanBodyBones.LeftUpperArm:HumanBodyBones.RightUpperArm);if(shoulder>=0&&arm>=0&&(joint==shoulder||joint==arm)){tip=arm;clavicle=shoulder;return true;}}tip=clavicle=-1;return false;
         }
         bool CanMove(int joint)=>draft!=null&&(joint==0||joint==draft.hipsIndex||TryLimb(joint,out _)||TryShoulder(joint,out _,out _));
-        internal Vector3 MoveHandlePosition(int joint)=>TryShoulder(joint,out int tip,out _)?bones[tip].position:bones[joint].position;
-        internal void ResetPositionDrag(){positionDragJoint=-1;positionDragStart=null;}
+        internal Vector3 RootHandlePosition
+        {
+            get{int chest=Joint(HumanBodyBones.Chest);return chest>=0?Vector3.Lerp(bones[draft.hipsIndex].position,bones[chest].position,.5f):bones[draft.hipsIndex].position;}
+        }
+        internal Vector3 MoveHandlePosition(int joint)=>joint==0?RootHandlePosition:TryShoulder(joint,out int tip,out _)?bones[tip].position:bones[joint].position;
+        internal bool MoveRootHandleWorld(Vector3 desired)=>MoveJointWorld(0,bones[0].position+desired-RootHandlePosition);
+        internal void ResetPositionDrag(){positionDragJoint=-1;positionDragStart=null;pelvisPins=null;}
         void SelectJoint(HumanBodyBones human){int index=Joint(human);if(index<0)return;selected=index;moveTool=true;ResetPositionDrag();Repaint();SceneView.RepaintAll();}
         static void SwingTwist(Quaternion delta,Vector3 axis,out Quaternion swing,out float twistDegrees)
         {
@@ -199,9 +238,84 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         {
             var pose=positionDragStart.Copy(frame);for(int i=0;i<bones.Length;i++)pose.rotations[i]=bones[i].localRotation.normalized;pose.root=bones[0].localPosition;pose.hips=bones[draft.hipsIndex].localPosition;draft.StoreDraft(pose);playing=false;Changed();
         }
+        bool BeginPelvisDrag()
+        {
+            if(positionDragJoint==draft.hipsIndex&&positionDragStart!=null&&pelvisPins!=null)return true;
+            ResetPositionDrag();var legs=limbs?.Where(l=>l.leg&&(pelvisFootLock==0||l.end==Joint(pelvisFootLock==1?HumanBodyBones.LeftFoot:HumanBodyBones.RightFoot))).ToArray();
+            if(legs==null||legs.Length!=(pelvisFootLock==0?2:1)||legs.Any(l=>!l.Valid)){status="골반 발 고정에 필요한 다리 본이 없습니다. 현재 자세 유지";return false;}
+            positionDragJoint=draft.hipsIndex;positionDragStart=draft.Evaluate(frame);pelvisDragOrigin=bones[draft.hipsIndex].position;pelvisPins=new PelvisPin[legs.Length];
+            for(int i=0;i<legs.Length;i++)
+            {
+                var leg=legs[i];var upper=bones[leg.upper];var middle=bones[leg.mid];var tip=bones[leg.end];float a=Vector3.Distance(upper.position,middle.position),b=Vector3.Distance(middle.position,tip.position);
+                if(a<.00001f||b<.00001f){ResetPositionDrag();status="다리 본 길이를 확인할 수 없습니다. 현재 자세 유지";return false;}
+                var axis=(tip.position-upper.position).normalized;var bend=Vector3.ProjectOnPlane(middle.position-upper.position,axis);
+                if(bend.sqrMagnitude<.0000001f)bend=Vector3.ProjectOnPlane(rig.transform.forward,axis);
+                if(bend.sqrMagnitude<.0000001f)bend=Vector3.ProjectOnPlane(rig.transform.right,axis);
+                float reach=Vector3.Distance(upper.position,tip.position);
+                // Preserve authored poses, including a straight starting knee, instead of snapping them on selection.
+                pelvisPins[i]=new PelvisPin{limb=leg,foot=tip.position,rotation=tip.rotation,origin=upper.position,bend=bend.normalized,a=a,b=b,
+                    minimum=Mathf.Min(reach,Mathf.Sqrt(a*a+b*b+2*a*b*Mathf.Cos(140*Mathf.Deg2Rad))),
+                    maximum=Mathf.Max(reach,Mathf.Sqrt(a*a+b*b+2*a*b*Mathf.Cos(2*Mathf.Deg2Rad)))};
+            }
+            return true;
+        }
+        Vector3 ConstrainPelvisDelta(Vector3 delta)
+        {
+            // Project onto the shared reach volume. A small lowering is allowed when a straight leg needs room to bend.
+            for(int pass=0;pass<20;pass++)foreach(var pin in pelvisPins)
+            {
+                var offset=pin.origin+delta-pin.foot;float length=offset.magnitude;
+                if(length>pin.maximum)delta-=offset*((length-pin.maximum)/length);
+            }
+            // Stay on the initial side of the folded-knee boundary; never jump through a foot to another valid sphere.
+            float limit=1,aa=delta.sqrMagnitude;
+            if(aa>.0000000001f)foreach(var pin in pelvisPins)
+            {
+                var offset=pin.origin-pin.foot;float bb=2*Vector3.Dot(offset,delta),cc=Mathf.Max(0,offset.sqrMagnitude-pin.minimum*pin.minimum),disc=bb*bb-4*aa*cc;
+                if(disc<0)continue;float first=(-bb-Mathf.Sqrt(disc))/(2*aa);if(first>=0&&first<limit)limit=first;
+            }
+            return delta*limit;
+        }
+        bool SolvePinnedLeg(PelvisPin pin)
+        {
+            var upper=bones[pin.limb.upper];var middle=bones[pin.limb.mid];var tip=bones[pin.limb.end];var origin=upper.position;var offset=pin.foot-origin;float distance=offset.magnitude;
+            if(distance<.00001f||distance<pin.minimum-.00001f||distance>pin.maximum+.00001f)return false;
+            var axis=offset/distance;var bend=Vector3.ProjectOnPlane(pin.bend,axis);
+            if(bend.sqrMagnitude<.0000001f)return false;bend.Normalize();
+            var oldAxis=(tip.position-origin).normalized;var oldBend=Vector3.ProjectOnPlane(middle.position-origin,oldAxis).normalized;var align=Quaternion.FromToRotation(oldAxis,axis);
+            var alignedBend=Vector3.ProjectOnPlane(align*oldBend,axis).normalized;
+            if(alignedBend.sqrMagnitude>.5f)align=Quaternion.AngleAxis(Vector3.SignedAngle(alignedBend,bend,axis),axis)*align;
+            upper.rotation=align*upper.rotation;
+            float along=(pin.a*pin.a-pin.b*pin.b+distance*distance)/(2*distance),height=Mathf.Sqrt(Mathf.Max(0,pin.a*pin.a-along*along));var knee=origin+axis*along+bend*height;
+            upper.rotation=Quaternion.FromToRotation(middle.position-origin,knee-origin)*upper.rotation;
+            middle.rotation=Quaternion.FromToRotation(tip.position-middle.position,pin.foot-middle.position)*middle.rotation;tip.rotation=pin.rotation;
+            // Reject a candidate rather than applying a joint clamp that would silently move the planted foot.
+            return Vector3.Distance(tip.position,pin.foot)<.0001f&&Quaternion.Angle(tip.rotation,pin.rotation)<.1f
+                &&Quaternion.Angle(upper.localRotation,BoundJoint(pin.limb.upper,upper.localRotation,110,55))<.1f
+                &&Quaternion.Angle(middle.localRotation,BoundJoint(pin.limb.mid,middle.localRotation,145,35))<.1f;
+        }
+        bool TryPelvisDelta(Vector3 delta)
+        {
+            AnimationLabMotionAuthoring.Apply(draft,bones,positionDragStart);
+            if(delta.sqrMagnitude<.000000000001f)return true;
+            bones[draft.hipsIndex].position=pelvisDragOrigin+delta;
+            foreach(var pin in pelvisPins)if(!SolvePinnedLeg(pin))return false;return true;
+        }
+        bool MovePelvisWorld(Vector3 desired)
+        {
+            if(!BeginPelvisDrag())return false;var delta=ConstrainPelvisDelta(desired-pelvisDragOrigin);
+            if(!TryPelvisDelta(delta))
+            {
+                float lower=0,upper=1;for(int pass=0;pass<16;pass++){float middle=(lower+upper)*.5f;if(TryPelvisDelta(delta*middle))lower=middle;else upper=middle;}
+                TryPelvisDelta(delta*lower);
+            }
+            Undo.RecordObject(draft,"골반 이동 · 발 접지 유지");StorePositionPose();
+            status="골반 이동 · "+(pelvisFootLock==0?"양발":pelvisFootLock==1?"왼발":"오른발")+" 위치/방향 유지"+(Vector3.Distance(bones[draft.hipsIndex].position,desired)>.002f?" · 다리/관절 범위에서 제한됨":"");return true;
+        }
         internal bool MoveJointWorld(int joint,Vector3 desired)
         {
             if(draft==null||rig==null||joint<0||joint>=bones.Length||!float.IsFinite(desired.x+desired.y+desired.z))return false;
+            if(joint==draft.hipsIndex&&pelvisFootLock!=3)return MovePelvisWorld(desired);
             if(joint==0||joint==draft.hipsIndex){SetPosition(joint,bones[joint].parent!=null?bones[joint].parent.InverseTransformPoint(desired):desired);return true;}
             if(TryShoulder(joint,out int shoulderTip,out int shoulderBone))
             {
@@ -261,8 +375,8 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         internal void SaveBundle()
         {
             if(draft==null)return;
-            try{sourcePath=AnimationLabMotionAuthoring.SaveBundle(draft,ref source,baseline);baseline=AnimationLabMotionAuthoring.Revision(source);Remember();SelectSaved(source);status="원본 + .anim + FBX 왕복 검증 완료\n"+sourcePath+"\nUnity: "+AssetDatabase.GetAssetPath(source.generatedClip)+"\nFBX: "+AssetDatabase.GetAssetPath(source.generatedFbx)+"\n초안은 원본에만 보관 · 출력은 저장한 키 기준";}
-            catch(Exception e){status=e.Message;if(status.StartsWith("원본/.anim 저장됨")&&source!=null){sourcePath=AssetDatabase.GetAssetPath(source);baseline=AnimationLabMotionAuthoring.Revision(source);Remember();}Debug.LogWarning(status);}
+            try{status="출력 검증 중 · 기존 Normal 재생본 유지";Repaint();sourcePath=AnimationLabMotionAuthoring.SaveBundle(draft,ref source,baseline);source=AssetDatabase.LoadAssetAtPath<Motion>(sourcePath);baseline=AnimationLabMotionAuthoring.Revision(source);Remember();SelectSaved(source);status="원본 + .anim + FBX 왕복 검증 완료\n"+AnimationLabPhonePublication.LastStatus+"\n"+sourcePath+"\n초안 "+draft.drafts.Count+"개는 출력 제외 · F3 저장 키만 적용";}
+            catch(Exception e){status=e.Message;Remember();Debug.LogWarning(status);}
             Repaint();
         }
         internal void UpdateSceneNavigation(Event e)
@@ -292,7 +406,15 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         }
         void OnGUI()
         {
-            HandleKey(Event.current);scroll=EditorGUILayout.BeginScrollView(scroll);
+            HandleKey(Event.current);
+            using(new EditorGUILayout.HorizontalScope())
+            {
+                var previous=GUI.backgroundColor;GUI.backgroundColor=EditorGUIUtility.isProSkin?new Color(.28f,.60f,.52f):new Color(.64f,.85f,.75f);
+                var content=new GUIContent(" AI 제작 동작",EditorGUIUtility.IconContent("Folder Icon").image,"Project 창의 Exports · FBX/.anim 더블클릭으로 편집 원본 열기");
+                if(GUILayout.Button(content,GUILayout.Height(30)))SelectMotionFolder();GUI.backgroundColor=previous;
+                if(GUILayout.Button("편집 원본",GUILayout.Height(30),GUILayout.Width(92)))SelectMotionFolder(true);
+            }
+            scroll=EditorGUILayout.BeginScrollView(scroll);
             EditorGUILayout.LabelField("동작 제작 · 관절 편집 / 정수 프레임",EditorStyles.boldLabel);
             EditorGUILayout.HelpBox("Play 없이 Scene 뷰에서 편집합니다. W 위치 드래그 / E 회전. 손발 이동은 뼈 길이를 유지해 팔·다리 회전으로 저장합니다.",MessageType.None);
             if(!Context)
@@ -307,14 +429,15 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             using(new EditorGUILayout.HorizontalScope())
             {
                 if(GUILayout.Button("F1 시작/복귀"))Begin();
-                using(new EditorGUI.DisabledScope(draft==null))if(GUILayout.Button("F2 저장"))SaveBundle();
+                using(new EditorGUI.DisabledScope(draft==null))if(GUILayout.Button("F2 저장·Normal 적용"))SaveBundle();
                 if(GUILayout.Button("새 원본")&&(draft==null||EditorUtility.DisplayDialog("새 동작","현재 초안은 F2 저장 후 새로 시작하세요. 현재 초안을 새 동작으로 교체할까요?","새로 만들기","유지"))){Detach();if(draft!=null)DestroyImmediate(draft);draft=null;source=null;sourcePath=baseline="";Begin();}
             }
+            if(!string.IsNullOrEmpty(boundRole))EditorGUILayout.LabelField(boundRole,EditorStyles.wordWrappedMiniLabel);
             EditorGUI.BeginChangeCheck();var opened=(Motion)EditorGUILayout.ObjectField("제작 원본 열기",source,typeof(Motion),false);if(EditorGUI.EndChangeCheck()&&opened!=null&&(draft==null||EditorUtility.DisplayDialog("원본 열기","현재 초안을 선택한 원본으로 교체할까요?","열기","유지")))LoadSource(opened);
             using(new EditorGUI.DisabledScope(draft==null))if(GUILayout.Button("내 사본 만들기 · 기존 원본 유지"))ForkForAuthor();
             if(source!=null)
             {
-                EditorGUILayout.LabelField("다시 편집: .asset 원본 더블클릭 · .anim / FBX는 재생용 출력",EditorStyles.wordWrappedMiniLabel);
+                EditorGUILayout.LabelField("다시 편집: 이 도구의 .asset / .anim / FBX 더블클릭",EditorStyles.wordWrappedMiniLabel);
                 using(new EditorGUILayout.HorizontalScope())
                 {
                     if(GUILayout.Button("저장 원본 선택"))SelectSaved(source);
@@ -326,6 +449,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             }
             var example=AssetDatabase.LoadAssetAtPath<Motion>(AnimationLabMotionAuthoring.ExamplePath);if(example!=null&&GUILayout.Button("서기 → 가벼운 짝다리 → 서기 예제 열기")&&(draft==null||EditorUtility.DisplayDialog("예제 열기","현재 초안을 예제로 교체할까요?","열기","유지")))LoadSource(example);
             startingClip=(AnimationClip)EditorGUILayout.ObjectField("시작 클립 (CC0/직접 제작)",startingClip,typeof(AnimationClip),false);startingTime=EditorGUILayout.FloatField("시작 클립의 초",Mathf.Max(0,startingTime));
+            using(new EditorGUI.DisabledScope(startingClip==null))if(GUILayout.Button("선택 클립 전체를 편집 사본으로")&&(draft==null||EditorUtility.DisplayDialog("전체 모션 편집 사본","현재 초안을 선택 클립의 전체 모션 사본으로 바꿀까요? 저장한 원본은 변경하지 않습니다.","사본 만들기","현재 초안 유지")))LoadFullClipCopy(startingClip);
             if(draft==null){EditorGUILayout.HelpBox(status,MessageType.Info);EditorGUILayout.EndScrollView();return;}
             moveTool=GUILayout.Toolbar(moveTool?0:1,new[]{"W 위치 드래그","E 회전"})==0;
             using(new EditorGUILayout.HorizontalScope())
@@ -334,6 +458,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             EditorGUILayout.LabelField("기본 설정은 그대로 사용 · 저장할 때 클립 이름/제작자 입력",EditorStyles.wordWrappedMiniLabel);
             EditorGUI.BeginChangeCheck();string name=EditorGUILayout.TextField("클립 이름",draft.clipName),author=EditorGUILayout.TextField("제작자",draft.author);int fps=EditorGUILayout.IntField("샘플 FPS",draft.sampleRate),end=EditorGUILayout.IntField("마지막 프레임",draft.lastFrame);
             if(EditorGUI.EndChangeCheck()){Undo.RecordObject(draft,"동작 시간/이름");draft.clipName=name;draft.author=author;draft.sampleRate=Mathf.Clamp(fps,1,120);draft.lastFrame=Mathf.Max(Mathf.Max(draft.keys.Count>0?draft.keys.Max(p=>p.frame):1,draft.drafts.Count>0?draft.drafts.Max(p=>p.frame):1),Mathf.Clamp(end,1,18000));frame=Mathf.Min(frame,draft.lastFrame);rangeEnd=Mathf.Min(rangeEnd,draft.lastFrame);Changed();}
+            EditorGUI.BeginChangeCheck();bool repeat=EditorGUILayout.Toggle("반복 동작",draft.loop);if(EditorGUI.EndChangeCheck()){Undo.RecordObject(draft,"동작 반복 설정");draft.loop=repeat;Changed();}
             EditorGUILayout.LabelField(source!=null?"재저장: 기존 경로와 GUID 유지":"새 저장: Authored/<제작자>_<클립 이름>.asset · Exports에 같은 이름의 .anim/.fbx",EditorStyles.wordWrappedMiniLabel);
             float displayFrame=playing?playFrame:frame;
             EditorGUILayout.LabelField($"{displayFrame:F1} 프레임 / {displayFrame/draft.sampleRate:F3}초    전체 {draft.lastFrame}F / {draft.Duration:F3}초");
@@ -358,13 +483,14 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
                 search=EditorGUILayout.TextField("본 이름 검색 (L/R·손가락 포함)",search);selected=Mathf.Clamp(selected,0,bones.Length-1);EditorGUILayout.LabelField("선택: "+(selected==0?"ROOT":draft.paths[selected]),EditorStyles.wordWrappedLabel);
                 jointScroll=EditorGUILayout.BeginScrollView(jointScroll,GUILayout.Height(135));for(int i=0;i<bones.Length;i++)if(search.Length==0||(BoneLabel(i)+draft.paths[i]).IndexOf(search,StringComparison.OrdinalIgnoreCase)>=0)if(GUILayout.Toggle(selected==i,BoneLabel(i),"Button"))selected=i;EditorGUILayout.EndScrollView();
                 EditorGUI.BeginChangeCheck();var euler=EditorGUILayout.Vector3Field("관절 로컬 회전 °",bones[selected].localEulerAngles);if(EditorGUI.EndChangeCheck())SetRotation(selected,Quaternion.Euler(euler));
+                if(selected==draft.hipsIndex){EditorGUI.BeginChangeCheck();int held=EditorGUILayout.Popup("골반 위치 이동 · 발 고정",pelvisFootLock,new[]{"양발","왼발","오른발","해제"});if(EditorGUI.EndChangeCheck())PelvisFootLock=held;}
                 if(selected==0||selected==draft.hipsIndex){EditorGUI.BeginChangeCheck();var position=EditorGUILayout.Vector3Field("루트/골반 로컬 위치 m",bones[selected].localPosition);if(EditorGUI.EndChangeCheck())SetPosition(selected,position);}
                 else if(TryLimb(selected,out var selectedLimb))EditorGUILayout.LabelField(selected==selectedLimb.mid?"위치 드래그: 손발은 유지하고 굽힘 방향 조절":"위치 드래그: 팔·다리가 따라 움직임 · 뼈 길이 고정",EditorStyles.wordWrappedMiniLabel);
                 else if(TryShoulder(selected,out _,out _))EditorGUILayout.LabelField("어깨 위치 드래그: 쇄골·윗몸통에 분산 · 공통 더미 기준의 제한 적용",EditorStyles.wordWrappedMiniLabel);
                 else if(moveTool)EditorGUILayout.LabelField("이 관절은 회전 편집 · 위치 편집은 손목/발목/팔꿈치/무릎 또는 골반 선택",EditorStyles.wordWrappedMiniLabel);
                 if(GUILayout.Button("Scene 뷰에서 캐릭터 보기"))FocusRig();
             }
-            if(GUILayout.Button("F2 원본 + Unity .anim + FBX 저장/검증"))SaveBundle();
+            if(GUILayout.Button("F2 저장·Normal 적용 · 원본/.anim/FBX 검증"))SaveBundle();
             EditorGUILayout.HelpBox(status,MessageType.Info);EditorGUILayout.LabelField("일반 보간 · 발/손 접촉과 무게중심은 직접 검수 필요 · F2는 로컬 저장이며 Git 업로드 아님",EditorStyles.wordWrappedMiniLabel);EditorGUILayout.EndScrollView();
         }
         void SceneGUI(SceneView view)
@@ -377,13 +503,16 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
                 for(int i=0;i<bones.Length;i++)
                 {
                     var bone=bones[i];if(bone.parent!=null){Handles.color=new Color(.2f,.8f,1,.35f);Handles.DrawLine(bone.parent.position,bone.position);}
+                    if(i==0)continue;
                     Handles.color=i==selected?Color.yellow:Color.cyan;float size=HandleUtility.GetHandleSize(bone.position)*(i==selected?.045f:.022f);
                     if(Handles.Button(bone.position,Quaternion.identity,size,size,Handles.SphereHandleCap)){selected=i;ResetPositionDrag();Repaint();}
                 }
+                var rootHandle=RootHandlePosition;Handles.color=new Color(1,.15f,.1f,1);float rootSize=HandleUtility.GetHandleSize(rootHandle)*.065f;
+                if(Handles.Button(rootHandle,Quaternion.identity,rootSize,rootSize,Handles.SphereHandleCap)){selected=0;moveTool=true;ResetPositionDrag();Repaint();}
                 var current=bones[selected];var handlePosition=moveTool&&CanMove(selected)?MoveHandlePosition(selected):current.position;Handles.Label(handlePosition,(selected==0?"ROOT":current.name)+"  ["+frame+"F]");
-                if(Vector3.Distance(handlePosition,current.position)>.001f){Handles.color=Color.yellow;Handles.DrawLine(current.position,handlePosition);}
+                if(selected!=0&&Vector3.Distance(handlePosition,current.position)>.001f){Handles.color=Color.yellow;Handles.DrawLine(current.position,handlePosition);}
                 EditorGUI.BeginChangeCheck();
-                if(moveTool&&CanMove(selected)){var world=Handles.PositionHandle(handlePosition,Quaternion.identity);if(EditorGUI.EndChangeCheck())MoveJointWorld(selected,world);}
+                if(moveTool&&CanMove(selected)){var world=Handles.PositionHandle(handlePosition,Quaternion.identity);if(EditorGUI.EndChangeCheck()){if(selected==0)MoveRootHandleWorld(world);else MoveJointWorld(selected,world);}}
                 else{var rotation=Handles.RotationHandle(current.rotation,current.position);if(EditorGUI.EndChangeCheck())SetRotation(selected,current.parent!=null?Quaternion.Inverse(current.parent.rotation)*rotation:rotation);}
             }
             finally{Handles.color=color;Handles.zTest=depth;}

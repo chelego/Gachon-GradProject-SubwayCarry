@@ -90,6 +90,9 @@ namespace SubwayCarry.AI.V2
                 return direction.sqrMagnitude > 0.001f ? direction.normalized : lastTravelDirection;
             }
         }
+        private float comfortScale=1f;
+        // Explicit clearance intent. Does not replace the existing path resolver or final Motor.
+        public void SetBodyClearance(float radius,float comfort=1f){bodyRadius=Mathf.Max(.1f,radius);comfortScale=Mathf.Clamp01(comfort);}
         public float Radius => bodyRadius;
         public bool IsDeadlocked => stuckDuration >= 3f;
         public string PersonalityId { get; private set; }
@@ -407,7 +410,7 @@ namespace SubwayCarry.AI.V2
             bool useEmergentFlow = IsEmergentFlowActive(position);
             UpdateEmergentFlowMemory(position, forward, useEmergentFlow);
             float density01 = Mathf.Clamp01(neighbors.Count / 10f);
-            float adaptivePersonalSpace = personalSpace * Mathf.Lerp(1f, 0.4f, density01 * crowdTolerance);
+            float adaptivePersonalSpace = personalSpace * comfortScale * Mathf.Lerp(1f, 0.4f, density01 * crowdTolerance);
             for (int i = 0; i < neighbors.Count; i++)
             {
                 PassengerAiV2Agent other = neighbors[i];

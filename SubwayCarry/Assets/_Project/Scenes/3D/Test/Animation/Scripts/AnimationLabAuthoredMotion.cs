@@ -14,6 +14,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         public AnimationClip generatedClip;
         public GameObject generatedFbx;
         public int sampleRate=30,lastFrame=60,hipsIndex=-1;
+        public bool loop;
         public string[] paths=Array.Empty<string>();
         public string[] humanPaths=Array.Empty<string>();
         public Vector3[] bindPositions=Array.Empty<Vector3>(),bindScales=Array.Empty<Vector3>();
