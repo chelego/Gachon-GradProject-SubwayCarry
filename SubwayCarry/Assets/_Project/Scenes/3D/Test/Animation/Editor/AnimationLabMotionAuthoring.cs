@@ -150,7 +150,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
                 string result=ModelExporter.ExportObject(Path.GetFullPath(path),rig,options);
                 if(string.IsNullOrEmpty(result)||!File.Exists(path))throw new InvalidOperationException("FBX Exporter가 파일을 내보내지 못했습니다.");
                 AssetDatabase.ImportAsset(path,ImportAssetOptions.ForceSynchronousImport);
-                var importer=(ModelImporter)AssetImporter.GetAtPath(path);importer.animationType=ModelImporterAnimationType.Generic;importer.importAnimation=true;importer.animationCompression=ModelImporterAnimationCompression.Off;importer.importCameras=false;importer.importLights=false;importer.materialImportMode=ModelImporterMaterialImportMode.None;ApplyLoop(importer,data.loop,data.Duration,data.sampleRate);importer.SaveAndReimport();
+                var importer=(ModelImporter)AssetImporter.GetAtPath(path);importer.animationType=ModelImporterAnimationType.Generic;importer.importAnimation=true;importer.animationCompression=ModelImporterAnimationCompression.Off;importer.importCameras=false;importer.importLights=false;importer.materialImportMode=ModelImporterMaterialImportMode.None;ApplyClipSettings(importer,data.loop,data.lastFrame,clip.name);importer.SaveAndReimport();
                 return path;
             }
             finally{UnityEngine.Object.DestroyImmediate(rig);}
@@ -202,7 +202,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             if(source!=null)foreach(string output in new[]{animPath,fbxPath})if(File.Exists(output)&&AssetImporter.GetAtPath(output).userData!="SubwayCarry.MotionAuthoring:"+draft.id)throw new InvalidOperationException("출력의 제작 원본 ID가 다릅니다. 다른 파일은 덮지 않습니다.");
             if(source!=null&&source.id!=draft.id)throw new InvalidOperationException("다른 제작 원본은 덮지 않습니다.");
             var targets=AnimationLabPhonePublication.Targets(draft);var oldSource=source;var oldClip=draft.generatedClip;var oldFbx=draft.generatedFbx;
-            var backups=new Dictionary<string,byte[]>();bool publishing=false;AnimationClip baked=null;string token=Guid.NewGuid().ToString("N"),candidateFbx=Exports+"/__Candidate_"+token+".fbx";
+            var backups=new Dictionary<string,byte[]>();bool publishing=false;AnimationClip baked=null;string token=Guid.NewGuid().ToString("N"),candidateFbx=Exports+"/Candidate_"+token+".fbx";
             try
             {
                 // Check temporary candidates before touching the last-good source, playback clip or binding.
@@ -216,7 +216,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
                 publishing=true;
                 if(existing==null){existing=UnityEngine.Object.Instantiate(baked);AssetDatabase.CreateAsset(existing,animPath);}else{EditorUtility.CopySerialized(baked,existing);existing.name=Path.GetFileNameWithoutExtension(animPath);EditorUtility.SetDirty(existing);AssetDatabase.SaveAssetIfDirty(existing);}
                 SetOwner(animPath,draft.id);File.Copy(candidateFbx,fbxPath,true);AssetDatabase.ImportAsset(fbxPath,ImportAssetOptions.ForceSynchronousImport);
-                var importer=(ModelImporter)AssetImporter.GetAtPath(fbxPath);importer.animationType=ModelImporterAnimationType.Generic;importer.importAnimation=true;importer.animationCompression=ModelImporterAnimationCompression.Off;importer.importCameras=false;importer.importLights=false;importer.materialImportMode=ModelImporterMaterialImportMode.None;importer.userData="SubwayCarry.MotionAuthoring:"+draft.id;ApplyLoop(importer,draft.loop,draft.Duration,draft.sampleRate);importer.SaveAndReimport();
+                var importer=(ModelImporter)AssetImporter.GetAtPath(fbxPath);importer.animationType=ModelImporterAnimationType.Generic;importer.importAnimation=true;importer.animationCompression=ModelImporterAnimationCompression.Off;importer.importCameras=false;importer.importLights=false;importer.materialImportMode=ModelImporterMaterialImportMode.None;importer.userData="SubwayCarry.MotionAuthoring:"+draft.id;ApplyClipSettings(importer,draft.loop,draft.lastFrame,draft.clipName);importer.SaveAndReimport();
                 ValidateRoundTrip(draft,existing);ValidateRoundTrip(draft,ImportedClip(fbxPath));
                 if(source==null){source=UnityEngine.Object.Instantiate(draft);source.hideFlags=HideFlags.None;AssetDatabase.CreateAsset(source,sourcePath);}else JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(draft),source);
                 draft.generatedClip=source.generatedClip=existing;draft.generatedFbx=source.generatedFbx=AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath);EditorUtility.SetDirty(source);AssetDatabase.SaveAssetIfDirty(source);
@@ -238,7 +238,8 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         internal static Action CandidateValidationProbe,PublicationProbe;
         static bool RevisionUnchanged(Motion source,string expected)
         {string actual=Revision(source);return actual==expected||expected!=null&&!expected.Contains("\"loop\":")&&actual.Replace(",\"loop\":false","")==expected;}
-        static void ApplyLoop(ModelImporter importer,bool repeat,float duration,int sampleRate){var takes=importer.clipAnimations;if(takes.Length==0)takes=importer.defaultClipAnimations;foreach(var take in takes){take.firstFrame=0;take.lastFrame=duration*sampleRate;take.loopTime=repeat;take.loopPose=false;}importer.clipAnimations=takes;}
+        static void ApplyClipSettings(ModelImporter importer,bool repeat,int lastFrame,string clipName)
+        {var takes=importer.clipAnimations;if(takes.Length==0)takes=importer.defaultClipAnimations;foreach(var take in takes){take.name=clipName;take.firstFrame=0f;take.lastFrame=lastFrame;take.loopTime=repeat;take.loopPose=false;}importer.clipAnimations=takes;}
         static void ValidateRoundTrip(Motion data,AnimationClip clip)
         {float angle=Compare(data,clip,out float position);if(angle>.15f||position>.001f||Mathf.Abs(clip.length-data.Duration)>1f/data.sampleRate+.0001f)throw new InvalidOperationException($"출력 왕복 오차: 회전 {angle:F3}°, 위치 {position:F4}m, 길이 {clip.length:F3}s");}
         static void SetOwner(string path,string id){var importer=AssetImporter.GetAtPath(path);importer.userData="SubwayCarry.MotionAuthoring:"+id;AssetDatabase.WriteImportSettingsIfDirty(path);}
