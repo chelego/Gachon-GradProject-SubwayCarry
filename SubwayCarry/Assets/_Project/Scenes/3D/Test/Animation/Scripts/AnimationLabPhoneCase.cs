@@ -22,6 +22,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         public float MinimumSeparation=float.PositiveInfinity;
         public PassengerAiV23DNavigation Navigation {get;private set;}
         public AnimationLabSqueezeReview Squeeze {get;private set;}
+        public AnimationLabReactionReview Reaction {get;private set;}
         public AnimationLabReviewMenu Menu {get;private set;}
         readonly List<PassengerAiV2Agent> nearby=new List<PassengerAiV2Agent>(8);
         readonly List<GameObject> parkedActors=new List<GameObject>();
@@ -57,7 +58,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             if(Peer!=null)PeerAgent=Peer.GetComponentInChildren<AnimationLabPhoneMotor>()!=null?peerAgent:null;
             var camera=Camera.main;if(camera!=null){var middle=(config.start+config.destination)*.5f;camera.transform.SetPositionAndRotation(new Vector3(middle.x+8.7f,3.2f,middle.y-3.2f),Quaternion.LookRotation(new Vector3(middle.x,1,middle.y)-new Vector3(middle.x+8.7f,3.2f,middle.y-3.2f)));camera.fieldOfView=57;}
             if(!Application.isBatchMode&&camera!=null){var orbit=camera.GetComponent<AnimationLabCamera>();if(orbit!=null){orbit.reviewTarget=Passenger.transform;orbit.inspectOnly=true;orbit.yaw=155;orbit.pitch=12;orbit.distance=2.7f;orbit.lookHeight=1.14f;orbit.enabled=true;}}
-            Squeeze=gameObject.AddComponent<AnimationLabSqueezeReview>();Squeeze.Initialize(this);Menu=gameObject.AddComponent<AnimationLabReviewMenu>();Menu.Initialize(this);Physics.SyncTransforms();Sense();
+            Squeeze=gameObject.AddComponent<AnimationLabSqueezeReview>();Squeeze.Initialize(this);Reaction=gameObject.AddComponent<AnimationLabReactionReview>();Reaction.Initialize(this);Menu=gameObject.AddComponent<AnimationLabReviewMenu>();Menu.Initialize(this);Physics.SyncTransforms();Sense();
         }
         internal AnimationLabPhoneMotor CreatePassenger(string label,Vector2 start,Vector2 goal,out PassengerAiV2Agent agent)
         {
@@ -69,7 +70,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         }
         void Update()
         {
-            if(Agent==null)return;Passenger.Goal=Agent.MovementTarget;if(!Application.isBatchMode&&Keyboard.current!=null){var k=Keyboard.current;if(k.digit1Key.wasPressedThisFrame)SetReviewMode(0);if(k.digit2Key.wasPressedThisFrame)SetReviewMode(1);if(k.digit3Key.wasPressedThisFrame)SetReviewMode(2);if(k.digit4Key.wasPressedThisFrame)SetReviewMode(3);if(k.digit5Key.wasPressedThisFrame)SetReviewMode(4);if(k.digit6Key.wasPressedThisFrame)SetReviewMode(5);}if(ReviewMode==5){Squeeze.Tick();return;}if(ReviewMode>0&&Agent.HasReachedTarget)Agent.SetMovementTarget(Vector2.Distance(Passenger.Position,Data.start)>Vector2.Distance(Passenger.Position,Data.destination)?Data.start:Data.destination);if(Time.time>=nextSense){nextSense=Time.time+.16f;Sense();}
+            if(Agent==null)return;Passenger.Goal=Agent.MovementTarget;if(!Application.isBatchMode&&Keyboard.current!=null){var k=Keyboard.current;if(k.digit1Key.wasPressedThisFrame)SetReviewMode(0);if(k.digit2Key.wasPressedThisFrame)SetReviewMode(1);if(k.digit3Key.wasPressedThisFrame)SetReviewMode(2);if(k.digit4Key.wasPressedThisFrame)SetReviewMode(3);if(k.digit5Key.wasPressedThisFrame)SetReviewMode(4);if(k.digit6Key.wasPressedThisFrame)SetReviewMode(5);}if(ReviewMode>=14){Reaction.Tick();return;}if(ReviewMode==5){Squeeze.Tick();return;}if(ReviewMode>0&&Agent.HasReachedTarget)Agent.SetMovementTarget(Vector2.Distance(Passenger.Position,Data.start)>Vector2.Distance(Passenger.Position,Data.destination)?Data.start:Data.destination);if(Time.time>=nextSense){nextSense=Time.time+.16f;Sense();}
             if(Peer!=null)MinimumSeparation=Mathf.Min(MinimumSeparation,Vector2.Distance(Passenger.Position,Peer.Position));
             if(layer.Weight>.85f){if(SawRisk)ResumedPhone=true;else SawPhone=true;}
             if(Time.time>=nextText){nextText=Time.time+.2f;caption=dataCaption();}
@@ -98,12 +99,12 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         }
         public void SetReviewMode(int mode)
         {
-            mode=Mathf.Clamp(mode,0,5);if(ReviewMode==5&&mode!=5&&!Squeeze.CanLeave){Squeeze.PendingMode=mode;return;}if(ReviewMode==5&&mode!=5)Squeeze.End();ReviewMode=mode;Agent.SetAutoLoop(false);
+            mode=Mathf.Clamp(mode,0,17);if(mode>=6&&mode<14)return;if(mode>=14&&gameObject.scene.name!="Situations")return;if(ReviewMode>=14&&!Reaction.CanLeave){Reaction.PendingMode=mode;return;}if(ReviewMode>=14)Reaction.End();if(ReviewMode==5&&mode!=5&&!Squeeze.CanLeave){Squeeze.PendingMode=mode;return;}if(ReviewMode==5&&mode!=5)Squeeze.End();ReviewMode=mode;Agent.SetAutoLoop(false);
             if(ReviewMode==0)Agent.SetMovementTarget(Data.destination);
             if(PeerAgent!=null){bool show=ReviewMode==0;if(show){Peer.gameObject.SetActive(true);PeerAgent.gameObject.SetActive(true);crowd.Register(PeerAgent);}else{crowd.Unregister(PeerAgent);PeerAgent.gameObject.SetActive(false);Peer.gameObject.SetActive(false);}}
-            if(ReviewMode==5)Squeeze.Begin();else Sense();
+            if(ReviewMode>=14)Reaction.Begin(ReviewMode-6);else if(ReviewMode==5)Squeeze.Begin();else Sense();
         }
-        public string Caption=>ReviewMode==5?Squeeze.Status:caption;
+        public string Caption=>ReviewMode>=14?Reaction.Status:ReviewMode==5?Squeeze.Status:caption;
         string dataCaption()=>layer.HasActionSet?layer.CurrentActionName+(layer.AttachmentFault.Length>0?" · "+layer.AttachmentFault:""):Data.actions.Length>0?"동작 데이터 누락 · 기존 폰 자세":Data.displayName;
         void OnGUI(){Menu?.Draw();}
         void OnDestroy(){if(Active==this)Active=null;foreach(var actor in parkedActors)if(actor!=null)actor.SetActive(true);}

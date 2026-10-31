@@ -12,11 +12,13 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
     public static class AnimationLabPhonePublication
     {
         public static string LastStatus {get;private set;}="Normal 연결 없음 · 원본/출력만 저장";
-        public static AnimationLabPhoneMotion[] Targets(Motion source)=>AssetDatabase.FindAssets("t:AnimationLabPhoneMotion",new[]{AnimationLabMotionAuthoring.Root+"/Data"}).Select(g=>AssetDatabase.LoadAssetAtPath<AnimationLabPhoneMotion>(AssetDatabase.GUIDToAssetPath(g))).Where(b=>b!=null&&(b.sourceId==source.id||b.FindSource(source.id)!=null||b.FindSqueezeSource(source.id)!=null)).ToArray();
+        public static AnimationLabPhoneMotion[] Targets(Motion source)=>AssetDatabase.FindAssets("t:AnimationLabPhoneMotion",new[]{AnimationLabMotionAuthoring.Root+"/Data"}).Select(g=>AssetDatabase.LoadAssetAtPath<AnimationLabPhoneMotion>(AssetDatabase.GUIDToAssetPath(g))).Where(b=>b!=null&&(b.sourceId==source.id||b.FindSource(source.id)!=null||b.FindSqueezeSource(source.id)!=null||b.FindReactionSource(source.id)!=null)).ToArray();
         public static void Validate(Motion source,AnimationClip clip,AnimationLabPhoneMotion[] targets)
         {
             foreach(var target in targets)
             {
+                var reaction=target.FindReactionSource(source.id);
+                if(reaction!=null){if(target.rig!=source.sourceRig||clip==null||clip.isHumanMotion||source.loop||source.paths.Length!=source.bindRotations.Length)throw new InvalidOperationException("돌발회피 Generic 원본/리그/반복 설정 불일치");continue;}
                 var squeeze=target.FindSqueezeSource(source.id);
                 if(squeeze!=null)
                 {
@@ -45,12 +47,49 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             LastStatus=targets.Length==0?"Normal 연결 없음 · 원본/출력만 저장":"Normal 적용 완료 · 다음 Play에서 수정본 재생 (상체 마스크)";
             foreach(var target in targets)
             {
+                var reaction=target.FindReactionSource(source.id);
+                if(reaction!=null){AnimationLabReactionPublication.Publish(target,reaction,source,clip);LastStatus="돌발회피 · 다음 Play에 수정본 적용";EditorUtility.SetDirty(target);AssetDatabase.SaveAssetIfDirty(target);continue;}
                 var squeeze=target.FindSqueezeSource(source.id);
-                if(squeeze!=null){squeeze.authored=source;squeeze.clip=clip;using(var squeezeHash=SHA256.Create())squeeze.revision=BitConverter.ToString(squeezeHash.ComputeHash(File.ReadAllBytes(AssetDatabase.GetAssetPath(clip)))).Replace("-","").Substring(0,12);LastStatus="사람 사이 통과 · 다음 Play에 수정본 적용";EditorUtility.SetDirty(target);AssetDatabase.SaveAssetIfDirty(target);continue;}
+                if(squeeze!=null){squeeze.authored=source;squeeze.clip=clip;PublishSqueezeMotion(source,squeeze);using(var squeezeHash=SHA256.Create())squeeze.revision=BitConverter.ToString(squeezeHash.ComputeHash(File.ReadAllBytes(AssetDatabase.GetAssetPath(clip)))).Replace("-","").Substring(0,12);LastStatus="사람 사이 통과 · 다음 Play에 수정본 적용";EditorUtility.SetDirty(target);AssetDatabase.SaveAssetIfDirty(target);continue;}
                 var entry=target.FindSource(source.id);if(entry==null){target.authored=source;target.upperBody=clip;target.upperLoop=source.loop;target.displayName=source.clipName.Replace("_"," · ");}else{entry.authored=source;entry.clip=clip;entry.loop=source.loop;entry.displayName=source.clipName.Replace("_"," · ");}
                 using var hash=SHA256.Create();var revision=BitConverter.ToString(hash.ComputeHash(File.ReadAllBytes(AssetDatabase.GetAssetPath(clip)))).Replace("-","").Substring(0,12);if(entry==null)target.publishedRevision=revision;else entry.revision=revision;
                 EditorUtility.SetDirty(target);AssetDatabase.SaveAssetIfDirty(target);
             }
+        }
+        static void PublishSqueezeMotion(Motion source,AnimationLabPhoneMotion.SqueezeClip entry)
+        {
+            int count=source.lastFrame+1;entry.root=new Vector3[count];entry.rootRotation=new Quaternion[count];entry.leftContact=new byte[count];entry.rightContact=new byte[count];
+            var actor=AnimationLabMotionAuthoring.CreateRig(source.sourceRig);AnimationLabMotionAuthoring.StripAnimators(actor);
+            try
+            {
+                var bones=AnimationLabMotionAuthoring.Bind(source,actor);
+                var foot=new Transform[2];var toe=new Transform[2];
+                var fp=new Vector3[2,count];var tp=new Vector3[2,count];var minF=new[]{100f,100f};var minT=new[]{100f,100f};entry.clearanceWidth=0;
+                for(int i=0;i<2;i++){foot[i]=actor.transform.Find(source.humanPaths[(int)(i==0?HumanBodyBones.LeftFoot:HumanBodyBones.RightFoot)]);toe[i]=actor.transform.Find(source.humanPaths[(int)(i==0?HumanBodyBones.LeftToes:HumanBodyBones.RightToes)]);}
+                for(int f=0;f<count;f++)
+                {
+                    var pose=source.Evaluate(f,false);AnimationLabMotionAuthoring.Apply(source,bones,pose);entry.root[f]=pose.root;entry.rootRotation[f]=pose.rotations[0];
+                    float low=100,high=-100;
+                    foreach(var h in new[]{HumanBodyBones.LeftUpperArm,HumanBodyBones.RightUpperArm,HumanBodyBones.LeftLowerArm,HumanBodyBones.RightLowerArm,HumanBodyBones.LeftHand,HumanBodyBones.RightHand})
+                    {
+                        var joint=actor.transform.Find(source.humanPaths[(int)h]);float radius=h==HumanBodyBones.LeftUpperArm||h==HumanBodyBones.RightUpperArm?.075f:.045f;
+                        low=Mathf.Min(low,joint.position.x-radius);high=Mathf.Max(high,joint.position.x+radius);
+                    }
+                    entry.clearanceWidth=Mathf.Max(entry.clearanceWidth,high-low);
+                    for(int i=0;i<2;i++){fp[i,f]=foot[i].position;tp[i,f]=toe[i].position;minF[i]=Mathf.Min(minF[i],fp[i,f].y);minT[i]=Mathf.Min(minT[i],tp[i,f].y);}
+                }
+                for(int f=0;f<count;f++)for(int i=0;i<2;i++)
+                {
+                    int a=Mathf.Max(0,f-1),b=Mathf.Min(count-1,f+1);float dt=(b-a)/(float)source.sampleRate;
+                    float fv=(fp[i,b]-fp[i,a]).magnitude/Mathf.Max(.001f,dt),tv=(tp[i,b]-tp[i,a]).magnitude/Mathf.Max(.001f,dt);
+                    byte label=fp[i,f].y<minF[i]+.022f&&fv<.25f?(byte)1:tp[i,f].y<minT[i]+.018f&&tv<.25f?(byte)2:(byte)0;
+                    if(i==0)entry.leftContact[f]=label;else entry.rightContact[f]=label;
+                }
+                if(Vector3.ProjectOnPlane(entry.root[count-1]-entry.root[0],Vector3.up).magnitude<.05f)throw new InvalidOperationException("사람 사이 통과 ROOT 이동이 없습니다. 이동 원본을 확인하세요.");
+                entry.endWalkPhase=entry.passageMode==1?.15f:0;
+                Debug.Log("SQUEEZE_METADATA side="+entry.side+" phase="+entry.phase+" frames="+count+" width="+entry.clearanceWidth+" leftSupport="+entry.leftContact.Count(v=>v>0)+" rightSupport="+entry.rightContact.Count(v=>v>0)+" fromAuthoredKeys=true");
+            }
+            finally{UnityEngine.Object.DestroyImmediate(actor);}
         }
         public static Motion OwnedSource(UnityEngine.Object value,out bool owned)
         {

@@ -13,7 +13,10 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         static readonly ProfilerMarker PoseMarker=new ProfilerMarker("SubwayCarry.PhoneCase.Pose");
         CharacterController controller;Animator animator;AnimationLabPhoneMotion data;
         PlayableGraph graph;AnimationMixerPlayable mixer;AnimationClipPlayable idle,walk;
-        float yawRate,fall,walkWeight;bool pivot;
+        float yawRate,fall,walkWeight,resumeBlend;bool pivot;
+        public AnimationLabReactionBody Reaction {get;set;}
+        public Vector3 CapsuleBottom=>transform.position+controller.center-Vector3.up*(controller.height*.5f-controller.radius);
+        public Vector3 CapsuleTop=>transform.position+controller.center+Vector3.up*(controller.height*.5f-controller.radius);
         public AnimationLabSqueezeBody SqueezeBody {get;set;}
         public float BodyRadius=>controller!=null?controller.radius:.24f;
         public Vector2 Goal {get;set;}
@@ -44,20 +47,24 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             var wanted=new Vector3(position.x-Position.x,0,position.y-Position.y)/dt;
             wanted=Vector3.ClampMagnitude(wanted,Metro3DWalkMotion.ArrivalSpeed(Vector2.Distance(Position,Goal)));RequestedVelocity=wanted;
             Vector3 command,facing;
-            if(SqueezeBody!=null&&SqueezeBody.Active)command=SqueezeBody.Constrain(wanted,dt,out facing);
+            if(Reaction!=null&&Reaction.ControlsMovement)command=Reaction.Constrain(wanted,dt,out facing);
+            else if(SqueezeBody!=null&&SqueezeBody.Active)command=SqueezeBody.Constrain(wanted,dt,out facing);
             else command=Metro3DWalkMotion.Step(transform.forward,ActualVelocity,wanted,125,dt,ref yawRate,ref pivot,out facing);
             // Keep the shared forward arc. CharacterController performs final wall/person collision resolution.
             transform.rotation=Quaternion.LookRotation(facing);fall=controller.isGrounded?-2:Mathf.Max(-12,fall-9.81f*dt);
-            var before=transform.position;controller.Move((command+Vector3.up*fall)*dt);ActualVelocity=Vector3.ProjectOnPlane((transform.position-before)/dt,Vector3.up);return Position;
+            var before=transform.position;controller.Move((command+Vector3.up*fall)*dt);ActualVelocity=Vector3.ProjectOnPlane((transform.position-before)/dt,Vector3.up);if(Reaction!=null&&Reaction.ControlsMovement)Reaction.AfterMove(ActualVelocity,dt);return Position;
         }
         void LateUpdate()
         {
-            if(!graph.IsValid())return;using var marker=PoseMarker.Auto();SqueezeBody?.RestoreBase();PhoneLayer?.RestoreBase();
+            if(!graph.IsValid())return;using var marker=PoseMarker.Auto();Reaction?.RestoreBase();SqueezeBody?.RestoreBase();PhoneLayer?.RestoreBase();
             float speed=ActualVelocity.magnitude;float desired=speed<.025f?0:Mathf.Clamp01(speed/(data.referenceSpeed*.8f));
+            if(resumeBlend>0){resumeBlend=Mathf.Max(0,resumeBlend-Time.deltaTime);desired=1;}
             walkWeight=Mathf.MoveTowards(walkWeight,desired,Time.deltaTime*(desired<walkWeight?7:4));
             float rate=walkWeight>.001f?Mathf.Clamp(speed/(data.referenceSpeed*walkWeight),0,1.3f):0;walk.SetSpeed(rate);idle.SetSpeed(1);
-            mixer.SetInputWeight(0,1-walkWeight);mixer.SetInputWeight(1,walkWeight);graph.Evaluate(Time.deltaTime);if(PhoneLayer!=null){PhoneLayer.LocomotionTime=WalkTime;PhoneLayer.Apply(Time.deltaTime);}SqueezeBody?.Apply(Time.deltaTime);
+            mixer.SetInputWeight(0,1-walkWeight);mixer.SetInputWeight(1,walkWeight);graph.Evaluate(Time.deltaTime);if(PhoneLayer!=null){PhoneLayer.LocomotionTime=WalkTime;PhoneLayer.Apply(Time.deltaTime);}SqueezeBody?.Apply(Time.deltaTime);Reaction?.Apply(Time.deltaTime);
         }
+        public void SeedWalkingVelocity(Vector2 velocity){ActualVelocity=RequestedVelocity=new Vector3(velocity.x,0,velocity.y);walkWeight=Mathf.Clamp01(velocity.magnitude/(data.referenceSpeed*.8f));}
+        public void SyncWalkPhase(float phase){if(walk.IsValid()){walk.SetTime(Mathf.Repeat(phase,1)*data.walk.length);walkWeight=1;resumeBlend=.18f;}}
         public void SetIdlePhase(float seconds){if(idle.IsValid())idle.SetTime(seconds);}
         public void SetRadius(float radius){controller.radius=Mathf.Clamp(radius,.16f,.24f);}
         // Pool/menu hiding must not destroy a graph which still belongs to this passenger.

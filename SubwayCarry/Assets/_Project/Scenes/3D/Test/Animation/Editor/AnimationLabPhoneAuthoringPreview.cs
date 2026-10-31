@@ -21,7 +21,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         }
         public void Apply(float frame)
         {
-            if(phone==null)return;float n=frame/Mathf.Max(1,source.lastFrame),blend=0;bool inHand=data.FindSqueezeSource(source.id)==null;
+            if(phone==null)return;float n=frame/Mathf.Max(1,source.lastFrame),blend=0;bool inHand=data.FindSqueezeSource(source.id)==null&&data.FindReactionSource(source.id)==null;
             if(entry!=null)
             {
                 if(entry.role==AnimationLabPhoneAction.TakeOut)inHand=frame>=entry.contactFrame;

@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace SubwayCarry.Gameplay3D.AnimationLab
 {
+    public enum AnimationLabReactionKind {Stop,LeftSide,RightSide,LeftDiagonal,RightDiagonal,LeftDouble,RightDouble,Restart,FrontLeft,FrontRight,PassRight,PassLeft}
     public enum AnimationLabPhoneMode {Stored,Read,Landscape,Carry}
     public enum AnimationLabPhoneAction {TakeOut,PutAway,Raise,Lower,LandscapeEnter,LandscapeExit,LandscapeHold,CarryLoop}
     // One opt-in review binding. The phone clip is an upper-body pose, not a recorded autonomous journey.
@@ -38,15 +39,39 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         [Serializable] public sealed class SqueezeClip
         {
             public int phase,side=1;
+            public int passageMode; // 0 oblique, 1 lead/catch side step
+            public Vector3[] root=Array.Empty<Vector3>();
+            public Quaternion[] rootRotation=Array.Empty<Quaternion>();
+            public byte[] leftContact=Array.Empty<byte>(),rightContact=Array.Empty<byte>();
+            public float clearanceWidth=.55f;
+            public float endWalkPhase;
+            public bool HasTrajectory=>authored!=null&&root.Length==authored.lastFrame+1&&rootRotation.Length==root.Length&&leftContact.Length==root.Length&&rightContact.Length==root.Length;
             public string sourceId,revision;
             public AnimationLabAuthoredMotion authored;
             public AnimationClip clip;
         }
         public SqueezeClip[] squeeze=Array.Empty<SqueezeClip>();
         public float squeezeStride=.28f,squeezeSpeed=.28f;
-        public SqueezeClip FindSqueeze(int phase,int side){foreach(var e in squeeze)if(e!=null&&e.phase==phase&&e.side==side)return e;return null;}
+        public SqueezeClip FindSqueeze(int phase,int side)=>FindSqueeze(phase,side,0);
+        public SqueezeClip FindSqueeze(int phase,int side,int passageMode){foreach(var e in squeeze)if(e!=null&&e.phase==phase&&e.side==side&&e.passageMode==passageMode)return e;return null;}
         public SqueezeClip FindSqueezeSource(string id){foreach(var e in squeeze)if(e!=null&&e.sourceId==id)return e;return null;}
-        public bool HasSqueezeSet {get{for(int s=-1;s<=1;s+=2)for(int p=0;p<3;p++){var e=FindSqueeze(p,s);if(e==null||e.clip==null||e.authored==null)return false;}return true;}}
+        public bool HasSideStepSet(int side){for(int p=0;p<3;p++){var e=FindSqueeze(p,side,1);if(e==null||e.clip==null||!e.HasTrajectory)return false;}return true;}
+        public bool HasSqueezeSet {get{for(int s=-1;s<=1;s+=2)for(int p=0;p<3;p++){var e=FindSqueeze(p,s);if(e==null||e.clip==null||e.authored==null||!e.HasTrajectory)return false;}return true;}}
+        [Serializable] public sealed class ReactionClip
+        {
+            public AnimationLabReactionKind kind;
+            public float gaitPhase,referenceSpeed=1.0220767f;
+            public string sourceId,revision,provenance;
+            public AnimationLabAuthoredMotion authored;
+            public AnimationClip clip;
+            public Vector3[] root=Array.Empty<Vector3>();
+            public Quaternion[] rootRotation=Array.Empty<Quaternion>();
+            // 0=swing, 1=heel/full support, 2=toe support. Derived again on F2.
+            public byte[] leftContact=Array.Empty<byte>(),rightContact=Array.Empty<byte>();
+            public float endWalkPhase;
+        }
+        public ReactionClip[] reactions=Array.Empty<ReactionClip>();
+        public ReactionClip FindReactionSource(string id){foreach(var e in reactions)if(e!=null&&e.sourceId==id)return e;return null;}
         public string[] bothArmPaths=Array.Empty<string>();
         public string hipsPath,leftUpperPath,leftLowerPath,leftHandPath,rightUpperPath,rightLowerPath;
         public GameObject pocketPrefab;
