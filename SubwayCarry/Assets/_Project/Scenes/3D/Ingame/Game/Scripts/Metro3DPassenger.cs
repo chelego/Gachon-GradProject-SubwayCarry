@@ -590,7 +590,7 @@ namespace SubwayCarry.Gameplay3D
         public void PrepareJourneyContinuation(Vector3 from,Vector3 goal)
         {
             if(continuationPending||continuationReady)return;
-            if(continuationPath==null)continuationPath=new Vector3[path.Length];
+            if(continuationPath==null||continuationPath.Length==0)continuationPath=new Vector3[path.Length];
             continuationFrom=from;continuationGoal=goal;continuationPending=true;crowd.Request(this);
         }
         public void CancelJourneyContinuation() {continuationPending=continuationReady=false;continuationCount=0;}

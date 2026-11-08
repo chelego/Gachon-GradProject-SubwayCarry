@@ -9,6 +9,10 @@ namespace SubwayCarry.Gameplay3D
     {
         public Metro3DWorld world;
         public float LastSteeringCost {get;private set;}
+        public int LearnedSteeringCalls {get;private set;}
+        public string SteeringPolicy => learnedSteering?.Label ?? "규칙";
+        Metro3DLearnedSteering learnedSteering;
+        [System.NonSerialized] bool loadedSteering;
         public int LastStaticRejects {get;private set;}
         public long SteeringTicks {get;private set;}
         public int SteeringCalls {get;private set;}
@@ -277,6 +281,10 @@ namespace SubwayCarry.Gameplay3D
                 float cap=Mathf.Max(0,Vector3.Dot(actor.QueueLeader.Velocity,actor.QueueForward)+(ahead-actor.QueueGap)/.65f);
                 preferred=Mathf.Min(preferred,cap);
             }
+            bool useLearned=!laneLocked&&!actor.inTrain&&!actor.RecoveryActive&&!actor.WalkReviewCandidate&&
+                !actor.Journey.OnStairs&&(actor.Journey.ReservedGate==null||
+                    actor.Journey.GateAction==Metro3DPassengerJourney.GatePhase.Approach)&&
+                requested>=.35f&&neighborCount>0&&EvaluateLearned(actor,forward,requested);
             float best=float.PositiveInfinity;Vector3 selected=Vector3.zero;int selectedSide=0;
             int passageCount=world.Traffic.PassageClaims(actor,passageStarts,passageEnds);
             Matrix4x4 worldToFrame=actor.transform.parent.worldToLocalMatrix;
@@ -298,6 +306,7 @@ namespace SubwayCarry.Gameplay3D
                     if(speed>.01f&&speed*.45f+.06f>clear) {LastStaticRejects++;continue;}
                     Vector3 candidate=direction*speed;
                     float cost=(requested-speed)/Mathf.Max(.2f,requested)*1.15f+Mathf.Abs(angle)*.013f;
+                    if(useLearned)cost+=learnedSteering.Cost(angle,scale);
                     for(int claim=0;claim<passageCount;claim++) {
                         float before=SegmentDistanceSquared(origin,passageStarts[claim],passageEnds[claim]);
                         float after=SegmentDistanceSquared(origin+candidate*.55f,passageStarts[claim],passageEnds[claim]);
@@ -453,6 +462,20 @@ namespace SubwayCarry.Gameplay3D
             if(world.player!=null&&Mathf.Abs(world.player.transform.position.y-from.y)<1.2f&&SegmentDistanceSquared(world.player.transform.position,from,to)<.52f*.52f)return false;
             return true;
         }
+        bool EvaluateLearned(Metro3DPassenger actor,Vector3 forward,float requested)
+        {
+            if(!loadedSteering){learnedSteering=Metro3DLearnedSteering.Load();loadedSteering=true;}
+            if(learnedSteering==null)return false;
+            learnedSteering.Begin(forward,requested,actor.Velocity,Time.time<actor.PassingUntil?actor.PassingSide:0);
+            for(int i=0;i<neighborCount;i++) {
+                var sample=neighbors[i];
+                learnedSteering.Observe(sample.offset,sample.velocity,sample.seated?.34f:.48f);
+            }
+            bool applied=learnedSteering.Evaluate();
+            if(applied)LearnedSteeringCalls++;
+            return applied;
+        }
+
         static float CollisionCost(Vector3 offset,Vector3 current,Vector3 candidate,Vector3 other,float body,float margin)
         {
             // Include the current achievable motion while the motor accelerates/brakes.
