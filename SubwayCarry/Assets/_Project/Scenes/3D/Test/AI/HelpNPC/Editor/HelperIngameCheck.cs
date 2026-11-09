@@ -14,7 +14,7 @@ namespace SubwayCarry.AI.HelpNPC.Editor
     public static class HelperIngameCheck
     {
         const string Key="SubwayCarry.HelperIngameCheck",Request="Temp/MLAgents/ingame.request";
-        const string ScenePath="Assets/_Project/Scenes/3D/Ingame/Game/SubwayCarry_3D_FirstPerson_Delivery.unity";
+        const string ScenePath="Assets/_Project/Scenes/3D/Ingame.unity";
         static double next;
         static Metro3DWorld world;
         static Metro3DHelperAgent candidate;

@@ -19,7 +19,7 @@
 
 ## 통합 폴더
 
-우선 개발 폴더는 `Assets/_Project/Scenes/Gameplay3D`, 진입 씬은 `SubwayCarry_3D_FirstPerson_Delivery.unity`다. 코드·데이터·프리팹·아트·Blender 원본은 기존 하위 경로에서 수정한다.
+우선 개발 폴더는 `Assets/_Project/Scenes/3D/Ingame/Game`, 진입 씬은 `Assets/_Project/Scenes/3D/Ingame.unity`다. 코드·데이터·프리팹·아트·Blender 원본은 기존 하위 경로에서 수정한다.
 
 팀원 3D 맵 원본은 `Scenes/GachonUniv_3D.unity`, `Subway_3D.unity`, `Wangsimni_3D.unity`와 `Art/StationsSprite3D`, `Art/SubwayFirstPerson`, `Scripts/Transit`에 유지한다. 시설·충돌·이동 정보 연결과 실제 실행 검증은 별도 작업이다.
 

@@ -23,7 +23,7 @@
 ## 2. 프로젝트 기준
 
 - 2026-10-11 사용자 확정: `main`을 팀 공유 기준으로 사용하고 3D 1인칭 작업을 우선한다. 기존 2D 씬·자산·GUID·원본 경로는 보존한다.
-- 3D 통합 씬: `Assets/_Project/Scenes/Gameplay3D/SubwayCarry_3D_FirstPerson_Delivery.unity`. 코드·데이터·프리팹·아트·Blender 원본은 같은 폴더의 기존 하위 경로를 사용한다.
+- 3D 통합 씬: `Assets/_Project/Scenes/3D/Ingame.unity`. 코드·데이터·프리팹·아트·Blender 원본은 기존 `Scenes/3D/Ingame/Game` 하위 경로를 사용한다.
 - `GachonUniv_3D`, `Subway_3D`, `Wangsimni_3D`는 팀원 맵 원본이다. 통합 기능이 연결됐다고 간주하거나 원본을 자동 재생성하지 않는다.
 
 - 엔진: Unity `6000.3.7f1`

@@ -20,7 +20,7 @@
 ## 문서
 
 - 팀 공유 기준은 `main`이며 3D 작업을 우선한다. 기존 `develop`의 커밋된 통합 작업과 `feature-station`의 역·객차 원본을 포함한다. 개인 PC의 미커밋 수정까지 배포된 것은 아니다.
-- **3D 통합 게임:** `Assets/_Project/Scenes/Gameplay3D/SubwayCarry_3D_FirstPerson_Delivery.unity`
+- **3D 통합 게임:** `Assets/_Project/Scenes/3D/Ingame.unity`
 - **3D 게임 작업 폴더:** `Assets/_Project/Scenes/Gameplay3D`의 `Scripts`, `Data`, `Prefabs`, `Art`, Blender 원본 `Source~`
 - **팀원 3D 맵 원본:** `Assets/_Project/Scenes/GachonUniv_3D.unity`, `Subway_3D.unity`, `Wangsimni_3D.unity`
 - 팀원 맵 원본은 공간 제작·검토용이며, 통합 게임의 배송·승객 AI가 자동으로 연결된 씬은 아니다. 연결은 별도로 검증한다.
