@@ -53,7 +53,7 @@ namespace SubwayCarry.Gameplay3D
         {
             World=world; Economy=GetComponent<EconomyService>(); if(Economy==null) Economy=gameObject.AddComponent<EconomyService>();
             Load();activeRoute=world.settings.deliveries.orders[SelectedIndex];world.player.package.DurabilityChanged+=OnDamage;
-            world.EnsureRoute(); world.SpawnPassengers(0,true); world.SpawnPassengers(0,false);
+            world.EnsureRoute(); world.SpawnPassengers(0,false);
             StartIncoming(0); SetCursor();
         }
         public bool Select(int index)
@@ -136,7 +136,7 @@ namespace SubwayCarry.Gameplay3D
                             World.player.TriggerBalanceMotion(TrainMotionPhase.Arriving,Vector2.up,.8f);
                     } else if(HasPackage&&World.player.Riding!=null&&timer<2.5f&&timer+Time.deltaTime>=2.5f)
                         World.player.TriggerBalanceMotion(TrainMotionPhase.Arriving,Vector2.up,.8f);
-                    if(!World.train.Moving) { StopIndex++; transferNeeded=false; World.train.SetDoors(true); step=ServiceStep.Opening; timer=World.settings.doorSeconds; }
+                    if(!World.train.Moving) { StopIndex++; transferNeeded=false; World.Traffic.ArriveWithBackgroundRiders(World.train); World.train.SetDoors(true); step=ServiceStep.Opening; timer=World.settings.doorSeconds; }
                     break;
                 case ServiceStep.TransferDeparture:
                     if(timer<=0) {

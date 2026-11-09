@@ -2,9 +2,13 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace SubwayCarry.Gameplay3D.Editor
 {
@@ -13,14 +17,44 @@ namespace SubwayCarry.Gameplay3D.Editor
     public static class Metro3DAssetChecks
     {
         static double nextPoll;
+        static bool capturing;
         static string Folder => Path.Combine(Application.dataPath,"../Temp/ThreeDRebuild");
-        static Metro3DAssetChecks() { EditorApplication.update -= Poll; EditorApplication.update += Poll; }
+        [Serializable] sealed class ReviewRestore { public string pipelineGuid; public int ambientMode; public bool asynchronousShaders; }
+        static string RestorePath=>Path.Combine(Folder,"presentation-review.restore");
+        static Metro3DAssetChecks()
+        {
+            EditorApplication.update -= Poll; EditorApplication.update += Poll;
+            AssemblyReloadEvents.beforeAssemblyReload+=RestoreReview;
+            EditorApplication.update+=RecoverReview;
+        }
+        static void RecoverReview() {EditorApplication.update-=RecoverReview; RestoreReview();}
+        static void RestoreReview()
+        {
+            if(!File.Exists(RestorePath)) return;
+            var state=JsonUtility.FromJson<ReviewRestore>(File.ReadAllText(RestorePath));
+            QualitySettings.renderPipeline=string.IsNullOrEmpty(state.pipelineGuid)?null:AssetDatabase.LoadAssetAtPath<RenderPipelineAsset>(AssetDatabase.GUIDToAssetPath(state.pipelineGuid));
+            RenderSettings.ambientMode=(AmbientMode)state.ambientMode;
+            ShaderUtil.allowAsyncCompilation=state.asynchronousShaders;
+            foreach(var camera in Resources.FindObjectsOfTypeAll<Camera>().Where(c=>c.name=="Temporary station material review camera"&&c.gameObject.hideFlags==HideFlags.HideAndDontSave)) UnityEngine.Object.DestroyImmediate(camera.gameObject);
+            File.Delete(RestorePath);
+        }
         static void Poll()
         {
-            if (EditorApplication.timeSinceStartup < nextPoll || EditorApplication.isCompiling || EditorApplication.isUpdating || EditorApplication.isPlayingOrWillChangePlaymode) return;
+            if(Application.isBatchMode) return;
+            if (capturing || EditorApplication.timeSinceStartup < nextPoll || EditorApplication.isCompiling || EditorApplication.isUpdating || EditorApplication.isPlayingOrWillChangePlaymode) return;
             nextPoll = EditorApplication.timeSinceStartup + 3;
             string request = Path.Combine(Folder,"asset-checks.request");
             string sceneRequest = Path.Combine(Folder,"integration-checks.request");
+            string presentationRequest=Path.Combine(Folder,"presentation-review.request");
+            string reflectionRequest=Path.Combine(Folder,"station-reflections.request");
+            if(File.Exists(reflectionRequest)) {
+                string hash=File.ReadAllText(reflectionRequest).Trim(); File.Delete(reflectionRequest);
+                BakeReflectionRequest(hash); return;
+            }
+            if(File.Exists(presentationRequest)) {
+                File.Delete(presentationRequest);
+                CapturePresentationRequest(); return;
+            }
             if (File.Exists(sceneRequest)) {
                 File.Delete(sceneRequest);
                 try { File.WriteAllText(Path.Combine(Folder,"integration-checks.result"),ValidateSavedScene()); }
@@ -30,6 +64,167 @@ namespace SubwayCarry.Gameplay3D.Editor
             File.Delete(request);
             try { Validate(); File.WriteAllText(Path.Combine(Folder,"asset-checks.result"),"PASS: two metre-scale Blender imports; UV/mesh references; 3 sign fitting cases; font atlas; depth shader without compile errors. No scene saved or rebuilt."); }
             catch (Exception ex) { File.WriteAllText(Path.Combine(Folder,"asset-checks.result"),"FAILED: "+ex); Debug.LogException(ex); }
+        }
+
+        static async void CapturePresentationRequest()
+        {
+            capturing=true;
+            try { File.WriteAllText(Path.Combine(Folder,"presentation-review.result"),await CapturePresentation()); }
+            catch(Exception ex) { File.WriteAllText(Path.Combine(Folder,"presentation-review.result"),"FAILED: "+ex); Debug.LogException(ex); }
+            finally {capturing=false;}
+        }
+
+        static Task NextEditorFrame()
+        {
+            var next=new TaskCompletionSource<bool>();
+            EditorApplication.CallbackFunction advance=null;
+            advance=()=>{EditorApplication.update-=advance; next.TrySetResult(true);};
+            EditorApplication.update+=advance;
+            EditorApplication.QueuePlayerLoopUpdate(); SceneView.RepaintAll();
+            return next.Task;
+        }
+
+        static string SceneHash()
+        {
+            using(var sha=SHA256.Create()) return BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(Metro3DBuilder.ScenePath))).Replace("-","");
+        }
+
+        static async void BakeReflectionRequest(string expectedHash)
+        {
+            capturing=true;
+            var previous=QualitySettings.renderPipeline;
+            var previousMode=RenderSettings.ambientMode; var previousAmbient=RenderSettings.ambientProbe;
+            bool asynchronousShaders=ShaderUtil.allowAsyncCompilation;
+            GameObject temporary=null; RenderTexture target=null; Texture2D readback=null;
+            ReflectionProbe[] oldProbes=Array.Empty<ReflectionProbe>(); bool[] enabled=Array.Empty<bool>();
+            try {
+                var scene=EditorSceneManager.GetSceneByPath(Metro3DBuilder.ScenePath);
+                if(!scene.isLoaded||scene.isDirty||SceneHash()!=expectedHash) throw new InvalidOperationException("Reflection capture refused: saved owned scene changed.");
+                File.Copy(Metro3DBuilder.ScenePath,Path.Combine(Folder,"before-room-reflections.unity"),true);
+                var world=scene.GetRootGameObjects().SelectMany(o=>o.GetComponentsInChildren<Metro3DWorld>(true)).Single();
+                File.WriteAllText(RestorePath,JsonUtility.ToJson(new ReviewRestore{pipelineGuid=previous==null?null:AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(previous)),ambientMode=(int)previousMode,asynchronousShaders=asynchronousShaders}));
+                QualitySettings.renderPipeline=world.settings.renderPipeline; ShaderUtil.allowAsyncCompilation=false;
+                Metro3DWorldSign.PrepareExisting(world.transform);
+                oldProbes=world.GetComponentsInChildren<ReflectionProbe>(true); enabled=oldProbes.Select(p=>p.enabled).ToArray();
+                foreach(var probe in oldProbes) probe.enabled=false;
+                temporary=new GameObject("Temporary station material review camera"){hideFlags=HideFlags.HideAndDontSave};
+                var camera=temporary.AddComponent<Camera>(); camera.enabled=false; camera.fieldOfView=90; camera.aspect=1;
+                camera.allowHDR=true; camera.nearClipPlane=.08f; camera.farClipPlane=160;
+                camera.clearFlags=CameraClearFlags.SolidColor; camera.backgroundColor=Color.black;
+                var cameraData=camera.GetUniversalAdditionalCameraData(); cameraData.SetRenderer(0); cameraData.renderPostProcessing=false;
+                target=new RenderTexture(128,128,24,RenderTextureFormat.ARGBHalf,RenderTextureReadWrite.Linear); target.Create();
+                readback=new Texture2D(128,128,TextureFormat.RGBAFloat,false,true);
+                Vector3[] positions={new Vector3(0,world.settings.departureFloor+1.5f,-7),new Vector3(-6.25f,1.5f,42),new Vector3(6.25f,1.5f,42)};
+                Vector3[] directions={Vector3.right,Vector3.left,Vector3.up,Vector3.down,Vector3.forward,Vector3.back};
+                Vector3[] ups={Vector3.up,Vector3.up,Vector3.back,Vector3.forward,Vector3.up,Vector3.up};
+                string[] zones={"Concourse","WestPlatform","EastPlatform"}; var maps=new Cubemap[3];
+                await NextEditorFrame();
+                for(int zone=0;zone<3;zone++) {
+                    var cube=new Cubemap(128,TextureFormat.RGBAFloat,true){name="StationReflection_"+zones[zone],wrapMode=TextureWrapMode.Clamp};
+                    float total=0;
+                    for(int face=0;face<6;face++) {
+                        if(EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Reflection capture interrupted by Play Mode.");
+                        camera.transform.position=positions[zone]; camera.transform.rotation=Quaternion.LookRotation(directions[face],ups[face]);
+                        for(int warmup=0;warmup<3;warmup++) RenderPipeline.SubmitRenderRequest(camera,new UniversalRenderPipeline.SingleCameraRequest{destination=target});
+                        await NextEditorFrame(); Metro3DRenderScope.ApplyIndoorAmbient();
+                        RenderPipeline.SubmitRenderRequest(camera,new UniversalRenderPipeline.SingleCameraRequest{destination=target});
+                        var active=RenderTexture.active;
+                        try {RenderTexture.active=target; readback.ReadPixels(new Rect(0,0,128,128),0,0); readback.Apply();}
+                        finally {RenderTexture.active=active;}
+                        var pixels=readback.GetPixels(); cube.SetPixelData(pixels,0,(CubemapFace)face);
+                        if(cube.GetPixels((CubemapFace)face).Sum(c=>c.r+c.g+c.b)<.001f) throw new InvalidOperationException("Stored cubemap face is empty: "+zones[zone]+" "+face);
+                        total+=pixels.Sum(c=>c.r+c.g+c.b);
+                    }
+                    if(total<100||float.IsNaN(total)) {UnityEngine.Object.DestroyImmediate(cube); throw new InvalidOperationException("Empty/invalid room reflection: "+zones[zone]);}
+                    cube.Apply(true,false);
+                    string path=Metro3DBuilder.Root+"/Art/Textures/Metro/StationReflection_"+zones[zone]+".asset";
+                    var existing=AssetDatabase.LoadAssetAtPath<Cubemap>(path);
+                    if(existing==null) {AssetDatabase.CreateAsset(cube,path); maps[zone]=cube;}
+                    else {EditorUtility.CopySerialized(cube,existing); UnityEngine.Object.DestroyImmediate(cube); maps[zone]=existing; EditorUtility.SetDirty(existing); AssetDatabase.SaveAssetIfDirty(existing);}
+                }
+                if(scene.isDirty||SceneHash()!=expectedHash) throw new InvalidOperationException("Scene edited during reflection capture; result maps preserved but scene not saved.");
+                world.settings.concourseReflection=maps[0]; world.settings.westPlatformReflection=maps[1]; world.settings.eastPlatformReflection=maps[2];
+                EditorUtility.SetDirty(world.settings); AssetDatabase.SaveAssetIfDirty(world.settings);
+                foreach(var probe in oldProbes) if(probe.name.StartsWith("Baked reflection - ",StringComparison.Ordinal)||probe.name.StartsWith("Station reflection - ",StringComparison.Ordinal)) UnityEngine.Object.DestroyImmediate(probe.gameObject);
+                foreach(var station in world.stations) world.ConfigureStationReflections(station);
+                EditorSceneManager.MarkSceneDirty(scene);
+                if(!EditorSceneManager.SaveScene(scene)) throw new IOException("Unable to save owned scene reflections.");
+                foreach(var zone in zones) AssetDatabase.DeleteAsset(Metro3DBuilder.Root+"/Art/Textures/Metro/StationReflection_0_"+zone+".exr");
+                File.WriteAllText(Path.Combine(Folder,"station-reflections.result"),"PASS: three non-empty linear HDR room cubemaps, 18 camera faces, persistent box-projected station probes; no lightmap GI or Play/performance claim.");
+            } catch(Exception ex) {File.WriteAllText(Path.Combine(Folder,"station-reflections.result"),"FAILED: "+ex); Debug.LogException(ex);}
+            finally {
+                for(int i=0;i<oldProbes.Length;i++) if(oldProbes[i]!=null) oldProbes[i].enabled=enabled[i];
+                if(temporary!=null) UnityEngine.Object.DestroyImmediate(temporary);
+                if(target!=null) {target.Release(); UnityEngine.Object.DestroyImmediate(target);}
+                if(readback!=null) UnityEngine.Object.DestroyImmediate(readback);
+                QualitySettings.renderPipeline=previous; RenderSettings.ambientMode=previousMode; RenderSettings.ambientProbe=previousAmbient;
+                ShaderUtil.allowAsyncCompilation=asynchronousShaders; if(File.Exists(RestorePath)) File.Delete(RestorePath);
+                capturing=false;
+            }
+        }
+
+        static async Task<string> CapturePresentation()
+        {
+            var scene=EditorSceneManager.GetSceneByPath(Metro3DBuilder.ScenePath);
+            if(!scene.isLoaded||scene.isDirty) throw new InvalidOperationException("Presentation review needs the saved clean 3D scene; no edited scene is saved or discarded.");
+            var world=scene.GetRootGameObjects().SelectMany(o=>o.GetComponentsInChildren<Metro3DWorld>(true)).Single();
+            var previous=QualitySettings.renderPipeline;
+            var previousAmbient=RenderSettings.ambientProbe;
+            var previousAmbientMode=RenderSettings.ambientMode;
+            bool asynchronousShaders=ShaderUtil.allowAsyncCompilation;
+            File.WriteAllText(RestorePath,JsonUtility.ToJson(new ReviewRestore{pipelineGuid=AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(previous)),ambientMode=(int)previousAmbientMode,asynchronousShaders=asynchronousShaders}));
+            GameObject temporary=null; RenderTexture target=null; Texture2D readback=null;
+            try {
+                QualitySettings.renderPipeline=world.settings.renderPipeline;
+                ShaderUtil.allowAsyncCompilation=false;
+                Metro3DRenderScope.ApplyIndoorAmbient();
+                Metro3DWorldSign.PrepareExisting(world.transform);
+                await NextEditorFrame();
+                temporary=new GameObject("Temporary station material review camera"); temporary.hideFlags=HideFlags.HideAndDontSave;
+                var camera=temporary.AddComponent<Camera>(); camera.enabled=false; camera.nearClipPlane=.05f; camera.farClipPlane=150; camera.fieldOfView=70;
+                camera.clearFlags=CameraClearFlags.SolidColor; camera.backgroundColor=new Color(.04f,.045f,.05f);
+                var data=temporary.AddComponent<UniversalAdditionalCameraData>(); data.renderPostProcessing=true;
+                target=new RenderTexture(1280,800,24,RenderTextureFormat.ARGB32,RenderTextureReadWrite.sRGB); target.Create();
+                float floor=world.settings.departureFloor;
+                var trainMarkers=world.train.GetComponentsInChildren<Transform>();
+                var carStart=trainMarkers.First(t=>t.name=="TrainCarBody_FloorMin").position;
+                var carEnd=trainMarkers.First(t=>t.name=="TrainCarBody_FloorMax").position;
+                var carriageForward=(carEnd-carStart).normalized;
+                string[] names={"Concourse","Column","Platform","Stair","Floor","TrainInterior"};
+                Vector3[] origins={new Vector3(0,floor+1.62f,-13),new Vector3(-2.8f,floor+1.62f,-14),new Vector3(-6.4f,1.62f,17),new Vector3(-7.76f,1.62f,12.2f),new Vector3(-6.4f,1.62f,20),carStart+carriageForward*3+Vector3.up*1.62f};
+                Vector3[] points={new Vector3(0,floor+1.35f,-4),new Vector3(-5,floor+1.3f,-11),new Vector3(-6.4f,1.5f,42),new Vector3(-7.76f,2.4f,4),new Vector3(-5.8f,.05f,22),carStart+carriageForward*17+Vector3.up*1.55f};
+                string output=Path.Combine(Folder,"Presentation"); Directory.CreateDirectory(output);
+                for(int i=0;i<names.Length;i++) {
+                    camera.transform.position=origins[i]; camera.transform.rotation=Quaternion.LookRotation(points[i]-origins[i]);
+                    camera.targetTexture=target;
+                    for(int warmup=0;warmup<3;warmup++) RenderPipeline.SubmitRenderRequest(camera,new UniversalRenderPipeline.SingleCameraRequest{destination=target});
+                    await NextEditorFrame();
+                    if(EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Material review cancelled because Play Mode was requested.");
+                    Metro3DRenderScope.ApplyIndoorAmbient();
+                    RenderPipeline.SubmitRenderRequest(camera,new UniversalRenderPipeline.SingleCameraRequest{destination=target});
+                    var active=RenderTexture.active;
+                    try {
+                        RenderTexture.active=target; readback=new Texture2D(target.width,target.height,TextureFormat.RGB24,false);
+                        readback.ReadPixels(new Rect(0,0,target.width,target.height),0,0); readback.Apply();
+                        File.WriteAllBytes(Path.Combine(output,names[i]+".png"),readback.EncodeToPNG());
+                    } finally {RenderTexture.active=active; if(readback!=null) UnityEngine.Object.DestroyImmediate(readback); readback=null;}
+                }
+                var fixtures=world.GetComponentsInChildren<Light>().Where(l=>l.name=="Fluorescent illumination").ToArray();
+                var tubes=world.GetComponentsInChildren<MeshRenderer>().Where(r=>r.sharedMaterial!=null&&r.sharedMaterial.name=="Metro_LightDiffuser").ToArray();
+                var label=world.GetComponentsInChildren<TextMesh>().First(t=>t.text=="↓ 타는 곳  |  수인분당선");
+                var board=world.GetComponentsInChildren<Transform>().Where(t=>t.name=="WayfindingBoard").OrderBy(t=>(t.position-label.transform.position).sqrMagnitude).First();
+                var faces=board.GetComponentsInChildren<MeshRenderer>(); var bound=faces[0].bounds;
+                foreach(var face in faces.Skip(1)) bound.Encapsulate(face.bounds);
+                return "PASS: six saved-scene Unity/URP material views rendered; "+fixtures.Length+" enabled fixtures; "+tubes.Length+" emission meshes; ambient "+RenderSettings.ambientSkyColor+" SH "+RenderSettings.ambientProbe[0,0]+"; color space "+QualitySettings.activeColorSpace+"; first fixture "+fixtures[0].transform.position+" forward "+fixtures[0].transform.forward+" intensity "+fixtures[0].intensity+"; sign at "+label.transform.position.ToString("F4")+" board min "+bound.min.ToString("F4")+" max "+bound.max.ToString("F4")+" label material "+label.GetComponent<MeshRenderer>().sharedMaterial.name+"; car floor "+carStart.ToString("F3")+" to "+carEnd.ToString("F3")+"; no Play Mode, no user camera edit, no performance claim.";
+            } finally {
+                if(temporary!=null) UnityEngine.Object.DestroyImmediate(temporary);
+                if(target!=null) {target.Release(); UnityEngine.Object.DestroyImmediate(target);}
+                QualitySettings.renderPipeline=previous;
+                RenderSettings.ambientMode=previousAmbientMode;
+                RenderSettings.ambientProbe=previousAmbient;
+                ShaderUtil.allowAsyncCompilation=asynchronousShaders;
+                if(File.Exists(RestorePath)) File.Delete(RestorePath);
+            }
         }
 
         static string ValidateSavedScene()
@@ -53,6 +248,16 @@ namespace SubwayCarry.Gameplay3D.Editor
                 var renderer=sign.GetComponent<MeshRenderer>(); var text=sign.GetComponent<TextMesh>();
                 var size=renderer.localBounds.size;
                 if(text.font==null||size.x>sign.maximumWidth+.01f||size.y>sign.maximumHeight+.01f) throw new InvalidOperationException("Saved label exceeds face: "+text.text);
+                var sdf=sign.GetComponentInChildren<TMPro.TextMeshPro>();
+                if(sdf==null||renderer.enabled||sdf.mesh.vertexCount==0) throw new InvalidOperationException("Station SDF lettering missing: "+text.text);
+                // A correctly fitted label is still wrong if an opposite-facing board
+                // hides it. Test the front approach against all nearby sign housings.
+                var normal=-sign.transform.forward;
+                var ray=new Ray(sign.transform.position+normal*.4f,-normal);
+                foreach(var housing in objects.Where(o=>o.name=="WayfindingBoard"))
+                    foreach(var face in housing.GetComponentsInChildren<MeshRenderer>())
+                        if(face.bounds.IntersectRay(ray,out float distance)&&(face.bounds.Contains(sign.transform.position)||face.bounds.Contains(ray.origin)||(distance>=0&&distance<.397f)))
+                            throw new InvalidOperationException("Sign housing occludes lettering: "+text.text+" at "+sign.transform.position+" housing "+housing.position+" face "+face.bounds+" hit distance "+distance);
             }
             var kit=world.settings.environmentLibrary;
             int kitCount=0;
@@ -131,7 +336,7 @@ namespace SubwayCarry.Gameplay3D.Editor
             }
             for(int i=0;i<16;i++) if(Metro3DTrain.DoorNumber(i)!=(i/4+1)+"-"+(i%4+1)) throw new InvalidOperationException("Door numbering mismatch.");
             var controller=world.settings.passengerPrefab.GetComponentInChildren<Animator>().runtimeAnimatorController;
-            foreach(string name in new[]{"Idle","Walk","Sit","SitDown","StandUp"}) if(!controller.animationClips.Any(c=>c.name.EndsWith("|"+name)))
+            foreach(string name in new[]{"Idle_Loop","Walk_Loop","Sitting_Idle_Loop","Sitting_Enter","Sitting_Exit"}) if(!controller.animationClips.Any(c=>c.name==name||c.name.EndsWith("|"+name)))
                 throw new InvalidOperationException("Posture clip missing: "+name);
             GameObject human=null;
             try {
@@ -140,9 +345,10 @@ namespace SubwayCarry.Gameplay3D.Editor
                 var animator=human.GetComponentInChildren<Animator>(); animator.enabled=false;
                 foreach(var clip in controller.animationClips.Distinct()) {
                     clip.SampleAnimation(animator.gameObject,0);
-                    var hips=human.GetComponentsInChildren<Transform>().FirstOrDefault(t=>t.name=="Hips");
+                    var hips=human.GetComponentsInChildren<Transform>().FirstOrDefault(t=>t.name=="DEF-hips");
                     if(hips==null) throw new InvalidOperationException("Human rig missing pelvis.");
-                    if(clip.name.EndsWith("|Sit")&&Mathf.Abs(hips.position.y-.585f)>.06f) throw new InvalidOperationException("Seated pelvis does not match the .455m cushion: "+hips.position);
+                    // The 1.78m mannequin's pelvis is .072m above the .455m cushion.
+                    if(clip.name.EndsWith("Sitting_Idle_Loop")&&Mathf.Abs(hips.position.y-.527f)>.03f) throw new InvalidOperationException("Seated mannequin pelvis does not match the .455m cushion: "+hips.position);
                 }
             } finally {if(human!=null) UnityEngine.Object.DestroyImmediate(human);}
             return count;
@@ -194,10 +400,12 @@ namespace SubwayCarry.Gameplay3D.Editor
                 var text=go.AddComponent<TextMesh>(); text.font=font; text.text=content; text.anchor=TextAnchor.MiddleCenter; text.characterSize=.155f;
                 go.AddComponent<Metro3DWorldSign>().Configure(width,height);
                 var renderer=go.GetComponent<MeshRenderer>();
-                if(renderer.localBounds.size.x<.05f||renderer.localBounds.size.y<.02f||renderer.localBounds.size.x>width+.005f||renderer.localBounds.size.y>height+.005f)
-                    throw new InvalidOperationException("Sign exceeds its face: "+content+" "+renderer.localBounds);
-                if(renderer.sharedMaterial.shader.name!="SubwayCarry/3D/WorldSignText"||renderer.sharedMaterial.mainTexture!=font.material.mainTexture)
-                    throw new InvalidOperationException("Sign uses overlay/stale font material.");
+                var sdf=go.GetComponentInChildren<TMPro.TextMeshPro>();
+                var bounds=sdf.textBounds;
+                if(bounds.size.x<.05f||bounds.size.y<.02f||bounds.size.x>width+.005f||bounds.size.y>height+.005f)
+                    throw new InvalidOperationException("Sign exceeds its face: "+content+" "+bounds);
+                if(renderer.enabled||sdf.fontSharedMaterial.shader.name!="SubwayCarry/3D/WorldSignText"||sdf.textInfo.characterCount!=content.Length)
+                    throw new InvalidOperationException("Sign uses overlay/stale font material or missing SDF glyphs.");
             } finally { UnityEngine.Object.DestroyImmediate(go); }
         }
 

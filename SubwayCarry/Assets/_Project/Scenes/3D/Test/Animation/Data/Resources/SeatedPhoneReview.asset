@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6dec73f2944bfb246958a932a1f10507, type: 3}
+  m_Name: SeatedPhoneReview
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay3D.AnimationLab.AnimationLabSeatedPhoneReview
+  enter: {fileID: 11400000, guid: 2b7f251e22eac5e479ad0cfc90f4bdf5, type: 2}
+  hold: {fileID: 11400000, guid: dcddae131ed4e314c8f2ca50c9557f48, type: 2}
+  exit: {fileID: 11400000, guid: 7335035d88096fa4ba8f73fbe02589d7, type: 2}
+  phonePrefab: {fileID: 4999690810530116688, guid: e9e9163eca97b0f4caae2b6f82dc49e9, type: 3}
+  pocketPrefab: {fileID: 5495589241604103240, guid: 3ae09f5295fb66543ae5562d0e64f3f2, type: 3}
+  phoneHandPosition: {x: 0.09407705, y: 0.15682666, z: -0.029680181}
+  pocketHipsPosition: {x: 0.24798942, y: 0.04590489, z: 0.0339788}
+  storedPhonePosition: {x: 0, y: -0.085, z: 0}
+  phoneHandRotation: {x: 0.5008176, y: 0.1166454, z: 0.7170801, w: 0.47050464}
+  pocketHipsRotation: {x: 0.29290813, y: 0.2272253, z: 0.14934488, w: -0.9166655}
+  storedPhoneRotation: {x: 0, y: 0, z: 0, w: 1}
+  takeFrame: 16
+  storeFrame: 36

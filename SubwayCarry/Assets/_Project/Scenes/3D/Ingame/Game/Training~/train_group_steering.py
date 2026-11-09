@@ -4,16 +4,19 @@ Every active pedestrian observes and chooses a velocity at the same simulation
 step. The critic also sees group state. Unity exports only the local actor.
 """
 import argparse
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
+import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import time
+import traceback
 
 import torch
 from torch import nn
 
 from train_passenger_ppo import actor_net
-
 
 PEOPLE = 6
 DT = .15
@@ -21,7 +24,6 @@ STEPS = 60
 GOAL = 5.6
 VALID = 491771
 TEST = 764093
-
 
 class Group:
     def __init__(self, count, seed, device, holdout=False):
@@ -109,6 +111,11 @@ class Group:
         rule += .32 * (candidate - own[:, :, None]).square().sum(-1)
         rule += 1.25 * (self.angles * self.side[..., None] < 0) + risk
         rule += .06 * future[..., 0].abs()
+        wall_margin = self.limit(self.p[..., 1]) - self.p[..., 0].abs()
+        forward_blocked = ~wall[..., :3].any(-1)
+        inward = self.p[..., 0, None] * candidate[..., 0] * self.sign[..., None] < 0
+        recovery = forward_blocked & (wall_margin < .20) & (own[..., 1] < .12)
+        rule -= .30 * (recovery[..., None] & inward & wall & (risk < .35))
         allowed = wall & (rule < 35)
         allowed[..., -1] = True
         rule = rule.masked_fill(~allowed, 1000)
@@ -199,34 +206,111 @@ def main():
     parser.add_argument('--updates',type=int,default=224)
     parser.add_argument('--arenas',type=int,default=384)
     parser.add_argument('--progress',type=Path)
+    parser.add_argument('--seed',type=int,default=71592)
+    parser.add_argument('--validation-arenas',type=int,default=1024)
+    parser.add_argument('--test-arenas',type=int,default=4096)
+    parser.add_argument('--resume',action='store_true')
+    parser.add_argument('--log-file',action='store_true',help='Append stdout and errors to run.log')
     args=parser.parse_args()
-    device=torch.device('cuda');torch.manual_seed(71592)
+    if args.updates<1 or any(size<4 or size%4 for size in (args.arenas,args.validation_arenas,args.test_arenas)):
+        parser.error('positive updates and arena counts divisible by four are required')
+    if not torch.cuda.is_available():
+        raise RuntimeError('CUDA is required for the parallel crowd simulator')
+    args.output.mkdir(parents=True,exist_ok=True)
+    with run_lock(args.output/'run.lock'):
+        if not args.log_file:
+            train(args)
+            return
+        with (args.output/'run.log').open('a',encoding='utf-8',buffering=1) as log, redirect_stdout(log), redirect_stderr(log):
+            try:
+                train(args)
+            except Exception:
+                traceback.print_exc()
+                raise SystemExit(1)
+
+
+def train(args):
+    device=torch.device('cuda');torch.manual_seed(args.seed)
     started=time.perf_counter()
-    source=json.loads(args.base.read_text(encoding='utf-8'))
+    source_bytes=args.base.read_bytes()
+    source=json.loads(source_bytes)
     old=actor_net(device,source).eval().requires_grad_(False)
     actor=actor_net(device,source)
     critic=nn.Sequential(nn.Linear(28,96),nn.Tanh(),nn.Linear(96,64),nn.Tanh(),nn.Linear(64,1)).to(device)
     parameters=list(actor.parameters())+list(critic.parameters())
     optimizer=torch.optim.AdamW(parameters,lr=.00032)
-    baseline=evaluation(old,1024,VALID,device,old=True)
-    history=[dict(updates=0,transitions=0,**{k:baseline[k] for k in ('success','contact','reward','wait','groupSuccess')})]
-    transitions=0
+    config_path=args.output/'run-config.json'
+    checkpoint_path=args.output/'latest.pt'
+    stop_path=args.output/'stop.request'
+    progress_path=args.progress or args.output/'training-progress.json'
+    gpu=torch.cuda.get_device_name()
+    config=dict(version=1, algorithm='GroupPPO', runId=args.output.name, seed=args.seed, updates=args.updates,
+        arenas=args.arenas, agentsPerArena=PEOPLE, horizon=STEPS, dt=DT, validationSeed=VALID, testSeed=TEST,
+        validationArenas=args.validation_arenas, testArenas=args.test_arenas, learningRate=.00032,
+        gamma=.985, gaeLambda=.94, clip=.2, epochs=3, batchSize=4096,
+        baseSha256=hashlib.sha256(source_bytes).hexdigest())
+    metrics_keys=('success','contact','reward','wait','groupSuccess')
+    first,transitions,prior_seconds=0,0,0.
     best=None
     best_score=float('-inf')
-    args.output.mkdir(parents=True,exist_ok=True)
+    history=[]
 
-    def publish(step,complete=False):
-        if not args.progress:return
-        args.progress.parent.mkdir(parents=True,exist_ok=True)
-        pending=args.progress.with_suffix('.tmp')
-        pending.write_text(json.dumps(dict(updates=step,totalUpdates=args.updates,transitions=transitions,
-            seconds=time.perf_counter()-started,complete=complete,history=history),separators=(',',':')),encoding='utf-8')
-        pending.replace(args.progress)
+    if args.resume:
+        if json.loads(config_path.read_text(encoding='utf-8'))!=config:
+            raise ValueError('Resume configuration or initial policy differs from this run')
+        saved=torch.load(checkpoint_path,map_location=device,weights_only=True)
+        actor.load_state_dict(saved['actor']);critic.load_state_dict(saved['critic'])
+        optimizer.load_state_dict(saved['optimizer'])
+        torch.set_rng_state(saved['cpuRng'].cpu());torch.cuda.set_rng_state(saved['cudaRng'].cpu())
+        first,transitions,prior_seconds=saved['step'],saved['transitions'],saved['seconds']
+        history,best,best_score=saved['history'],saved['best'],saved['bestScore']
+        stop_path.unlink(missing_ok=True)
+    else:
+        if config_path.exists() or checkpoint_path.exists():
+            raise FileExistsError('Run already exists; use --resume or a new output directory')
+        write_json(config_path,config)
+    checkpoint_step=first
 
-    publish(0)
-    print(f'{torch.cuda.get_device_name()} | {args.arenas} parallel groups | {PEOPLE} reacting actors per group',flush=True)
-    for step in range(1,args.updates+1):
-        arena=Group(args.arenas,51961+step*79,device)
+    try:
+        from torch.utils.tensorboard import SummaryWriter
+        writer=SummaryWriter(log_dir=str(args.output/'tensorboard'),purge_step=transitions+1 if args.resume else None)
+    except ImportError:
+        writer=None
+        print('TensorBoard unavailable; JSON telemetry is still active',flush=True)
+
+    def elapsed():
+        return prior_seconds+time.perf_counter()-started
+
+    def publish(stage,step,throughput=0.):
+        write_json(progress_path,dict(stage=stage,runId=config['runId'],device=gpu,pid=os.getpid(),updates=step,totalUpdates=args.updates,
+            transitions=transitions,seconds=elapsed(),stepsPerSecond=throughput,arenas=args.arenas,
+            checkpointUpdate=checkpoint_step,selectedUpdate=best[0] if best else 0,complete=stage=='complete',
+            history=history,tensorboard=writer is not None))
+
+    def checkpoint(step):
+        nonlocal checkpoint_step
+        pending=checkpoint_path.with_suffix('.tmp')
+        torch.save(dict(step=step,transitions=transitions,seconds=elapsed(),actor=actor.state_dict(),
+            critic=critic.state_dict(),optimizer=optimizer.state_dict(),cpuRng=torch.get_rng_state(),
+            cudaRng=torch.cuda.get_rng_state(),history=history,best=best,bestScore=best_score),pending)
+        pending.replace(checkpoint_path)
+        checkpoint_step=step
+        if writer:writer.flush()
+
+    def log_metrics(prefix,row):
+        if writer:
+            for key in metrics_keys:writer.add_scalar(f'{prefix}/{key}',row[key],transitions)
+
+    publish('initializing' if not args.resume else 'training',first)
+    if not args.resume:
+        baseline=evaluation(old,args.validation_arenas,VALID,device,old=True)
+        history.append(dict(updates=0,transitions=0,**{k:baseline[k] for k in metrics_keys}))
+        log_metrics('Validation',history[0])
+    print(f'{config["runId"]} | {gpu} | {args.arenas} parallel groups x {PEOPLE} actors | start update {first}',flush=True)
+    for step in range(first+1,args.updates+1):
+        started_update=time.perf_counter()
+        prior_transitions=transitions
+        arena=Group(args.arenas,args.seed-19631+step*79,device)
         rows=[]
         with torch.no_grad():
             for _ in range(STEPS):
@@ -248,36 +332,84 @@ def main():
             advantage=(advantage-advantage.mean())/advantage.std().clamp_min(.001)
             transitions+=len(advantage)
         x,g,c,b,a,prior,_=data
+        batch_stats=torch.zeros(3,device=device)
+        batches=0
         for _ in range(3):
             for idx in torch.randperm(len(x),device=device).split(4096):
                 d=torch.distributions.Categorical(logits=logits(actor,x[idx],c[idx],b[idx])/.18,validate_args=False)
                 ratio=(d.log_prob(a[idx])-prior[idx]).exp()
                 gain=torch.minimum(ratio*advantage[idx],ratio.clamp(.8,1.2)*advantage[idx]).mean()
-                loss=-gain+.35*nn.functional.mse_loss(critic(g[idx]).squeeze(-1),returns[idx])-.007*d.entropy().mean()
+                value_loss=nn.functional.mse_loss(critic(g[idx]).squeeze(-1),returns[idx])
+                entropy=d.entropy().mean()
+                loss=-gain+.35*value_loss-.007*entropy
                 loss+=.012*nn.functional.smooth_l1_loss(actor(x[idx]),old(x[idx]))
                 optimizer.zero_grad(set_to_none=True);loss.backward()
                 nn.utils.clip_grad_norm_(parameters,.7);optimizer.step()
-        if step==1 or step%8==0 or step==args.updates:
-            metrics=evaluation(actor,1024,VALID,device)
-            row=dict(updates=step,transitions=transitions,**{k:metrics[k] for k in ('success','contact','reward','wait','groupSuccess')})
+                batch_stats+=torch.stack((-gain.detach(),value_loss.detach(),entropy.detach()))
+                batches+=1
+        policy_loss,value_loss,entropy=(batch_stats/batches).cpu().tolist()
+        throughput=(transitions-prior_transitions)/max(.001,time.perf_counter()-started_update)
+        if writer:
+            writer.add_scalar('Policy/Loss',policy_loss,transitions)
+            writer.add_scalar('Policy/ValueLoss',value_loss,transitions)
+            writer.add_scalar('Policy/Entropy',entropy,transitions)
+            writer.add_scalar('System/StepsPerSecond',throughput,transitions)
+            writer.add_scalar('Rollout/MeanEpisodeReward',arena.returned.mean().item(),transitions)
+        stopping=stop_path.exists()
+        if step==1 or step%8==0 or step==args.updates or stopping:
+            publish('validation',step,throughput)
+            metrics=evaluation(actor,args.validation_arenas,VALID,device)
+            row=dict(updates=step,transitions=transitions,**{k:metrics[k] for k in metrics_keys})
             history.append(row)
             score=4*metrics['groupSuccess']+4*metrics['success']-22*metrics['contact']-.27*metrics['wait']-.35*metrics['contactPairs']
             if score>best_score:
                 best_score=score;best=(step,transitions,{k:v.detach().clone() for k,v in actor.state_dict().items()})
-            print('VALIDATION',json.dumps(row),flush=True);publish(step)
+            log_metrics('Validation',row)
+            checkpoint(step)
+            print('VALIDATION',json.dumps(row),flush=True)
+        if stopping:
+            publish('paused',step,throughput)
+            if writer:writer.close()
+            return
+        publish('training',step,throughput)
+    publish('heldout',args.updates)
     selected,learned,weights=best;actor.load_state_dict(weights)
-    result={name:evaluation(model,4096,TEST,device,True,old=name=='imitation') for name,model in (('rule',None),('imitation',old),('ppo',actor))}
-    report=dict(algorithm='GroupPPO',device=torch.cuda.get_device_name(),arenas=args.arenas,agentsPerArena=PEOPLE,
+    result={name:evaluation(model,args.test_arenas,TEST,device,True,old=name=='imitation') for name,model in (('rule',None),('imitation',old),('ppo',actor))}
+    report=dict(algorithm='GroupPPO',runId=config['runId'],device=gpu,arenas=args.arenas,agentsPerArena=PEOPLE,
         transitions=transitions,selectedTransitions=learned,selectedUpdate=selected,frames=STEPS+1,dt=DT,goal=GOAL,
-        testSeed=TEST,seconds=round(time.perf_counter()-started,2),history=history,**result)
+        testSeed=TEST,seconds=round(elapsed(),2),history=history,**result)
     weights=dict(source,algorithm='GroupPPO',ppoTransitions=learned)
     for layer,prefix in ((actor[0],'input'),(actor[2],'output')):
         weights[prefix+'Weights']=layer.weight.detach().cpu().flatten().tolist()
         weights[prefix+'Bias']=layer.bias.detach().cpu().tolist()
-    (args.output/'PassengerSteeringGroup.json').write_text(json.dumps(weights,separators=(',',':'))+'\n',encoding='utf-8')
-    (args.output/'PassengerLearningReport.json').write_text(json.dumps(report,separators=(',',':'))+'\n',encoding='utf-8')
+    write_json(args.output/'PassengerSteeringGroup.json',weights)
+    write_json(args.output/'PassengerLearningReport.json',report)
+    for name,row in result.items():log_metrics(f'Heldout/{name}',row)
+    if writer:writer.close()
     print('TEST',json.dumps({name:{k:v for k,v in row.items() if k not in ('replay','cases')} for name,row in result.items()}),flush=True)
-    publish(args.updates,True)
+    publish('complete',args.updates)
+
+
+def write_json(path,data):
+    path.parent.mkdir(parents=True,exist_ok=True)
+    pending=path.with_suffix('.tmp')
+    pending.write_text(json.dumps(data,separators=(',',':'))+'\n',encoding='utf-8')
+    pending.replace(path)
+
+
+@contextmanager
+def run_lock(path):
+    with path.open('a+b') as stream:
+        if stream.tell()==0:
+            stream.write(b'\0');stream.flush()
+        stream.seek(0)
+        if os.name=='nt':
+            import msvcrt
+            msvcrt.locking(stream.fileno(),msvcrt.LK_NBLCK,1)
+        else:
+            import fcntl
+            fcntl.flock(stream,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        yield
 
 
 if __name__=='__main__':

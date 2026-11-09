@@ -11,6 +11,8 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using TMPro;
+using UnityEngine.TextCore.LowLevel;
 
 namespace SubwayCarry.Gameplay3D.Editor
 {
@@ -18,11 +20,36 @@ namespace SubwayCarry.Gameplay3D.Editor
     public static class Metro3DBuilder
     {
         public const string Root="Assets/_Project/Scenes/3D/Ingame/Game";
-        public const string ScenePath=Root+"/SubwayCarry_3D_FirstPerson_Delivery.unity";
+        public const string ScenePath="Assets/_Project/Scenes/3D/Ingame.unity";
         static string Request=>Path.Combine(Application.dataPath,"../Temp/ThreeDRebuild/build3d.request");
         static double nextPoll;
         static Metro3DBuilder() { EditorApplication.update-=Poll; EditorApplication.update+=Poll; }
         static void Poll()
+        {
+            if(Application.isBatchMode) return;
+            PollRequests();
+        }
+
+        // Explicit command-line recovery uses the same hash/dirty guards as the editor.
+        public static void RebuildFromRequest()
+        {
+            if(!Application.isBatchMode) throw new InvalidOperationException("Recovery entry point is for an isolated batch editor only.");
+            // Unity clears Temp at startup, so the verified hash must cross that boundary
+            // as an explicit CLI argument rather than as a pre-existing request file.
+            var args=Environment.GetCommandLineArgs();
+            int option=Array.IndexOf(args,"-stationSceneHash");
+            if(option<0||option+1>=args.Length) throw new InvalidOperationException("Missing verified station scene hash.");
+            // Batch editors start with their own empty untitled scene, not the user's
+            // interactive editing state. Load the verified saved target before rebuilding.
+            EditorSceneManager.OpenScene(ScenePath,UnityEditor.SceneManagement.OpenSceneMode.Single);
+            Directory.CreateDirectory(Path.GetDirectoryName(Request));
+            File.WriteAllText(Request,"REBUILD "+args[option+1]);
+            PollRequests();
+            string result=File.ReadAllText(Path.Combine(Application.dataPath,"../Temp/ThreeDRebuild/build.result"));
+            if(!result.StartsWith("SUCCESS",StringComparison.Ordinal)) throw new InvalidOperationException(result);
+        }
+
+        static void PollRequests()
         {
             if(EditorApplication.timeSinceStartup<nextPoll||EditorApplication.isCompiling||EditorApplication.isUpdating) return;
             nextPoll=EditorApplication.timeSinceStartup+3;
@@ -91,22 +118,30 @@ namespace SubwayCarry.Gameplay3D.Editor
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             var mats=Metro3DKitImporter.Prepare();
             var settings=LoadOrCreate<Metro3DSettings>(Root+"/Data/Metro3DSettings.asset");
-            settings.deliveries=AssetDatabase.LoadAssetAtPath<SliceDeliveryCatalog>("Assets/_Project/Scenes/Gameplay/Data/SliceDeliveryCatalog.asset");
+            settings.deliveries=AssetDatabase.LoadAssetAtPath<SliceDeliveryCatalog>("Assets/_Project/Scenes/2D/Ingame/Delivery/Data/SliceDeliveryCatalog.asset");
             if(settings.deliveries==null||settings.deliveries.orders==null||settings.deliveries.orders.Length==0) throw new InvalidOperationException("Existing delivery catalog is required.");
             settings.font=settings.deliveries.uiFont;
             settings.tile=mats["Tile"]; settings.stone=mats["Stone"]; settings.metal=mats["Metal"]; settings.glass=mats["Glass"]; settings.yellow=mats["Yellow"];
             settings.rubber=mats["Rubber"]; settings.seat=mats["Seat"]; settings.ceiling=mats["Ceiling"]; settings.luminous=mats["Luminous"]; settings.box=mats["Box"];
             settings.wood=mats["Wood"]; settings.green=mats["Green"]; settings.brown=mats["Brown"]; settings.blue=mats["Blue"]; settings.white=mats["White"]; settings.red=mats["Red"];
+            settings.concourseFloor=mats["Metro_ConcourseFloor"];
             var renderer=LoadOrCreate<UniversalRendererData>(Root+"/Data/Renderer3D.asset"); renderer.renderingMode=RenderingMode.ForwardPlus;
+            renderer.postProcessData=AssetDatabase.LoadAssetAtPath<PostProcessData>("Packages/com.unity.render-pipelines.universal/Runtime/Data/PostProcessData.asset");
+            if(renderer.postProcessData==null) throw new InvalidOperationException("URP post-processing resources are missing.");
+            PrepareContactOcclusion(renderer);
             var pipeline=AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(Root+"/Data/Pipeline3D.asset");
             if(pipeline==null) { pipeline=UniversalRenderPipelineAsset.Create(renderer); AssetDatabase.CreateAsset(pipeline,Root+"/Data/Pipeline3D.asset"); }
-            pipeline.supportsHDR=true; pipeline.msaaSampleCount=2; pipeline.shadowDistance=35;
+            pipeline.supportsHDR=true; pipeline.msaaSampleCount=2; pipeline.shadowDistance=40;
+            pipeline.supportsCameraDepthTexture=true;
             var pipelineData=new SerializedObject(pipeline);
+            pipelineData.FindProperty("m_ReflectionProbeBlending").boolValue=true;
+            pipelineData.FindProperty("m_ReflectionProbeBoxProjection").boolValue=true;
+            pipelineData.FindProperty("m_SoftShadowsSupported").boolValue=true;
             pipelineData.FindProperty("m_AdditionalLightsRenderingMode").intValue=(int)LightRenderingMode.PerPixel;
             pipelineData.FindProperty("m_AdditionalLightShadowsSupported").boolValue=true;
-            pipelineData.FindProperty("m_AdditionalLightsShadowmapResolution").intValue=1024;
-            pipelineData.FindProperty("m_AdditionalLightsShadowResolutionTierLow").intValue=128;
-            pipelineData.FindProperty("m_AdditionalLightsShadowResolutionTierMedium").intValue=128;
+            pipelineData.FindProperty("m_AdditionalLightsShadowmapResolution").intValue=2048;
+            pipelineData.FindProperty("m_AdditionalLightsShadowResolutionTierLow").intValue=256;
+            pipelineData.FindProperty("m_AdditionalLightsShadowResolutionTierMedium").intValue=512;
             pipelineData.ApplyModifiedPropertiesWithoutUndo();
             pipeline.useSRPBatcher=true; settings.renderPipeline=pipeline;
             settings.environmentLibrary=CreateLibrary(mats);
@@ -115,17 +150,21 @@ namespace SubwayCarry.Gameplay3D.Editor
             EditorUtility.SetDirty(pipeline); AssetDatabase.SaveAssetIfDirty(pipeline);
             EditorUtility.SetDirty(renderer); AssetDatabase.SaveAssetIfDirty(renderer);
             // Save only the validated new scene; retain the existing scene file/GUID until then.
-                RenderSettings.ambientMode=AmbientMode.Trilight; RenderSettings.ambientSkyColor=new Color(.44f,.48f,.5f); RenderSettings.ambientEquatorColor=new Color(.24f,.26f,.27f); RenderSettings.ambientGroundColor=new Color(.14f,.15f,.15f);
+                RenderSettings.ambientMode=AmbientMode.Trilight; RenderSettings.ambientSkyColor=new Color(.34f,.36f,.38f); RenderSettings.ambientEquatorColor=new Color(.23f,.24f,.25f); RenderSettings.ambientGroundColor=new Color(.17f,.18f,.18f);
                 RenderSettings.fog=true; RenderSettings.fogMode=FogMode.Linear; RenderSettings.fogColor=new Color(.075f,.078f,.08f); RenderSettings.fogStartDistance=50; RenderSettings.fogEndDistance=160;
                 RenderSettings.defaultReflectionMode=DefaultReflectionMode.Custom;
                 RenderSettings.customReflectionTexture=AssetDatabase.LoadAssetAtPath<Cubemap>(Root+"/Art/Textures/Metro/IndoorReflection.hdr");
                 if(RenderSettings.customReflectionTexture==null) throw new InvalidOperationException("Blender indoor reflection cubemap failed import.");
+                PrepareSignFont(settings.font);
                 var go=new GameObject("SubwayCarry_3D_World"); var world=go.AddComponent<Metro3DWorld>(); world.settings=settings; world.BuildInitial();
+                var signFont=Resources.Load<TMP_FontAsset>("Metro3DSignFont");
+                EditorUtility.SetDirty(signFont); AssetDatabase.SaveAssetIfDirty(signFont);
+                foreach(var atlas in signFont.atlasTextures) {EditorUtility.SetDirty(atlas); AssetDatabase.SaveAssetIfDirty(atlas);}
                 var volumeObject=new GameObject("Indoor presentation"); var volume=volumeObject.AddComponent<Volume>(); volume.isGlobal=true;
                 var profile=LoadOrCreate<VolumeProfile>(Root+"/Data/IndoorPost.asset");
                 if(!profile.TryGet<Tonemapping>(out var tone)) tone=profile.Add<Tonemapping>(); tone.mode.Override(TonemappingMode.Neutral);
                 if(!profile.TryGet<Bloom>(out var bloom)) bloom=profile.Add<Bloom>(); bloom.intensity.Override(.055f); bloom.threshold.Override(1.3f);
-                if(!profile.TryGet<ColorAdjustments>(out var colors)) colors=profile.Add<ColorAdjustments>(); colors.contrast.Override(7); colors.saturation.Override(-9);
+                if(!profile.TryGet<ColorAdjustments>(out var colors)) colors=profile.Add<ColorAdjustments>(); colors.contrast.Override(2); colors.saturation.Override(-3);
                 volume.sharedProfile=profile; EditorUtility.SetDirty(profile); AssetDatabase.SaveAssetIfDirty(profile);
                 Validate(scene,world);
                 if(!EditorSceneManager.SaveScene(scene,ScenePath)) throw new IOException("Unable to save 3D scene.");
@@ -137,6 +176,48 @@ namespace SubwayCarry.Gameplay3D.Editor
         {
             var asset=AssetDatabase.LoadAssetAtPath<T>(path); if(asset!=null) return asset;
             asset=ScriptableObject.CreateInstance<T>(); AssetDatabase.CreateAsset(asset,path); return asset;
+        }
+
+        static void PrepareSignFont(Font source)
+        {
+            string path=Root+"/Resources/Metro3DSignFont.asset";
+            var font=AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
+            if(font==null) {
+                font=TMP_FontAsset.CreateFontAsset(source,90,8,GlyphRenderMode.SDFAA,2048,2048,AtlasPopulationMode.Dynamic,false);
+                if(font==null) throw new InvalidOperationException("Station SDF atlas generation failed.");
+                font.name="Nanum Gothic - Station signs";
+                var serializedFont=new SerializedObject(font);
+                serializedFont.FindProperty("m_ClearDynamicDataOnBuild").boolValue=false;
+                serializedFont.ApplyModifiedPropertiesWithoutUndo();
+                font.material.shader=Resources.Load<Shader>("WorldSignText");
+                AssetDatabase.CreateAsset(font,path);
+                AssetDatabase.AddObjectToAsset(font.material,font);
+                foreach(var atlas in font.atlasTextures) AssetDatabase.AddObjectToAsset(atlas,font);
+            }
+            font.material.shader=Resources.Load<Shader>("WorldSignText");
+            font.material.SetFloat("_FaceDilate",.16f);
+            EditorUtility.SetDirty(font.material); AssetDatabase.SaveAssetIfDirty(font.material);
+        }
+
+
+        static void PrepareContactOcclusion(UniversalRendererData renderer)
+        {
+            var ao=renderer.rendererFeatures.OfType<ScreenSpaceAmbientOcclusion>().FirstOrDefault();
+            if(ao==null) {
+                ao=ScriptableObject.CreateInstance<ScreenSpaceAmbientOcclusion>(); ao.name="Station contact occlusion";
+                AssetDatabase.AddObjectToAsset(ao,renderer); renderer.rendererFeatures.Add(ao);
+            }
+            var data=new SerializedObject(ao); var settings=data.FindProperty("m_Settings");
+            settings.FindPropertyRelative("AOMethod").intValue=1;
+            settings.FindPropertyRelative("Downsample").boolValue=true;
+            settings.FindPropertyRelative("Intensity").floatValue=.55f;
+            settings.FindPropertyRelative("Radius").floatValue=.16f;
+            settings.FindPropertyRelative("DirectLightingStrength").floatValue=.10f;
+            settings.FindPropertyRelative("Falloff").floatValue=28;
+            settings.FindPropertyRelative("Samples").intValue=1;
+            settings.FindPropertyRelative("AfterOpaque").boolValue=false;
+            data.ApplyModifiedPropertiesWithoutUndo(); ao.SetActive(true); ao.Create();
+            renderer.SetDirty(); EditorUtility.SetDirty(ao); AssetDatabase.SaveAssetIfDirty(ao);
         }
 
         static GameObject CreateLibrary(Dictionary<string,Material> mats)
@@ -161,38 +242,13 @@ namespace SubwayCarry.Gameplay3D.Editor
 
         static GameObject CreatePassenger(Metro3DSettings settings,Dictionary<string,Material> mats)
         {
-            const string path=Root+"/Art/Models/PassengerHuman.fbx";
-            var importer=(ModelImporter)AssetImporter.GetAtPath(path); importer.animationType=ModelImporterAnimationType.Generic; importer.importAnimation=true;
-            importer.materialImportMode=ModelImporterMaterialImportMode.None;
-            var clips=importer.defaultClipAnimations;
-            foreach(var clip in clips) { clip.loopTime=clip.name.EndsWith("Idle")||clip.name.EndsWith("Walk")||clip.name.EndsWith("|Sit"); clip.lockRootRotation=true; clip.lockRootPositionXZ=true; clip.keepOriginalPositionY=true; }
-            importer.clipAnimations=clips; importer.SaveAndReimport();
-            var all=AssetDatabase.LoadAllAssetsAtPath(path).OfType<AnimationClip>().Where(c=>!c.name.StartsWith("__preview__")).ToArray();
-            settings.idle=all.FirstOrDefault(c=>c.name.EndsWith("Idle")); settings.walk=all.FirstOrDefault(c=>c.name.EndsWith("Walk")); settings.sit=all.FirstOrDefault(c=>c.name.EndsWith("|Sit"));
-            if(settings.idle==null||settings.walk==null||settings.sit==null) throw new InvalidOperationException("Idle/Walk/Sit clips missing: "+string.Join(",",all.Select(c=>c.name)));
-            string controllerPath=Root+"/Data/Passenger3D.controller";
-            var controller=AssetDatabase.LoadAssetAtPath<AnimatorController>(controllerPath);
-            if(controller==null) controller=AnimatorController.CreateAnimatorControllerAtPath(controllerPath);
-            controller.parameters=new[] {new AnimatorControllerParameter{name="Speed",type=AnimatorControllerParameterType.Float},new AnimatorControllerParameter{name="Seated",type=AnimatorControllerParameterType.Bool},new AnimatorControllerParameter{name="Gait",type=AnimatorControllerParameterType.Float,defaultFloat=1}};
-            var sm=controller.layers[0].stateMachine;
-            foreach(var old in sm.states) sm.RemoveState(old.state);
-            foreach(var old in AssetDatabase.LoadAllAssetsAtPath(controllerPath).OfType<BlendTree>()) UnityEngine.Object.DestroyImmediate(old,true);
-            var move=sm.AddState("Locomotion"); var sit=sm.AddState("Seated"); var down=sm.AddState("SitDown"); var up=sm.AddState("StandUp"); sm.defaultState=move;
-            var blend=new BlendTree {name="Idle to Walk",blendParameter="Speed",useAutomaticThresholds=false}; AssetDatabase.AddObjectToAsset(blend,controller); blend.AddChild(settings.idle,0); blend.AddChild(settings.walk,1.25f); move.motion=blend; sit.motion=settings.sit;
-            move.speedParameter="Gait"; move.speedParameterActive=true;
-            down.motion=all.Single(c=>c.name.EndsWith("SitDown")); up.motion=all.Single(c=>c.name.EndsWith("StandUp"));
-            var settle=down.AddTransition(sit); settle.hasExitTime=true; settle.exitTime=1; settle.duration=.08f;
-            var resume=up.AddTransition(move); resume.hasExitTime=true; resume.exitTime=1; resume.duration=.12f;
-            EditorUtility.SetDirty(controller); AssetDatabase.SaveAssetIfDirty(controller);
-            var root=new GameObject("Passenger_3D_Human");
-            var model=UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(path),root.transform); model.name="HumanModel";
-            var anim=model.GetComponent<Animator>(); if(anim==null) anim=model.AddComponent<Animator>(); anim.runtimeAnimatorController=controller; anim.applyRootMotion=false; anim.cullingMode=AnimatorCullingMode.CullUpdateTransforms;
-            var skin=AssetDatabase.LoadAssetAtPath<Material>(Root+"/Art/Materials/PassengerClothed.mat");
-            if(skin==null) { skin=new Material(Shader.Find("Universal Render Pipeline/Lit")); skin.SetTexture("_BaseMap",AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/ThirdParty/Quaternius/AnimatedHuman/Textures/ClothedLightSkin.png")); skin.SetFloat("_Smoothness",.22f); AssetDatabase.CreateAsset(skin,Root+"/Art/Materials/PassengerClothed.mat"); }
-            skin.SetColor("_BaseColor",Color.white); skin.enableInstancing=true; EditorUtility.SetDirty(skin); AssetDatabase.SaveAssetIfDirty(skin);
-            foreach(var r in model.GetComponentsInChildren<SkinnedMeshRenderer>()) { r.sharedMaterial=r.name.Contains("CommuterShoe")?mats["Rubber"]:skin; r.updateWhenOffscreen=false; }
-            var cc=root.AddComponent<CharacterController>(); cc.height=1.74f; cc.radius=.22f; cc.center=Vector3.up*.88f; cc.stepOffset=.21f; cc.skinWidth=.025f;
-            var prefab=PrefabUtility.SaveAsPrefabAsset(root,Root+"/Prefabs/Passenger3D.prefab"); UnityEngine.Object.DestroyImmediate(root); return prefab;
+            // Rebuilds must keep the shared passenger body/controller and their GUIDs.
+            var existing=AssetDatabase.LoadAssetAtPath<GameObject>(Root+"/Prefabs/Passenger3D.prefab");
+            if(existing==null) throw new InvalidOperationException("Shared Passenger3D prefab missing; restore the team asset before rebuilding.");
+            var animator=existing.GetComponentInChildren<Animator>(true);
+            if(animator==null||animator.GetComponentsInChildren<Transform>(true).All(t=>t.name!="DEF-hips")||settings.idle==null||settings.walk==null||settings.sit==null)
+                Metro3DPassengerAssetUpdate.UpdateAsset();
+            return AssetDatabase.LoadAssetAtPath<GameObject>(Root+"/Prefabs/Passenger3D.prefab");
         }
 
         static Dictionary<string,Material> CreateMaterials()

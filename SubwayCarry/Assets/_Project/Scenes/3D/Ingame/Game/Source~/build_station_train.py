@@ -11,10 +11,13 @@ Circulation manufacturer envelope is documented separately in VerticalCirculatio
 All geometry, UV and surface maps are authored here in Blender, no Unity primitive art.
 """
 import bpy, math, os, sys, numpy as np
-from mathutils import Vector
+from mathutils import Vector, Quaternion
+sys.path.insert(0,os.path.dirname(__file__))
+sys.dont_write_bytecode=True
+from reference_surfaces import build_reference_materials
 
 ROOT=os.path.abspath(os.path.join(os.path.dirname(__file__),'..'))
-ART=os.path.join(ROOT,'Art'); PROJECT=os.path.abspath(os.path.join(ROOT,'../../../..'))
+ART=os.path.join(ROOT,'Art'); PROJECT=os.path.abspath(os.path.join(ROOT,'../../../../../..'))
 REVIEW=os.path.join(PROJECT,'Temp','ThreeDRebuild','KitReview')
 os.makedirs(REVIEW,exist_ok=True)
 os.makedirs(os.path.join(ART,'Textures','Metro'),exist_ok=True)
@@ -71,11 +74,20 @@ for name,c,r,k in [('White',(.76,.78,.74),.42,'paint'),('Green',(.075,.24,.17),.
     material('Metro_'+name,c,r,k,2 if name=='Luminous' else 0); aliases[name]='Metro_'+name
 material('Metro_Floor',(.46,.48,.47),.62,'floor')
 material('Metro_Cardboard',(.57,.39,.22),.82)
+# User photographs 20261007: Gachon concourse; 20261005: platform/circulation finishes.
+# Finishes are observed; dimensions below remain estimates, not a measured site survey.
+M.update(build_reference_materials(ART))
+aliases['Tile']='Metro_CeramicWall'
+reference_exports={'WallPanel','ConcourseWall','FloorPanel','CeilingPanel','ConcourseCeiling','Pillar','FluorescentLight','FareGate'}
+reference_only='--reference-finishes' in sys.argv
+module_filter=next((a.split('=',1)[1] for a in sys.argv if a.startswith('--module=')),None)
+if module_filter: reference_only=True; reference_exports=set(module_filter.split(','))
 root=None; roots=[]
 
 def uv(o):
     layer=o.data.uv_layers.new(name='MetreUV') if not o.data.uv_layers else o.data.uv_layers.active
-    repeat=1/.6 if o.data.materials[0].name in ['Circulation_CreamTile','Metro_Floor'] else 2
+    name=o.data.materials[0].name
+    repeat=1/float(o.data.materials[0].get('physical_repeat_metres',.6 if name=='Circulation_CreamTile' else .5))
     for p in o.data.polygons:
         axes=[i for i in range(3) if i!=max(range(3),key=lambda a:abs(p.normal[a]))]
         for li in p.loop_indices:
@@ -120,6 +132,8 @@ def anchor(name,p):
     o=bpy.data.objects.new(root.name+'_'+name,None); bpy.context.collection.objects.link(o); o.parent=root; o.location=p; return o
 
 def end():
+    if reference_only and root.name not in reference_exports:
+        return
     objects=list(root.children); copies=[]
     for mat in sorted({o.data.materials[0].name for o in objects if o.type=='MESH'}):
         bpy.ops.object.select_all(action='DESELECT'); group=[]
@@ -140,31 +154,53 @@ def end():
     print('METRE_KIT',root.name,'TRIS',sum(sum(len(p.vertices)-2 for p in o.data.polygons) for o in objects if o.type=='MESH'),flush=True)
 
 for name,concourse in [('WallPanel',False),('ConcourseWall',True)]:
-    begin(name); box('Solid backing',(0,0,1.5),(2,.16,3),'Tile' if not concourse else 'Green',.001)
-    box('Granite skirting',(0,-.096,.12),(2,.035,.24),'Stone',.002)
+    begin(name); box('Solid backing',(0,0,1.5),(2,.16,3),'Metro_ConcourseTile' if concourse else 'Tile',.001)
+    box('Granite skirting',(0,-.096,.085),(2,.035,.17),'Metro_BlackStone',.002)
+    if concourse:
+        # The photographs show a tiled band, not wood or a flat painted green wall.
+        box('Ochre ceramic wayfinding band',(0,-.087,1.25),(2,.012,.24),'Metro_AccentTile',.001)
     if not concourse:
         box('Brown tile band',(0,-.086,1.18),(2,.014,.15),'Brown',.001)
         box('Line colour fascia',(0,-.086,2.74),(2,.014,.20),'Yellow',.001)
     end()
 begin('FloorPanel'); box('Finished floor',(0,0,-.1),(2,2,.2),'Metro_Floor',0); end()
 for name,wood in [('CeilingPanel',False),('ConcourseCeiling',True)]:
-    begin(name); box('Ceiling support backing',(0,0,3.045),(2,2,.05),'Brown' if wood else 'White',0)
-    if wood:
-        for x in range(20): box('Timber linear baffle',(-.95+x*.1,0,3),( .072,2,.05),'Wood',.002)
-    else:
-        for x in range(4):
-            for y in range(4): box('Acoustic panel',(-.75+x*.5,-.75+y*.5,3.008),(.49,.49,.035),'White',.001)
-        for p in [-1,-.5,0,.5,1]:
-            box('T runner',(p,0,2.984),(.012,2,.014),'Metal',.001); box('Cross runner',(0,p,2.983),(2,.012,.014),'Metal',.001)
+    begin(name); box('Ceiling support backing',(0,0,3.045),(2,2,.05),'White',0)
+    for x in range(4):
+        for y in range(4): box('Satin enamel ceiling panel',(-.75+x*.5,-.75+y*.5,3.008),(.494,.494,.035),'White',.001)
+    for p in [-1,-.5,0,.5,1]:
+        box('T runner',(p,0,2.984),(.009,2,.014),'Metal',.001); box('Cross runner',(0,p,2.983),(2,.009,.014),'Metal',.001)
     end()
-begin('Pillar'); box('Ceramic column',(0,0,1.5),(.65,.65,3),'Tile',.007)
-box('Granite plinth',(0,0,.12),(.68,.68,.24),'Stone',.004); end()
+def column_ring(name,z0,z1,radius,mat):
+    count=96
+    o=tube(name,(0,0,z0),(0,0,z1),radius,mat,count)
+    # Cylindrical UV in metres: no dominant-axis seams or stretched square tiles.
+    layer=o.data.uv_layers.active.data
+    for p in o.data.polygons:
+        side=len(p.vertices)==4
+        p.use_smooth=side
+        coordinates=[]
+        for li in p.loop_indices:
+            v=o.data.vertices[o.data.loops[li].vertex_index].co
+            coordinates.append(((math.atan2(v.y,v.x)+math.pi)/math.tau,v))
+        seam=side and max(a for a,v in coordinates)-min(a for a,v in coordinates)>.5
+        for li,(a,v) in zip(p.loop_indices,coordinates):
+            if seam and a<.5: a+=1
+            layer[li].uv=(a*math.tau*radius/1.2,v.z/1.2) if side else (v.x,v.y)
+    return o
+begin('Pillar')
+column_ring('Brushed stainless plinth',0,.16,.562,'Metal')
+column_ring('Vertical ceramic cladding',.16,2.87,.55,'Metro_CeramicColumn')
+column_ring('Ochre ceramic lower band',.58,.82,.552,'Metro_AccentTile')
+column_ring('Ochre ceramic upper band',2.28,2.52,.552,'Metro_AccentTile')
+column_ring('Stainless ceiling collar',2.87,3,.555,'Metal')
+end()
 begin('FluorescentLight')
 box('Ceiling surface mounted housing',(0,0,2.94),(1.35,.22,.09),'Metal',.012)
 for x in [-.48,.48]: box('Ceiling fixing pad',(x,0,2.992),(.12,.13,.024),'White',.003)
-for y in [-.062,.062]:
-    tube('Fluorescent diffuser',(-.59,y,2.895),(.59,y,2.895),.018,'Luminous')
-    for x in [-.618,.618]: box('Tube end holder',(x,y,2.9),(.045,.045,.05),'White',.004)
+# An opal linear panel, as observed in the photographs; its emitting face is below the housing.
+box('Recessed opal luminaire diffuser',(0,0,2.885),(1.20,.176,.018),'Metro_LightDiffuser',.003)
+for x in [-.623,.623]: box('Serviceable end cap',(x,0,2.916),(.042,.205,.063),'White',.003)
 end()
 begin('VentPanel'); box('Louvre frame',(0,0,1.4),(.85,.04,.52),'Metal',.006)
 box('Dark air plenum',(0,.018,1.4),(.79,.02,.46),'Rubber',0)
@@ -200,16 +236,39 @@ box('Carrying seat frame',(0,.05,.36),(2.7,.27,.06),'Metal',.005)
 for i in range(5): anchor('Seat_%d'%i,((i-2)*.53,-.13,0))
 end()
 begin('FareGate')
-poly('Folded stainless housing',[(-.17,-.62),(.17,-.62),(.17,.51),(.12,.62),(-.12,.62),(-.17,.51)],.10,1.02)
-box('Removable side cover',(0,0,.59),(.349,.94,.69),'Metal',.004)
-box('Bolted pedestal',(0,0,.055),(.36,1.22,.11),'Rubber',.008)
-box('Top reader bezel',(0,-.31,1.03),(.23,.28,.035),'Rubber',.018)
-box('Card reader glass',(0,-.31,1.051),(.18,.22,.01),'Blue',.012)
-box('Reader status LED',(0,-.31,1.057),(.11,.035,.005),'Luminous',.003)
-box('Front indicator bezel',(0,-.628,.82),(.17,.018,.13),'Rubber',.008)
-box('Green allowed indicator',(0,-.640,.82),(.08,.008,.044),'Green',.003)
+poly('Folded stainless housing',[(-.17,-.62),(.17,-.62),(.17,.54),(.12,.62),(-.12,.62),(-.17,.54)],.075,.97)
+box('Recessed rubber pedestal',(0,0,.04),(.345,1.19,.08),'Rubber',.005)
+box('Service cover seam',(0,0,.49),(.348,.98,.70),'Rubber',.002)
+box('Removable side cover',(0,0,.49),(.354,.972,.688),'Metal',.003)
+box('Stainless top cap',(0,0,.985),(.36,1.25,.06),'Metal',.009)
+for side in [-1,1]:
+    box('Inclined reader plinth',(0,side*.34,1.035),(.24,.30,.042),'Metal',.010)
+    box('Card reader gasket',(0,side*.34,1.062),(.213,.26,.015),'Rubber',.009)
+    box('Card reader dark glass',(0,side*.34,1.072),(.194,.241,.006),'Blue',.007)
+    box('Reader status strip',(0,side*.255,1.077),(.15,.023,.004),'Green',.002)
+    box('Front indicator bezel',(0,side*.632,.807),(.206,.018,.211),'Rubber',.005)
+    box('Entry arrow stem',(0,side*.644,.828),(.017,.006,.08),'Green',.001)
+    for x in [-1,1]:
+        piece=box('Entry arrow chevron',(x*.021,side*.644,.790),(.016,.006,.070),'Green',.001)
+        piece.rotation_euler.y=math.radians(x*45)
+    box('Front instruction label backing',(0,side*.633,.43),(.196,.014,.39),'Blue',.002)
+    box('Label mounting stainless border',(0,side*.628,.43),(.222,.018,.416),'Metal',.003)
+    for x in [-.135,.135]:
+        tube('Captive cover screw',(x,side*.513,.18),(x,side*.516,.18),.007,'Metal',12)
+box('Rotary spindle mounting plate',(.188,0,.875),(.028,.205,.23),'Metal',.005)
+anchor('RotarySpindle',(.198,0,.89))
 end()
-begin('FareLeaf'); box('Clear retracting gate leaf',(0,0,.69),(.76,.022,.5),'Glass',.014); end()
+begin('FareLeaf')
+# A tilted rotary axis produces one horizontal blocking arm and two down-facing arms.
+# The module origin is the real spindle pivot, not a glass flap's bottom edge.
+axis=Vector((1,0,-1)).normalized()
+tube('Inclined spindle casing',tuple(axis*-.035),tuple(axis*.066),.086,'Metal',32)
+for angle in [0,120,240]:
+    turn=Quaternion(axis,math.radians(angle))
+    start=turn@Vector((.045,0,0)); finish=turn@Vector((.575,0,0))
+    tube('Tripod stainless rotating arm',tuple(start),tuple(finish),.018,'Metal',24)
+    tube('Flush arm safety end cap',tuple(finish),tuple(finish+turn@Vector((.008,0,0))),.018,'Rubber',16)
+end()
 begin('GuardRail')
 for x in [-.59,.59]:
     tube('Floor fixing post',(x,0,.035),(x,0,1.10),.028)
@@ -372,8 +431,8 @@ for y in [-1.5,-1,-.5,0,.5,1,1.5]:
     for a,b in zip(pts,pts[1:]): tube('Closed hanging handle',a,b,.012,'White',12)
 end()
 begin('TrainCarBody')
-length=19.6; door_centres=[2.5,7.4,12.3,17.2]
-root['car_length_m']=length; root['outer_width_m']=3.12; root['usable_floor_width_m']=2.85
+length=19.6; door_centres=[2.5,7.4,12.3,17.2]; door_half_width=.88
+root['car_length_m']=length; root['outer_width_m']=3.12; root['usable_floor_width_m']=2.85; root['door_clear_width_m']=door_half_width*2
 box('Non-slip carriage floor',(0,-length/2,-.06),(2.85,length,.12),'Rubber',.002)
 box('Interior supported ceiling lining',(0,-length/2,2.40),(2.70,length,.04),'White',.002)
 # Side coves close the headliner/curved-shell junction; slim grilles feed the actual HVAC bays.
@@ -393,7 +452,7 @@ for i in range(n-1):
 faces.extend([(0,n,3*n,2*n),(n-1,3*n-1,4*n-1,2*n-1)])
 mesh('Continuous curved roof',verts,faces,'White',.003)
 for side in [-1,1]:
-    x=side*1.50; edges=[0]+[v for d in door_centres for v in [d-.65,d+.65]]+[length]
+    x=side*1.50; edges=[0]+[v for d in door_centres for v in [d-door_half_width,d+door_half_width]]+[length]
     for i in range(0,len(edges)-1,2):
         a,b=edges[i],edges[i+1]; span=b-a
         box('Lower body panel',(x,-(a+b)/2,.4825),(.12,span,.965),'Metal',.007)
@@ -407,8 +466,8 @@ for side in [-1,1]:
         for z in [.97,1.89]: box('Horizontal rubber gasket',(x,-(a+b)/2,z),(.07,width,.027),'Rubber',.004)
         for y in [-a-.15,-b+.15]: box('Vertical rubber gasket',(x,y,1.43),(.07,.027,.94),'Rubber',.004)
     for d in door_centres:
-        box('Door motor cover',(x,-d,2.19),(.14,1.49,.16),'White',.009)
-        for y in [-d-.69,-d+.69]: box('Door jamb',(x,y,1.06),(.12,.08,2.12),'Metal',.004)
+        box('Door motor cover',(x,-d,2.19),(.14,1.95,.16),'White',.009)
+        for y in [-d-door_half_width-.04,-d+door_half_width+.04]: box('Door jamb',(x,y,1.06),(.12,.08,2.12),'Metal',.004)
 # Open, framed inter-car passages. End cars get a separate cab/solid collision boundary in Unity.
 for y in [0,-length]:
     for side in [-1,1]:

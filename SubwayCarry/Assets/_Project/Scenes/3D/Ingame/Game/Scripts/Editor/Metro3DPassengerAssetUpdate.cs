@@ -2,8 +2,8 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Collections.Generic;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEngine;
 
 namespace SubwayCarry.Gameplay3D.Editor
@@ -12,6 +12,8 @@ namespace SubwayCarry.Gameplay3D.Editor
     public static class Metro3DPassengerAssetUpdate
     {
         const string Root="Assets/_Project/Scenes/3D/Ingame/Game";
+        public const string MannequinModel="Assets/ThirdParty/Quaternius/UniversalAnimationLibrary/AnimationLibrary_Unity_Standard.fbx";
+        const string Template="Assets/_Project/Scenes/3D/Test/AI/Assets/Prefabs/TestMannequin3D.prefab";
         static double next;
         static Metro3DPassengerAssetUpdate() {EditorApplication.update+=Poll;}
         static void Poll()
@@ -20,101 +22,74 @@ namespace SubwayCarry.Gameplay3D.Editor
             next=EditorApplication.timeSinceStartup+2;
             string folder=Path.Combine(Application.dataPath,"../Temp/ThreeDRebuild"),request=Path.Combine(folder,"passenger-assets.request");if(!File.Exists(request)) return;
             File.Delete(request);
-            try {UpdateAsset();File.WriteAllText(Path.Combine(folder,"passenger-assets.result"),"PASS: passenger mesh/materials updated; prefab GUID, existing controller and scene preserved.");}
+            try {UpdateAsset();File.WriteAllText(Path.Combine(folder,"passenger-assets.result"),"PASS: in-game mannequin visuals updated; passenger prefab/controller GUIDs and scenes preserved.");}
             catch(Exception ex) {File.WriteAllText(Path.Combine(folder,"passenger-assets.result"),"FAILED: "+ex);Debug.LogException(ex);}
         }
-        static Material Material(string name,Color color,float smoothness)
+
+        public static AnimationClip Clip(string name)
         {
-            string path=Root+"/Art/Materials/"+name+".mat";
-            var material=AssetDatabase.LoadAssetAtPath<Material>(path);
-            if(material==null) {material=new Material(Shader.Find("Universal Render Pipeline/Lit"));AssetDatabase.CreateAsset(material,path);}
-            material.SetColor("_BaseColor",color);material.SetFloat("_Smoothness",smoothness);material.enableInstancing=true;
-            EditorUtility.SetDirty(material);AssetDatabase.SaveAssetIfDirty(material);return material;
+            return AssetDatabase.LoadAllAssetsAtPath(MannequinModel).OfType<AnimationClip>()
+                .Single(c=>!c.name.StartsWith("__preview__")&&(c.name==name||c.name.EndsWith("|"+name)));
         }
-        static void UpdateAsset()
+
+        // Reuse only the test visual. Its AI, physics body and controller stay in the test fields.
+        [MenuItem("SubwayCarry/3D/Apply Test Mannequin To Passengers")]
+        public static void UpdateAsset()
         {
-            const string modelPath=Root+"/Art/Models/PassengerHuman.fbx",prefabPath=Root+"/Prefabs/Passenger3D.prefab";
-            // Keep the FBX material names available. Unity may reorder submeshes
-            // during import; Blender's numeric slot order is not a Unity contract.
-            var modelImporter=(ModelImporter)AssetImporter.GetAtPath(modelPath);
-            modelImporter.materialImportMode=ModelImporterMaterialImportMode.ImportStandard;
-            modelImporter.materialLocation=ModelImporterMaterialLocation.InPrefab;
-            // Keep the authored cycle endpoint instead of clipping the new gait
-            // to the old 30-frame take. All clip names and IDs remain unchanged.
-            var clipSettings=modelImporter.clipAnimations;
-            foreach(var clip in clipSettings) {
-                if(clip.name.EndsWith("|Walk")||clip.name=="Walk") {clip.firstFrame=0;clip.lastFrame=37;}
-                if(clip.name.EndsWith("|Idle")||clip.name=="Idle") {clip.firstFrame=0;clip.lastFrame=90;}
+            if(EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Stop Play before changing passenger assets.");
+            const string prefabPath=Root+"/Prefabs/Passenger3D.prefab";
+            var template=AssetDatabase.LoadAssetAtPath<GameObject>(Template);
+            var source=template!=null?template.GetComponentInChildren<Animator>(true):null;
+            if(source==null||source.transform.parent.name!="AuthoredAxisCorrection") throw new InvalidOperationException("Existing test mannequin visual source missing.");
+            var settings=AssetDatabase.LoadAssetAtPath<Metro3DSettings>(Root+"/Data/Metro3DSettings.asset");
+            var controller=AssetDatabase.LoadAssetAtPath<AnimatorController>(Root+"/Data/Passenger3D.controller");
+            if(settings==null||controller==null) throw new InvalidOperationException("Existing passenger settings/controller missing.");
+            var idle=Clip("Idle_Loop");var walk=Clip("Walk_Loop");var seated=Clip("Sitting_Idle_Loop");
+            var down=Clip("Sitting_Enter");var up=Clip("Sitting_Exit");
+            var states=controller.layers[0].stateMachine.states.Select(s=>s.state).ToArray();
+            foreach(string required in new[]{"Locomotion","SitDown","Seated","StandUp"})
+                if(!states.Any(s=>s.name==required)) throw new InvalidOperationException("Missing preserved passenger state: "+required);
+            var locomotion=states.Single(s=>s.name=="Locomotion");
+            if(!(locomotion.motion is BlendTree tree)) throw new InvalidOperationException("Existing locomotion blend tree missing.");
+            var children=tree.children;
+            if(children.Length!=2) throw new InvalidOperationException("Unexpected passenger locomotion contract.");
+            for(int i=0;i<children.Length;i++) {
+                bool resting=children[i].threshold==0;
+                children[i].motion=resting?idle:walk;
+                children[i].threshold=resting?0:.12f;
             }
-            modelImporter.clipAnimations=clipSettings;
-            modelImporter.SaveAndReimport();
-            var imported=AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
-            var controller=AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(Root+"/Data/Passenger3D.controller");
-            var clips=AssetDatabase.LoadAllAssetsAtPath(modelPath).OfType<AnimationClip>().Where(c=>!c.name.StartsWith("__preview__")).ToArray();
-            foreach(string name in new[]{"Idle","Walk","SitDown","Sit","StandUp"}) if(!clips.Any(c=>c.name.EndsWith("|"+name)||c.name==name)) throw new InvalidOperationException("Missing preserved clip: "+name);
-            var materials=new[]{Material("CommuterSkin",new Color(.72f,.57f,.46f),.32f),Material("CommuterCoat",new Color(.19f,.25f,.32f),.18f),Material("CommuterTrousers",new Color(.10f,.13f,.18f),.12f),Material("CommuterHair",new Color(.035f,.027f,.021f),.16f),Material("CommuterLips",new Color(.47f,.24f,.20f),.28f)};
-            var eye=Material("CommuterSclera",new Color(.82f,.82f,.77f),.55f);var iris=Material("CommuterIris",new Color(.04f,.026f,.018f),.45f);var shoe=Material("CommuterShoes",Color.white,.28f);
-            var undershirt=Material("CommuterUnderShirt",new Color(.025f,.028f,.032f),.12f);
-            SetMaps(materials[0],"CommuterSkin_BaseColor");SetMaps(materials[1],"CommuterSuit_BaseColor","CommuterSuit_Normal","CommuterSuit_AO");SetMaps(materials[2],"CommuterSuit_BaseColor","CommuterSuit_Normal","CommuterSuit_AO");
-            SetMaps(materials[3],"CommuterHair_BaseColor");SetMaps(shoe,"CommuterShoes_BaseColor");
-            // These garments are thin fabric shells. A bent sleeve/hem exposes
-            // its inner faces; unlike skin, both sides must remain visible.
-            foreach(var cloth in new[]{materials[1],materials[2]}) {cloth.SetFloat("_Cull",0);EditorUtility.SetDirty(cloth);AssetDatabase.SaveAssetIfDirty(cloth);}
-            materials[3].SetFloat("_AlphaClip",1);materials[3].SetFloat("_Cutoff",.35f);materials[3].SetFloat("_Cull",0);materials[3].EnableKeyword("_ALPHATEST_ON");materials[3].renderQueue=2450;EditorUtility.SetDirty(materials[3]);AssetDatabase.SaveAssetIfDirty(materials[3]);
-            var byName=new[]{materials[0],materials[1],materials[2],materials[3],eye,iris,shoe,undershirt}.ToDictionary(m=>m.name);
+            tree.children=children;EditorUtility.SetDirty(tree);AssetDatabase.SaveAssetIfDirty(tree);
+            foreach(var state in states) {
+                if(state.name=="Seated") state.motion=seated;
+                if(state.name=="SitDown") {state.motion=down;state.speed=down.length/.9f;}
+                if(state.name=="StandUp") {state.motion=up;state.speed=up.length/.9f;}
+                EditorUtility.SetDirty(state);AssetDatabase.SaveAssetIfDirty(state);
+            }
+            EditorUtility.SetDirty(controller);AssetDatabase.SaveAssetIfDirty(controller);
             var root=PrefabUtility.LoadPrefabContents(prefabPath);
             try {
+                if(root.GetComponent<CharacterController>()==null) throw new InvalidOperationException("Existing passenger body missing.");
                 var old=root.transform.Find("HumanModel");if(old!=null) UnityEngine.Object.DestroyImmediate(old.gameObject);
-                var model=(GameObject)PrefabUtility.InstantiatePrefab(imported,root.transform);model.name="HumanModel";
-                var animator=model.GetComponent<Animator>();if(animator==null) animator=model.AddComponent<Animator>();animator.runtimeAnimatorController=controller;animator.applyRootMotion=false;animator.cullingMode=AnimatorCullingMode.CullUpdateTransforms;
-                foreach(var renderer in model.GetComponentsInChildren<SkinnedMeshRenderer>()) {
-                    renderer.sharedMaterials=renderer.sharedMaterials.Select(source=> {
-                        if(source==null||!byName.TryGetValue(source.name,out var mapped)) throw new InvalidOperationException("Unknown source passenger material: "+(source==null?"null":source.name));
-                        return mapped;
-                    }).ToArray();
-                    Debug.Log("Passenger imported slots: "+string.Join(", ",renderer.sharedMaterials.Select(m=>m.name)));
-                    // The shared project currently runs Very Low / one-bone
-                    // skinning. Do not change team quality settings; preserve
-                    // this character's authored four-influence joint weights.
-                    renderer.quality=SkinQuality.Bone4;
-                    renderer.updateWhenOffscreen=false;
-                    if(renderer.sharedMesh==null||renderer.sharedMesh.subMeshCount!=renderer.sharedMaterials.Length) throw new InvalidOperationException("Passenger material-slot contract mismatch: "+renderer.name);
+                var visual=UnityEngine.Object.Instantiate(source.transform.parent.gameObject,root.transform,false);
+                visual.name="HumanModel";
+                // The generic FBX walks along authored -Z. Preserve its import
+                // axes, correcting only the visual wrapper to motor +Z. Native
+                // pelvis/stance sampling rules out the former 155.3291deg yaw.
+                visual.transform.localRotation=Quaternion.Euler(0,180,0);
+                var animator=visual.GetComponentInChildren<Animator>(true);
+                animator.runtimeAnimatorController=controller;animator.applyRootMotion=false;
+                animator.cullingMode=AnimatorCullingMode.CullUpdateTransforms;
+                foreach(var renderer in visual.GetComponentsInChildren<SkinnedMeshRenderer>(true)) {
+                    if(renderer.sharedMesh==null||renderer.sharedMaterials.Any(m=>m==null)||renderer.sharedMesh.subMeshCount!=renderer.sharedMaterials.Length)
+                        throw new InvalidOperationException("Mannequin material/mesh references missing: "+renderer.name);
+                    renderer.quality=SkinQuality.Bone4;renderer.updateWhenOffscreen=false;
                 }
-                var cc=root.GetComponent<CharacterController>();cc.height=1.8f;cc.center=Vector3.up*.9f;
+                if(visual.GetComponentsInChildren<MonoBehaviour>(true).Length!=0||visual.GetComponentInChildren<Collider>(true)!=null||visual.GetComponentInChildren<Rigidbody>(true)!=null)
+                    throw new InvalidOperationException("Test gameplay components leaked into the passenger visual.");
                 PrefabUtility.SaveAsPrefabAsset(root,prefabPath);
             } finally {PrefabUtility.UnloadPrefabContents(root);}
-            // References resolve by action name after replacing geometry, not by a new controller.
-            var settings=AssetDatabase.LoadAssetAtPath<Metro3DSettings>(Root+"/Data/Metro3DSettings.asset");settings.idle=clips.Single(c=>c.name.EndsWith("|Idle"));settings.walk=clips.Single(c=>c.name.EndsWith("|Walk"));settings.sit=clips.Single(c=>c.name.EndsWith("|Sit"));EditorUtility.SetDirty(settings);AssetDatabase.SaveAssetIfDirty(settings);
-            foreach(var state in ((UnityEditor.Animations.AnimatorController)controller).layers[0].stateMachine.states) {
-                string name=state.state.name;
-                if(name=="Seated") state.state.motion=settings.sit;
-                else if(name=="SitDown"||name=="StandUp") state.state.motion=clips.Single(c=>c.name.EndsWith("|"+name));
-                else if(state.state.motion is UnityEditor.Animations.BlendTree tree) {
-                    var children=tree.children;
-                    foreach(int i in Enumerable.Range(0,children.Length)) {
-                        bool resting=children[i].threshold==0;
-                        children[i].motion=resting?settings.idle:settings.walk;
-                    }
-                    tree.children=children;EditorUtility.SetDirty(tree);AssetDatabase.SaveAssetIfDirty(tree);
-                }
-                EditorUtility.SetDirty(state.state);AssetDatabase.SaveAssetIfDirty(state.state);
-            }
-        }
-        static void SetMaps(Material material,string color,string normal=null,string ao=null)
-        {
-            material.SetColor("_BaseColor",Color.white);
-            foreach(string map in new[]{color,normal,ao}) {
-                if(map==null) continue;
-                string path=Root+"/Art/Textures/"+map+".png";var importer=(TextureImporter)AssetImporter.GetAtPath(path);
-                if(importer==null) throw new InvalidOperationException("Missing commuter texture: "+path);
-                importer.textureType=map==normal?TextureImporterType.NormalMap:TextureImporterType.Default;importer.sRGBTexture=map==color;importer.maxTextureSize=2048;importer.alphaIsTransparency=map==color&&color.Contains("Hair");importer.SaveAndReimport();
-                var texture=AssetDatabase.LoadAssetAtPath<Texture2D>(path);string property=map==color?"_BaseMap":map==normal?"_BumpMap":"_OcclusionMap";
-                material.SetTexture(property,texture);material.SetTextureScale(property,Vector2.one);
-            }
-            material.SetTexture("_MetallicGlossMap",null);material.DisableKeyword("_METALLICSPECGLOSSMAP");material.SetFloat("_Metallic",0);
-            if(normal!=null) {material.EnableKeyword("_NORMALMAP");material.SetFloat("_BumpScale",.65f);}
-            if(ao!=null) material.SetFloat("_OcclusionStrength",.35f);
-            EditorUtility.SetDirty(material);AssetDatabase.SaveAssetIfDirty(material);
+            settings.idle=idle;settings.walk=walk;settings.sit=seated;
+            EditorUtility.SetDirty(settings);AssetDatabase.SaveAssetIfDirty(settings);
         }
     }
 }

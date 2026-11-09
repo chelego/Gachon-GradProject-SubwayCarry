@@ -15,14 +15,35 @@ MonoBehaviour:
   deliveries: {fileID: 11400000, guid: f1b5904fb03a461c995323be468f5e93, type: 2}
   renderPipeline: {fileID: 11400000, guid: 2a8ecad497a0ea84b95ad9642bb16cc1, type: 2}
   passengerPrefab: {fileID: 2725969052962753867, guid: 3a6f2d54f2dc9ca40ba4611746e741ff, type: 3}
+  seatedActions:
+  - action: 0
+    enter: {fileID: 11400000, guid: 2b7f251e22eac5e479ad0cfc90f4bdf5, type: 2}
+    hold: {fileID: 11400000, guid: dcddae131ed4e314c8f2ca50c9557f48, type: 2}
+    exit: {fileID: 11400000, guid: 7335035d88096fa4ba8f73fbe02589d7, type: 2}
+  - action: 1
+    enter: {fileID: 11400000, guid: a3f3fca62b5ec0b4785950318ed110f6, type: 2}
+    hold: {fileID: 11400000, guid: 0b864717f39486b4d9cafc5fb33f7450, type: 2}
+    exit: {fileID: 11400000, guid: 2730d41e632a9644496b3adcbf96355c, type: 2}
+  - action: 2
+    enter: {fileID: 11400000, guid: 5178faf972acbb04293d82906f00fe4d, type: 2}
+    hold: {fileID: 11400000, guid: 40621b99f55cdd8438d7f1541abe15d8, type: 2}
+    exit: {fileID: 11400000, guid: a1ff65a8fdd43054a9a7d44103656785, type: 2}
+  - action: 3
+    enter: {fileID: 11400000, guid: ba8a3d8d27ed93249aa9598183c56193, type: 2}
+    hold: {fileID: 11400000, guid: 751b7d8158e65ed41a30b27c7f39628e, type: 2}
+    exit: {fileID: 11400000, guid: 2886f5cd1d728464c9cc4166afcf5ec0, type: 2}
+  - action: 4
+    enter: {fileID: 11400000, guid: 26e15f2d15929944581e30d8e22ea22d, type: 2}
+    hold: {fileID: 11400000, guid: c441372ffaba9964183c5f520b02d897, type: 2}
+    exit: {fileID: 11400000, guid: 8b82b4b91a46bbd4999e8604d69bd390, type: 2}
   environmentLibrary: {fileID: 8747433725557183790, guid: 04b238b97722072478355149c2784f64, type: 3}
   idle: {fileID: 4925837963642883786, guid: d5fbd327e22a8dc47b77a6347810996e, type: 3}
   walk: {fileID: -8349492526526354690, guid: d5fbd327e22a8dc47b77a6347810996e, type: 3}
   sit: {fileID: 8641533986716418156, guid: d5fbd327e22a8dc47b77a6347810996e, type: 3}
-  tile: {fileID: 2100000, guid: d20968033ad7d7842aae07c197f01a3a, type: 2}
+  tile: {fileID: 2100000, guid: 94c5a9ea1c25f04408f93a23647319ef, type: 2}
   stone: {fileID: 2100000, guid: 64bbcfe692714be4baee6584c18ff80e, type: 2}
   metal: {fileID: 2100000, guid: 3158fe1422dd62d42b4c95429b0495fa, type: 2}
-  glass: {fileID: 2100000, guid: 8cfac8d9a4e7336498672d3ac05bf597, type: 2}
+  glass: {fileID: 2100000, guid: 6eeba8cbbcc55b040ba31b781ba80a3d, type: 2}
   yellow: {fileID: 2100000, guid: 9127b0c9d654d594a8d34359c1dcfb0f, type: 2}
   rubber: {fileID: 2100000, guid: 0d42b57a272fe8d48bb2bed4bf643066, type: 2}
   seat: {fileID: 2100000, guid: efcbcac018e8ca84b99e739c5db2ad18, type: 2}
@@ -35,6 +56,10 @@ MonoBehaviour:
   blue: {fileID: 2100000, guid: 7caf5f4803eee9d45a9f27276621ac71, type: 2}
   white: {fileID: 2100000, guid: bc08d585303d9d647ac0e2bba5b94b3f, type: 2}
   red: {fileID: 2100000, guid: ae6749c0db9f57344bab243c470052dd, type: 2}
+  concourseFloor: {fileID: 2100000, guid: 94e377f439daa06428ab63d3ba789e2d, type: 2}
+  concourseReflection: {fileID: 8900000, guid: 63429ada61e3ca246903c78dd2a1ee8f, type: 2}
+  westPlatformReflection: {fileID: 8900000, guid: 0a203dbdf47e653468fd6ad766ebe148, type: 2}
+  eastPlatformReflection: {fileID: 8900000, guid: 05f5eb6364d92db41b445c59b2bfa78c, type: 2}
   font: {fileID: 12800000, guid: c745ee20ef994724b6c663f049458e6c, type: 3}
   walkSpeed: 2.3
   runSpeed: 3.5
@@ -44,8 +69,8 @@ MonoBehaviour:
   passengersPerCar: 18
   passengerArrivalSeconds: 2
   approachSeconds: 8
-  dwellSeconds: 22
-  travelSeconds: 30
+  dwellSeconds: 28
+  travelSeconds: 44
   doorSeconds: 1.25
   departureFloor: 3.6
   npcSpeed: 1.25

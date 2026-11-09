@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7ca2afeff32d8ff45b1cefdced4f91b4, type: 3}
+  m_Name: SeatedBookReview
+  m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay3D.AnimationLab.AnimationLabSeatedBookReview
+  enter: {fileID: 11400000, guid: a3f3fca62b5ec0b4785950318ed110f6, type: 2}
+  hold: {fileID: 11400000, guid: 0b864717f39486b4d9cafc5fb33f7450, type: 2}
+  exit: {fileID: 11400000, guid: 2730d41e632a9644496b3adcbf96355c, type: 2}
+  bookPrefab: {fileID: 3574595546145997484, guid: 5a0049ab4e1622e479346a8b0a0bde43, type: 3}
+  bookHandPosition: {x: 0.16508153, y: 0.23282444, z: -0.093866155}
+  restHipsPosition: {x: 0.007579645, y: 0.16115281, z: 0.23425874}
+  readHipsPosition: {x: 0.011369469, y: 0.44830492, z: 0.2981231}
+  bookHandRotation: {x: 0.28581274, y: 0.3617613, z: 0.15001546, w: 0.87460625}
+  restHipsRotation: {x: -0.011213404, y: -0.7903892, z: -0.612441, w: 0.00868882}
+  readHipsRotation: {x: -0.009066998, y: -0.9042102, z: -0.42685223, w: 0.010909885}
+  leftHandPosition: {x: 0.27205065, y: -0.11045473, z: 0.026200391}
+  rightHandPosition: {x: -0.2676382, y: -0.114835866, z: 0.025760086}
+  leftHandRotation: {x: -0.30337328, y: 0.35262555, z: 0.17779243, w: 0.86718553}
+  rightHandRotation: {x: -0.2858128, y: -0.36176148, z: -0.15001561, w: 0.8746061}
+  takeFrame: 16
+  storeFrame: 48
+  halfWidth: 0.17
+  height: 0.25
+  fold: 10
+  thickness: 0.0096

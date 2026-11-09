@@ -16,7 +16,7 @@ namespace SubwayCarry.Gameplay3D.Editor
     public static class Metro3DCrowdBehaviorChecks
     {
         const string Key="SubwayCarry.CrowdBehaviorCheck";
-        const string ScenePath="Assets/_Project/Scenes/3D/Ingame/Game/SubwayCarry_3D_FirstPerson_Delivery.unity";
+        const string ScenePath="Assets/_Project/Scenes/3D/Ingame.unity";
         static Metro3DWorld world;
         static float started,nextSample,lastSampleTime;
         static int lastFrame;
@@ -29,6 +29,15 @@ namespace SubwayCarry.Gameplay3D.Editor
         static readonly Dictionary<int,float> stalls=new Dictionary<int,float>();
         static readonly Dictionary<int,float> queueWaits=new Dictionary<int,float>();
         static readonly List<float> finishedQueueWaits=new List<float>();
+        static readonly Dictionary<int,(Metro3DPassengerJourney.GatePhase,float)> gateTraceTimes=new Dictionary<int,(Metro3DPassengerJourney.GatePhase,float)>();
+        [Serializable] public struct GateMotionSample
+        {
+            public float time,speed,bodyYaw,animationSpeed,tagRemaining;
+            public int actor,slot,animationState,continuationMisses;
+            public string origin,destination,journey,action,gate;
+            public Vector3 position,goal,velocity,intent,facingIntent;
+            public bool queue,expectedWait,crossing,continuationReady,animationTransition;
+        }
         struct Contact { public float duration; public int sample; }
         static readonly Dictionary<long,Contact> contacts=new Dictionary<long,Contact>(2048);
         static Result result;
@@ -58,6 +67,8 @@ namespace SubwayCarry.Gameplay3D.Editor
             public string[] recoveryReasons;
             public float duration,npcSpeed;
             public int stationCount,passengerCount,passengersPerCar;
+            public List<GateMotionSample> gateMotion=new List<GateMotionSample>(4096);
+            public int gateTraceDropped,gateSelectionsAtEnd;
         }
         static Metro3DCrowdBehaviorChecks()
         {
@@ -108,7 +119,7 @@ namespace SubwayCarry.Gameplay3D.Editor
                 // Headless rendering otherwise runs at an unbounded variable rate,
                 // changing decision/arrival phases despite using the same seed.
                 Time.captureDeltaTime=1f/60;
-                velocities.Clear();recoveries.Clear();recoveryReasons.Clear();stalls.Clear();queueWaits.Clear();finishedQueueWaits.Clear();contacts.Clear();lastFrame=-1;lastSampleTime=0;exiting=false;
+                velocities.Clear();recoveries.Clear();recoveryReasons.Clear();stalls.Clear();queueWaits.Clear();finishedQueueWaits.Clear();gateTraceTimes.Clear();contacts.Clear();lastFrame=-1;lastSampleTime=0;exiting=false;
                 UnityEngine.Random.InitState(result.seed);
                 steering=ProfilerRecorder.StartNew(ProfilerCategory.Scripts,"SubwayCarry.Crowd.Steering",128,
                     ProfilerRecorderOptions.Default|ProfilerRecorderOptions.SumAllSamplesInFrame);
@@ -162,6 +173,7 @@ namespace SubwayCarry.Gameplay3D.Editor
             {
                 var a=people[i];if(a==null) continue;
                 Vector3 v=a.Velocity;totalSpeed+=v.magnitude;
+                SampleGate(a);
                 if(a.QueueActive) {
                     queueWaits.TryGetValue(a.index,out float wait);
                     if(a.WaitingForQueue&&v.sqrMagnitude<.01f)wait+=elapsed;
@@ -219,7 +231,23 @@ namespace SubwayCarry.Gameplay3D.Editor
             Vector3 waypoint=pathIndex<pathCount?a.transform.parent.TransformPoint(path[pathIndex]):a.CurrentGoal;
             return a.index+" "+a.Journey.Blackboard.CurrentStage+" pos="+a.transform.position+" goal="+a.CurrentGoal+" velocity="+a.Velocity+
                 " state="+typeof(Metro3DPassenger).GetField("state",flags).GetValue(a)+" motor="+motor.enabled+" stair="+a.Journey.OnStairs+
-                " queue="+a.QueueActive+" portal="+a.PortalCommitted+" waypoint="+waypoint;
+                " queue="+a.QueueActive+" portal="+a.PortalCommitted+" waypoint="+waypoint+" gateAction="+a.Journey.GateAction+" gateSlot="+a.Journey.GateQueueSlot+" facing="+a.transform.forward;
+        }
+        static void SampleGate(Metro3DPassenger actor)
+        {
+            var j=actor.Journey;var phase=j.GateAction;
+            if(phase==Metro3DPassengerJourney.GatePhase.None&&!j.Waiting&&!actor.QueueActive&&!actor.DoorCrossing)return;
+            if(gateTraceTimes.TryGetValue(actor.index,out var previous)&&previous.Item1==phase&&Time.time<previous.Item2)return;
+            gateTraceTimes[actor.index]=(phase,Time.time+.5f);
+            if(result.gateMotion.Count>=4096) {result.gateTraceDropped++;return;}
+            result.gateMotion.Add(new GateMotionSample {
+                time=Time.time-started,actor=actor.index,origin=j.OriginId,destination=j.DestinationId,
+                journey=j.Blackboard.CurrentStage.ToString(),action=phase==Metro3DPassengerJourney.GatePhase.None?actor.ActivityLabel:phase.ToString(),gate=j.ReservedGate!=null?j.ReservedGate.name:null,
+                slot=j.GateQueueSlot,position=actor.transform.position,goal=actor.CurrentGoal,intent=actor.MovementIntent,velocity=actor.Velocity,
+                speed=actor.Velocity.magnitude,bodyYaw=actor.transform.eulerAngles.y,facingIntent=actor.BodyFacingIntent,queue=actor.QueueActive,expectedWait=actor.WaitingForQueue,crossing=j.CrossingGate,
+                tagRemaining=j.TagRemaining,continuationReady=actor.ContinuationReady,continuationMisses=j.ContinuationMisses,
+                animationState=actor.AnimationState,animationSpeed=actor.AnimationSpeed,animationTransition=actor.AnimationTransition
+            });
         }
         static void Finish()
         {
@@ -230,6 +258,7 @@ namespace SubwayCarry.Gameplay3D.Editor
             {
                 result.duration=Time.time-started;result.spawned=world.Traffic.SpawnedCount;result.completed=world.Traffic.CompletedCount;
                 result.arrivals=world.Traffic.EntranceArrivals;result.stop=world.train.CurrentStop;result.stationCount=world.stations.Count;
+                result.gateSelectionsAtEnd=world.Traffic.GateSelectionCount;
                 var crowd=world.GetComponent<Metro3DCrowd>();result.steeringCalls=crowd.SteeringCalls;
                 result.pathRequests=crowd.PathRequests;result.pathSolves=crowd.PathSolves;
                 result.pathMeasuredMs=crowd.PathTicks*1000.0/System.Diagnostics.Stopwatch.Frequency;

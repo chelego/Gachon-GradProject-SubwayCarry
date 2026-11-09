@@ -13,7 +13,6 @@ namespace SubwayCarry.Gameplay3D
             public bool[] clear,closed,sampled; public float[] g,crowdCost; public int[] parent;
             public Matrix4x4[] liftFrames;
             public float[] gateBanks;
-            public readonly List<int> open=new List<int>(256);
             public Vector3 Point(int i)=>new Vector3(minX+(i%width)*step,floor,minZ+(i/width)*step);
             public int Index(Vector3 p)=>Mathf.Clamp(Mathf.RoundToInt((p.z-minZ)/step),0,height-1)*width+Mathf.Clamp(Mathf.RoundToInt((p.x-minX)/step),0,width-1);
         }
@@ -28,6 +27,58 @@ namespace SubwayCarry.Gameplay3D
         readonly RaycastHit[] groundHits=new RaycastHit[24];
         readonly int[] reverse=new int[4096];
         readonly List<Vector3> obstacles=new List<Vector3>(128);
+        struct FrontierNode
+        {
+            public int cell,order;
+            public float score;
+        }
+        readonly List<FrontierNode> frontier=new List<FrontierNode>(256);
+        int[] frontierSlots=System.Array.Empty<int>();
+        int frontierOrder;
+
+        static bool Before(FrontierNode a,FrontierNode b)
+            =>a.score<b.score||a.score==b.score&&a.order<b.order;
+
+        void StoreFrontier(int slot,FrontierNode node)
+        {
+            frontier[slot]=node;
+            frontierSlots[node.cell]=slot;
+        }
+
+        void PushOrImprove(int cell,float score)
+        {
+            int slot=frontierSlots[cell];
+            FrontierNode node;
+            if(slot<0) {
+                slot=frontier.Count;
+                node=new FrontierNode{cell=cell,score=score,order=frontierOrder++};
+                frontier.Add(node);
+            } else {
+                node=frontier[slot];node.score=score;
+            }
+            while(slot>0) {
+                int parent=(slot-1)/2;
+                if(!Before(node,frontier[parent]))break;
+                StoreFrontier(slot,frontier[parent]);slot=parent;
+            }
+            StoreFrontier(slot,node);
+        }
+
+        int PopFrontier()
+        {
+            int cell=frontier[0].cell,last=frontier.Count-1;
+            FrontierNode tail=frontier[last];
+            frontier.RemoveAt(last);frontierSlots[cell]=-1;
+            if(last==0)return cell;
+            int slot=0;
+            for(int child=1;child<last;child=slot*2+1) {
+                if(child+1<last&&Before(frontier[child+1],frontier[child]))child++;
+                if(!Before(frontier[child],tail))break;
+                StoreFrontier(slot,frontier[child]);slot=child;
+            }
+            StoreFrontier(slot,tail);
+            return cell;
+        }
         Grid Build(Transform root,bool train,Vector3 start)
         {
             Vector3 p=root.InverseTransformPoint(start);bool upper=!train&&p.y>2;
@@ -39,8 +90,11 @@ namespace SubwayCarry.Gameplay3D
             // capsule: their valid centre band is only .18m wide. The former
             // .35m concourse grid can miss an entire lane.
             float step=train||upper?.16f:Step;
-            float minX=train?-.48f:upper?-8.6f:(side<0?-8.6f:Metro3DWorld.ScreenDoorX+.32f);
-            float maxX=train?.48f:upper?(side==3?16.6f:8.6f):(side<0?-Metro3DWorld.ScreenDoorX-.32f:8.6f);
+            float platformLimit=8.6f;
+            if(!train&&!upper&&root.TryGetComponent<Metro3DStationReference>(out var reference)&&reference.passengerSpaceExpanded)
+                platformLimit=Metro3DWorld.ExpandedPlatformOuterX-.4f;
+            float minX=train?-.48f:upper?-8.6f:(side<0?-platformLimit:Metro3DWorld.ScreenDoorX+.32f);
+            float maxX=train?.48f:upper?(side==3?16.6f:8.6f):(side<0?-Metro3DWorld.ScreenDoorX-.32f:platformLimit);
             float minZ=train?Metro3DTrain.FloorStart+.35f:upper?(side==3?91.5f:-27):-1.5f;
             float maxZ=train?Metro3DTrain.FloorEnd-.35f:upper?(side==3?125.5f:15.5f):Metro3DWorld.PlatformLength-2.5f;
             var grid=new Grid {root=root,minX=minX,minZ=minZ,floor=upper?3.6f:0,step=step,width=Mathf.FloorToInt((maxX-minX)/step)+1,height=Mathf.FloorToInt((maxZ-minZ)/step)+1};
@@ -111,12 +165,15 @@ namespace SubwayCarry.Gameplay3D
             int a=Nearest(grid,localStart),b=Nearest(grid,root.InverseTransformPoint(target));
             if(a<0||b<0) return 0;
             if(a==b) {output[0]=grid.Point(b);return 1;}
-            for(int i=0;i<grid.clear.Length;i++) {grid.g[i]=float.PositiveInfinity;grid.parent[i]=-1;grid.closed[i]=false;}
-            grid.open.Clear(); grid.open.Add(a);grid.g[a]=0;
-            while(grid.open.Count>0) {
-                int pick=0; float score=float.PositiveInfinity;
-                for(int i=0;i<grid.open.Count;i++) {int c=grid.open[i];float f=grid.g[c]+(grid.Point(c)-grid.Point(b)).magnitude/grid.step;if(f<score){score=f;pick=i;}}
-                int current=grid.open[pick];grid.open.RemoveAt(pick); if(current==b) break; grid.closed[current]=true;
+            if(frontierSlots.Length<grid.clear.Length)frontierSlots=new int[grid.clear.Length];
+            for(int i=0;i<grid.clear.Length;i++) {grid.g[i]=float.PositiveInfinity;grid.parent[i]=-1;grid.closed[i]=false;frontierSlots[i]=-1;}
+            frontier.Clear();frontierOrder=0;grid.g[a]=0;
+            Vector3 goal=grid.Point(b);
+            // Keep the original first-in tie break and the same A* cost, with
+            // a priority queue instead of scanning the frontier at each node.
+            PushOrImprove(a,(grid.Point(a)-goal).magnitude/grid.step);
+            while(frontier.Count>0) {
+                int current=PopFrontier();if(current==b)break;grid.closed[current]=true;
                 int x=current%grid.width,z=current/grid.width;
                 for(int dx=-1;dx<=1;dx++) for(int dz=-1;dz<=1;dz++) {
                     if(dx==0&&dz==0||x+dx<0||x+dx>=grid.width||z+dz<0||z+dz>=grid.height) continue;
@@ -124,7 +181,9 @@ namespace SubwayCarry.Gameplay3D
                     if(grid.closed[n]||!Clear(grid,n)) continue;
                     if(dx!=0&&dz!=0&&(!Clear(grid,current+dx)||!Clear(grid,current+dz*grid.width))) continue;
                     float cost=grid.g[current]+(dx==0||dz==0?1:1.414214f)+grid.crowdCost[n];
-                    if(cost>=grid.g[n]) continue; grid.g[n]=cost;grid.parent[n]=current;if(!grid.open.Contains(n)) grid.open.Add(n);
+                    if(cost>=grid.g[n])continue;
+                    grid.g[n]=cost;grid.parent[n]=current;
+                    PushOrImprove(n,cost+(grid.Point(n)-goal).magnitude/grid.step);
                 }
             }
             if(a!=b&&grid.parent[b]<0) return 0;

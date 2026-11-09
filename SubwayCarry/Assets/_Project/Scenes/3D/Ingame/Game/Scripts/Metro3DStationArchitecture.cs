@@ -21,9 +21,19 @@ namespace SubwayCarry.Gameplay3D
 
         public Transform CreateStation(int index,string label,string english)
         {
+            Transform station=null;
+            foreach(var part in BuildStationParts(index,label,english))
+                if(part!=null)station=part;
+            stations.Add(station);
+            return station;
+        }
+
+        IEnumerable<Transform> BuildStationParts(int index,string label,string english)
+        {
             var room=new GameObject("Station_"+index+"_"+label); room.transform.SetParent(transform,false);
             room.transform.localPosition=Vector3.forward*(index*StationSpacing);
-            var t=room.transform; stations.Add(t);
+            var t=room.transform;
+            yield return t;
             var reference=room.AddComponent<Metro3DStationReference>();
             reference.referenceStation=index==0?"가천대 / K223":"게임용 공통역: "+label;
             reference.realTopology=index==0;
@@ -42,6 +52,7 @@ namespace SubwayCarry.Gameplay3D
             Surface(t,"B1 near concourse ceiling",new Rect(-9,-18,18,34),null,h,true,true);
             Surface(t,"B1 far concourse ceiling",new Rect(-9,30,18,27),null,h,true,true);
             Surface(connection,"B1 connection ceiling",new Rect(-2,16,4,14+PlatformExpansion),null,h,true,true);
+            yield return null;
             openings[2]=new Rect(-8.98f,35.35f+PlatformExpansion,4.45f,StairRun+.1f);
             openings[3]=new Rect(4.53f,35.35f+PlatformExpansion,4.45f,StairRun+.1f);
             openings[5]=new Rect(6.48f,30.88f+PlatformExpansion,2.24f,2.24f);
@@ -50,18 +61,27 @@ namespace SubwayCarry.Gameplay3D
                 var footprint=new Rect(min,-2,OuterWallX-ScreenDoorX,PlatformLength);
                 Surface(t,side==1?"B2 Jeongja side platform":"B2 Wangsimni side platform",footprint,null,0,false);
                 Surface(t,"B2 suspended ceiling",footprint,openings,0,true);
-                for(float z=-1;z<PlatformLength-2;z+=2) StationWall(t,new Vector3(-side*OuterWallX,0,z),side==1?90:270,false);
+                for(float z=-1;z<PlatformLength-2;z+=2) {
+                    StationWall(t,new Vector3(-side*OuterWallX,0,z),side==1?90:270,false);
+                    yield return null;
+                }
                 for(float x=min+1;x<min+footprint.width;x+=2) {
                     StationWall(t,new Vector3(x,0,-2),180,false);
                     StationWall(t,new Vector3(x,0,PlatformLength-2),0,false);
                 }
-                BuildScreenDoors(t,index,side,label);
+                foreach(var step in BuildScreenDoors(t,index,side,label))yield return step;
                 BuildVerticalCirculation(t,side,false);
+                yield return null;
                 BuildVerticalCirculation(t,side,true);
-                for(float z=7.7f;z<39.3f+PlatformExpansion;z+=.6f) Module("TactileBlock",t,new Vector3(-side*(ScreenDoorX+.6f),0,z));
+                yield return null;
+                for(float z=7.7f;z<39.3f+PlatformExpansion;z+=.6f) {
+                    Module("TactileBlock",t,new Vector3(-side*(ScreenDoorX+.6f),0,z));
+                    yield return null;
+                }
                 for(int car=0;car<Metro3DTrain.CarCount;car++) foreach(float baseZ in new[]{21f,28f}) {float z=baseZ+car*Metro3DTrain.CarPitch;
                     CreateBench(t,new Vector3(-side*8.45f,0,z),side==1?90:270,false);
                     WallName(t,new Vector3(-side*8.82f,1.96f,z),label,index==0?"Gachon Univ.":StationEnglish(english),side==1?270:90,index==0?"K223":"");
+                    yield return null;
                 }
                 for(float z=10;z<39+PlatformExpansion;z+=4) Lighting(t,new Vector3(-side*6.2f,0,z),7,3.9f,0,z==22);
                 // Keep the rear suspended board two metres clear of the lift header.
@@ -78,7 +98,10 @@ namespace SubwayCarry.Gameplay3D
             // Tracks are physically separated from BOTH platform edges, with visible rails/sleepers.
             Slab("Two track ballast bed",t,new Vector3(0,-1.55f,PlatformLength*.5f-2),new Vector3(6.54f,.18f,PlatformLength),settings.rubber);
             foreach(float x in new[]{-TrackCenterX,TrackCenterX}) {
-                for(float z=-1;z<PlatformLength-2;z+=2) Module("TrackModule",t,new Vector3(x,-1.0f,z));
+                for(float z=-1;z<PlatformLength-2;z+=2) {
+                    Module("TrackModule",t,new Vector3(x,-1.0f,z));
+                    yield return null;
+                }
             }
             foreach(float z in new[]{-18f,57f}) for(float x=-8;x<9;x+=2) {
                 if(Mathf.Abs(x)<2.1f) continue;
@@ -88,15 +111,20 @@ namespace SubwayCarry.Gameplay3D
             foreach(float z in new[]{-17f,-15f,-13f,-11f,-9f,-7f,-5f,-3f,-1f,1f,3f,5f,7f,9f,11f,13f,15f,31f,33f,35f,37f,39f,41f,43f,45f,47f,49f,51f,53f,55f,56.5f}) {
                 StationWall(t,new Vector3(-9,h,z),90,true);
                 if(z<53) StationWall(t,new Vector3(9,h,z),270,true);
+                yield return null;
             }
             for(float z=17;z<30+PlatformExpansion;z+=2) {
                 StationWall(connection,new Vector3(-2,h,z),90,true); StationWall(connection,new Vector3(2,h,z),270,true);
+                yield return null;
             }
             foreach(float z in new[]{16f,30f}) for(float x=-8;x<9;x+=2) if(Mathf.Abs(x)>2.1f) StationWall(t,new Vector3(x,h,z),z==16?0:180,true);
             foreach(float z in new[]{-15f,-10f,-5f,0f,5f,9f,37f,42f,47f,52f}) foreach(float x in new[]{-5.4f,0,5.4f}) Lighting(t,new Vector3(x,h,z),7.5f,4.8f,90,x==0&&(z==-10||z==47));
             for(float z=11;z<39+PlatformExpansion;z+=6) Lighting(connection,new Vector3(0,h,z),5);
+            yield return null;
             GateBank(t,index,h,-5);
+            yield return null;
             GateBank(t,index,h,51);
+            yield return null;
             Board(t,new Vector3(-6.45f,h+2.35f,-.45f),"↓ "+DirectionBoard(index,1),settings.blue,Color.white,0,3.5f);
             Board(t,new Vector3(6.45f,h+2.35f,-.45f),"↓ "+DirectionBoard(index,-1),settings.blue,Color.white,0,3.5f);
             Board(t,new Vector3(-6.45f,h+2.35f,47.17f),"↓ "+DirectionBoard(index,1),settings.blue,Color.white,180,3.5f);
@@ -121,8 +149,10 @@ namespace SubwayCarry.Gameplay3D
             }
             Connector(t,h,-18,-28,index==0?"① 가천대학교 · 비전타워":"나가는 곳 / Exit");
             Connector(t,h,57,65,index==0?"④ · ⑤ EX-HUB 연결통로":"나가는 곳 / Exit");
+            yield return null;
             SideExitPassage(t,h,index==0);
             BuildLiftShaft(t,new Vector3(-7.6f,0,14),90,h);
+            yield return null;
             BuildLiftShaft(t,new Vector3(7.6f,0,32+PlatformExpansion),270,h);
             foreach(var p in new[]{new Vector3(-8.4f,h,-8),new Vector3(8.4f,h,48)}) {
                 Module("WasteBin",t,p); Box(t,"Waste sorting footprint",p+Vector3.up*.44f,new Vector3(1,.88f,.43f));
@@ -138,8 +168,174 @@ namespace SubwayCarry.Gameplay3D
             foreach(Transform child in t) if(child!=connection&&child.localPosition.z>=30
                 &&(child.localPosition.y>=h-.01f||(child.name.EndsWith("_GroundContact")&&child.localPosition.y>=h-.3f)))
                 child.localPosition+=Vector3.forward*PlatformExpansion;
+            yield return null;
             ConfigureStationReflections(t);
-            return t;
+            ExpandPassengerSpace(t);
+        }
+
+        // Existing serialized stations and newly generated stations use the same dimensions.
+        const float PlatformWidthGain = 1.5f;
+        const float PlatformCeilingLift = .24f;
+        const float ConcourseCeilingLift = .9f;
+        const float PassageHalfWidth = 2.6f;
+        public const float ExpandedPlatformOuterX = OuterWallX + PlatformWidthGain;
+
+        void ExpandPassengerSpace(Transform station)
+        {
+            if(!station.TryGetComponent<Metro3DStationReference>(out var reference)||reference.passengerSpaceExpanded)return;
+            float upperFloor=settings.departureFloor;
+            foreach(Transform part in station) {
+                if(part.name=="B1 extended connecting corridor") {
+                    foreach(Transform segment in part) ResizeStationPart(segment,upperFloor,true);
+                } else ResizeStationPart(part,upperFloor,false);
+            }
+            reference.passengerSpaceExpanded=true;
+        }
+
+        void ResizeStationPart(Transform part,float upperFloor,bool connectingCorridor)
+        {
+            string name=part.name;
+            Vector3 p=part.localPosition;
+            bool upper=p.y>=upperFloor-.3f;
+            float ceilingLift=upper?ConcourseCeilingLift:PlatformCeilingLift;
+            if(name.StartsWith("Station reflection - ")) {
+                if(part.TryGetComponent<ReflectionProbe>(out var probe)) {
+                    var size=probe.size;
+                    size.y+=ceilingLift;
+                    if(!upper&&Mathf.Abs(p.x)>ScreenDoorX) {
+                        size.x+=PlatformWidthGain;
+                        p.x+=Mathf.Sign(p.x)*PlatformWidthGain*.5f;
+                    }
+                    probe.size=size;
+                    p.y+=ceilingLift*.5f;
+                    part.localPosition=p;
+                }
+                return;
+            }
+            if(name=="WallPanel"||name=="ConcourseWall"||name=="Visible wall ground boundary") {
+                ResizeStationWall(part,upper,connectingCorridor,ceilingLift);
+                return;
+            }
+            if(name.StartsWith("B2 ")||name.StartsWith("B1 connection ")||name.StartsWith("Exit passage floor")||
+                name=="Exit timber ceiling"||name.StartsWith("Exit modeled extent")) {
+                bool acrossPlatform=name.StartsWith("B2 ");
+                ResizeStationSpan(part,acrossPlatform?PlatformShellX:PassageInteriorX);
+            }
+            if(name.EndsWith("ceiling")||name=="FluorescentLight"||name=="Fluorescent illumination") {
+                p=part.localPosition;
+                p.y+=ceilingLift;
+                part.localPosition=p;
+            } else if(name=="SignSuspension") {
+                var scale=part.localScale;
+                scale.y+=ceilingLift;
+                part.localScale=scale;
+            } else if(name=="Pillar"||name=="Column actual footprint") {
+                var scale=part.localScale;
+                scale.y*=1+ConcourseCeilingLift/3;
+                part.localScale=scale;
+            } else if(name.StartsWith("Exit modeled extent")) {
+                RaiseWallTop(part,ConcourseCeilingLift,part.TryGetComponent<BoxCollider>(out var cap)?cap:null,true);
+            }
+
+            if(upper)return;
+            if(name=="StationBench"||name=="Bench physical base"||name=="StationNameBoard"||
+                name=="FireCabinet"||name=="Fire cabinet floor contact"||name=="VentPanel"||
+                Mathf.Abs(p.x)>8.68f&&(name=="NoticeBoard"||name.StartsWith("Label_"))) {
+                MoveOutward(part,PlatformWidthGain);
+            } else if(name.StartsWith("Seat_")&&part.TryGetComponent<Metro3DFacility>(out var seat)&&!seat.trainFacility) {
+                MoveOutward(part,PlatformWidthGain);
+                MoveOutward(seat.anchor,PlatformWidthGain);
+                MoveOutward(seat.approach,PlatformWidthGain);
+            }
+        }
+
+        void ResizeStationWall(Transform part,bool upper,bool connectingCorridor,float ceilingLift)
+        {
+            var p=part.localPosition;
+            part.TryGetComponent<BoxCollider>(out var contact);
+            bool wallRunsAcrossStation=Mathf.Abs((part.localRotation*Vector3.right).x)>.9f;
+            if(!upper) {
+                if(wallRunsAcrossStation)ResizeStationSpan(part,PlatformShellX);
+                else if(Mathf.Abs(p.x)>=OuterWallX-.01f)MoveOutward(part,PlatformWidthGain);
+            } else if(wallRunsAcrossStation&&Mathf.Abs(p.x)<OuterWallX&&
+                (Near(p.z,-18)||Near(p.z,16)||Near(p.z,30+PlatformExpansion)||Near(p.z,57+PlatformExpansion))) {
+                ResizeStationSpan(part,PassageMouthX);
+            } else if(!wallRunsAcrossStation&&Near(Mathf.Abs(p.x),2)&&
+                (connectingCorridor||p.z< -18||p.z>57+PlatformExpansion)) {
+                MoveOutward(part,PassageHalfWidth-2);
+            }
+            RaiseWallTop(part,ceilingLift,contact,false);
+        }
+
+        static bool Near(float a,float b)=>Mathf.Abs(a-b)<.01f;
+
+        static float PlatformShellX(float x)
+        {
+            // Keep the stair and lift ceiling cuts fixed. Extend only beyond the outer stair edge.
+            float outerStrip=Mathf.InverseLerp(8.98f,OuterWallX,Mathf.Abs(x));
+            return x+Mathf.Sign(x)*PlatformWidthGain*outerStrip;
+        }
+
+        static float PassageInteriorX(float x)=>x*(PassageHalfWidth/2);
+
+        static float PassageMouthX(float x)
+        {
+            float edge=Mathf.Abs(x);
+            float widened=edge<=2?edge*(PassageHalfWidth/2):Mathf.Lerp(PassageHalfWidth,OuterWallX,(edge-2)/(OuterWallX-2));
+            return Mathf.Sign(x)*widened;
+        }
+
+        static void ResizeStationSpan(Transform part,System.Func<float,float> map)
+        {
+            var p=part.localPosition;
+            part.TryGetComponent<BoxCollider>(out var contact);
+            var scale=part.localScale;
+            float width=contact!=null?contact.size.x:scale.x*2;
+            float left=map(p.x-width*.5f),right=map(p.x+width*.5f);
+            float resized=right-left,center=(left+right)*.5f;
+            if(Near(resized,width)&&Near(center,p.x))return;
+            if(contact!=null) {
+                var size=contact.size;
+                size.x=resized;
+                contact.size=size;
+            } else {
+                scale.x*=resized/width;
+                part.localScale=scale;
+                if(part.TryGetComponent<Metro3DSurfaceUv>(out var uv)) {
+                    var tiling=uv.textureTransform;
+                    tiling.z+=(center-p.x)*tiling.x/width*(2/2.4f);
+                    tiling.x*=resized/width;
+                    uv.textureTransform=tiling;
+                    uv.Apply();
+                }
+            }
+            p.x=center;
+            part.localPosition=p;
+        }
+
+        static void RaiseWallTop(Transform part,float lift,BoxCollider contact,bool topPivot)
+        {
+            var p=part.localPosition;
+            if(contact!=null) {
+                var size=contact.size;
+                size.y+=lift;
+                contact.size=size;
+                p.y+=lift*.5f;
+            } else {
+                var scale=part.localScale;
+                scale.y*=1+lift/3;
+                part.localScale=scale;
+                if(topPivot)p.y+=lift;
+            }
+            part.localPosition=p;
+        }
+
+        static void MoveOutward(Transform part,float distance)
+        {
+            if(part==null)return;
+            var p=part.localPosition;
+            p.x+=Mathf.Sign(p.x)*distance;
+            part.localPosition=p;
         }
 
         public void RepairLegacyFarFloorContacts()
@@ -242,25 +438,36 @@ namespace SubwayCarry.Gameplay3D
             }
         }
 
-        void BuildScreenDoors(Transform t,int index,int side,string label)
+        IEnumerable<Transform> BuildScreenDoors(Transform t,int index,int side,string label)
         {
             var group=new GameObject(side==1?"PSD_Jeongja_Incheon":"PSD_Wangsimni_Cheongnyangni"); group.transform.SetParent(t,false);
-            var doors=group.AddComponent<Metro3DPlatformDoors>(); doors.world=this; doors.stationIndex=index; doors.trainSide=side;
+            var panels=new List<Transform>(Metro3DTrain.DoorZ.Length*2);
+            var blockers=new List<Collider>(Metro3DTrain.DoorZ.Length);
             float x=-side*ScreenDoorX;
             foreach(float d in Metro3DTrain.DoorZ) {
                 var pair=new GameObject("PSD sliding glass pair"); pair.transform.SetParent(group.transform,false); pair.transform.localPosition=new Vector3(x-side*.04f,0,d);
                 Module("DoorPocket",pair.transform,Vector3.zero,side==1?270:90);
-                for(int j=0;j<2;j++) doors.panels.Add(DoorLeaf("PlatformDoor",pair.transform,new Vector3(0,0,j==0?-.325f:.325f),side==1?270:90,j==0?Vector3.forward:Vector3.back).transform);
-                doors.blockers.Add(Box(group.transform,"PSD actual opening boundary",new Vector3(x,1.2f,d),new Vector3(.12f,2.4f,1.3f)));
+                for(int j=0;j<2;j++) panels.Add(DoorLeaf("PlatformDoor",pair.transform,new Vector3(0,0,j==0?-.325f:.325f),side==1?270:90,j==0?Vector3.forward:Vector3.back).transform);
+                blockers.Add(Box(group.transform,"PSD actual opening boundary",new Vector3(x,1.2f,d),new Vector3(.12f,2.4f,1.3f)));
                 Text(group.transform,new Vector3(x-side*.15f,2.54f,d),label+"  |  "+DirectionDestination(index,side),Color.black,.085f,side==1?90:270,2.8f,.11f);
                 Text(group.transform,new Vector3(x-side*.075f,.28f,d),Metro3DTrain.DoorNumber(System.Array.IndexOf(Metro3DTrain.DoorZ,d)),Color.black,.085f,side==1?90:270,.45f,.14f);
                 var lamp=Module("DoorStatusLight",group.transform,new Vector3(x-side*.16f,2.645f,d),side==1?270:90);
                 var status=lamp.AddComponent<Metro3DDoorStatus>(); status.world=this; status.stationIndex=index; status.side=side;
+                yield return null;
             }
             float start=-2;
-            foreach(float d in Metro3DTrain.DoorZ) { FixedGlazing(group.transform,x,start,d-.65f); start=d+.65f; }
+            foreach(float d in Metro3DTrain.DoorZ) {
+                FixedGlazing(group.transform,x,start,d-.65f); start=d+.65f;
+                yield return null;
+            }
             FixedGlazing(group.transform,x,start,PlatformLength-2);
-            for(float z=-1;z<PlatformLength-2;z+=2) Module("PlatformHeader",group.transform,new Vector3(x,0,z),side==1?270:90);
+            for(float z=-1;z<PlatformLength-2;z+=2) {
+                Module("PlatformHeader",group.transform,new Vector3(x,0,z),side==1?270:90);
+                yield return null;
+            }
+            var doors=group.AddComponent<Metro3DPlatformDoors>();
+            doors.world=this;doors.stationIndex=index;doors.trainSide=side;
+            doors.panels=panels;doors.blockers=blockers;
         }
 
         void FixedGlazing(Transform t,float x,float start,float end)

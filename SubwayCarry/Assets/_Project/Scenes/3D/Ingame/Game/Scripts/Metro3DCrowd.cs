@@ -9,13 +9,14 @@ namespace SubwayCarry.Gameplay3D
     {
         public Metro3DWorld world;
         public float LastSteeringCost {get;private set;}
-        public int LearnedSteeringCalls {get;private set;}
-        public string SteeringPolicy => learnedSteering?.Label ?? "규칙";
-        Metro3DLearnedSteering learnedSteering;
-        [System.NonSerialized] bool loadedSteering;
         public int LastStaticRejects {get;private set;}
         public long SteeringTicks {get;private set;}
         public int SteeringCalls {get;private set;}
+        public int LearnedSteeringCalls {get;private set;}
+        public string SteeringPolicy => learnedSteering?.Label ?? "규칙";
+        public long LearnedSteeringTicks {get;private set;}
+        Metro3DLearnedSteering learnedSteering;
+        [System.NonSerialized] bool loadedSteering;
         public long WalkingStepTicks {get;private set;}
         public int WalkingStepCalls {get;private set;}
         public Metro3DStopReason LastWalkingRejection {get;private set;}
@@ -97,6 +98,7 @@ namespace SubwayCarry.Gameplay3D
         float nextHash;
         static readonly Unity.Profiling.ProfilerMarker SteeringMarker=new Unity.Profiling.ProfilerMarker("SubwayCarry.Crowd.Steering");
         static readonly float[] Angles={0,25,50,75,-25,-50,-75,90,-90,135,-135,180};
+        static readonly float[] AnticipationAngles={0,12,25,50,75,-12,-25,-50,-75,90,-90};
         static readonly float[] Speeds={1,.65f,.3f,0};
         Vector3Int Cell(Vector3 p)=>new Vector3Int(Mathf.FloorToInt(p.x/1.6f),Mathf.FloorToInt(p.y/2),Mathf.FloorToInt(p.z/1.6f));
         public void Register(Metro3DPassenger p) { if(!agents.Contains(p)) {agents.Add(p);hashDirty=true; if(buckets.Count<agents.Count) buckets.Add(new List<Metro3DPassenger>(8));} if(p.PersistentId!=System.Guid.Empty)representations[p.PersistentId]=p; }
@@ -104,7 +106,7 @@ namespace SubwayCarry.Gameplay3D
         public void Request(Metro3DPassenger p) { if(queued.Add(p)) {paths.Enqueue(p);PathRequests++;} }
         void Update()
         {
-            if(world==null) return;
+            if(world==null||world.session==null||world.session.SimulationPaused)return;
             SamplePlayerMotion();
             if(navigation==null) navigation=new Metro3DNavigation();
             if(hashDirty||Time.time>=nextHash) RebuildHash();
@@ -141,13 +143,13 @@ namespace SubwayCarry.Gameplay3D
                 positions.Add(other.transform.localPosition);
             }
         }
-        void Query(Vector3 point,int radius=1)
+        void Query(Vector3 point,int radius=1,Transform onlyRoot=null)
         {
             if(hashDirty) RebuildHash();
             nearby.Clear();
             // Hash in each stable pedestrian frame. The train can move between
             // perception ticks without leaving its passengers in obsolete world cells.
-            foreach(var root in scopes) if(root!=null) {
+            foreach(var root in scopes) if(root!=null&&(onlyRoot==null||root==onlyRoot)) {
                 Vector3 local=root.InverseTransformPoint(point);var bounds=scopeBounds[root];
                 Vector3 min=bounds.min,max=bounds.max;float reach=(radius+1)*1.6f;
                 if(local.x<min.x-reach||local.x>max.x+reach||local.z<min.z-reach||local.z>max.z+reach||local.y<min.y-1.5f||local.y>max.y+1.5f) continue;
@@ -175,12 +177,15 @@ namespace SubwayCarry.Gameplay3D
         public bool AlightersAt(Metro3DTrain train,int door)
         {
             Vector3 p=train.DoorPoint(door,false); Query(p,3);
-            foreach(var a in nearby) if(a!=null&&(a.WantsToAlight&&(a.AlightingDoor>=0?a.AlightingDoor:train.NearestDoor(a.transform.position))==door||a.ClearingDoor(train,door))&&(a.transform.position-p).sqrMagnitude<25) return true;
+            foreach(var a in nearby)
+                if(a!=null&&(a.transform.position-p).sqrMagnitude<25&&
+                    (a.ClearingDoor(train,door)||a.Riding==train&&a.WantsToAlight&&
+                        (a.AlightingDoor>=0?a.AlightingDoor:train.NearestDoor(a.transform.position))==door)) return true;
             return false;
         }
         public float LocalDensity(Vector3 point,Transform root)
         {
-            Query(point);int count=0;
+            Query(point,1,root);int count=0;
             foreach(var p in nearby)if(p!=null&&p.transform.parent==root&&(p.transform.position-point).sqrMagnitude<4)count++;
             return Mathf.Clamp01(count/8f);
         }
@@ -204,7 +209,7 @@ namespace SubwayCarry.Gameplay3D
             // space. Grant it atomically only after the landing has cleared.
             standSpaces.Remove(actor);
             Query(point);int count=0;
-            foreach(var other in nearby) if(count<landing.Length&&other!=null&&other!=actor&&other.inTrain&&other.Riding==actor.Riding&&!other.WantsToAlight&&(other.transform.position-point).sqrMagnitude<.75f*.75f) landing[count++]=other;
+            foreach(var other in nearby) if(count<landing.Length&&other!=null&&other!=actor&&other.transform.parent==actor.transform.parent&&!other.WantsToAlight&&(other.transform.position-point).sqrMagnitude<.75f*.75f) landing[count++]=other;
             for(int i=0;i<count;i++) {landing[i].ClearDoorLanding(point);landing[i]=null;}
             if(!SpaceFree(point,actor,.52f)) return false;
             foreach(var other in nearby) {
@@ -231,9 +236,14 @@ namespace SubwayCarry.Gameplay3D
         Vector3 SelectVelocity(Metro3DPassenger actor,Vector3 desired)
         {
             if(desired.sqrMagnitude<.0001f) return Vector3.zero;
-            Query(actor.transform.position,2);
-            Vector3 origin=actor.transform.position,forward=desired.normalized;
+            Vector3 origin=actor.transform.position;
+            Query(origin,2,actor.Riding!=null&&actor.Riding.Moving?actor.transform.parent:null);
             float requested=desired.magnitude,density=0;
+            Vector3 forward=desired/requested;
+            if(actor.Journey.StairForward.sqrMagnitude>.5f)
+                forward=AnticipateStairPass(actor,origin,forward);
+            float walkingRadius=actor.WalkingRadius;
+            Vector3 currentVelocity=actor.Velocity;
             neighborCount=0;
             foreach(var other in nearby) {
                 if(!Related(actor,other)) continue;
@@ -247,6 +257,24 @@ namespace SubwayCarry.Gameplay3D
                     if(offset.sqrMagnitude<neighbors[farthest].offset.sqrMagnitude)neighbors[farthest]=sample;
                 }
             }
+            if(actor.CanYieldToFlow) {
+                if(TryFlowYield(actor,origin,forward,out var courtesy)) {
+                    LastSteeringCost=0;LastStaticRejects=0;return courtesy;
+                }
+                if(actor.ContinueNarrowFlow(origin,forward)) {
+                    actor.FollowingNarrowFlow=true;
+                    Vector3 axis=actor.YieldFlow,offset=origin-actor.YieldOrigin;
+                    float progress=Vector3.Dot(offset,axis);
+                    Vector3 center=actor.YieldOrigin+axis*progress;center.y=origin.y;
+                    Vector3 correction=center-origin;
+                    // Follow a point further down the lane. A pure sideways
+                    // centering command overshoots under inertia, then flips
+                    // around to cross the same center again.
+                    Vector3 lead=center+axis*.7f;
+                    forward=correction.sqrMagnitude>.10f*.10f&&CanFollowWalkingSegment(actor,lead)
+                        ?(lead-origin).normalized:(axis+correction*.8f).normalized;
+                }
+            }
             density=Mathf.Clamp01(density/8);
             float personal=Mathf.Lerp(Mathf.Clamp(actor.Journey.Personality.PersonalSpace,.08f,.45f),.06f,density);
             // Authored bidirectional queue lanes are .56m apart. Compress only
@@ -254,24 +282,32 @@ namespace SubwayCarry.Gameplay3D
             if(actor.inTrain&&actor.QueueActive)personal=Mathf.Min(personal,.06f);
             if(actor.PortalCommitted) personal=.03f;
             float preferred=requested,leaderGap=float.PositiveInfinity;
-            bool laneLocked=actor.PortalCommitted||actor.QueueCommitted;
+            bool stairFlow=actor.Journey.StairForward.sqrMagnitude>.5f;
+            bool laneLocked=actor.PortalCommitted||actor.QueueCommitted||stairFlow||actor.NarrowWalking||actor.FollowingNarrowFlow;
+            if(stairFlow||actor.NarrowWalking)personal=Mathf.Min(personal,.045f);
             LastStaticRejects=0;
+            bool freeWalking=!laneLocked&&actor.CanYieldToFlow&&!actor.RecoveryActive&&!world.walkingReviewOnly;
+            int anticipated=freeWalking?AnticipatePassing(actor,origin,forward,requested,walkingRadius):0;
+            bool useLearned=freeWalking&&(anticipated!=0||neighborCount>=2)&&
+                requested>=.35f&&neighborCount>0&&EvaluateLearned(actor,forward,requested,currentVelocity,walkingRadius,anticipated!=0);
+            actor.LearnedSteeringActive=useLearned;
             // Following is a speed constraint before it is a reason to overtake.
             // The queue owner, not this movement layer, grants passage rights.
             for(int neighbor=0;neighbor<neighborCount;neighbor++) {
                 var other=neighbors[neighbor];Vector3 offset=other.offset;
                 float ahead=Vector3.Dot(offset,forward);
                 float lateral=(offset-forward*ahead).magnitude;
-                if(ahead<=0||ahead>3||lateral>.43f) continue;
+                if(ahead<=0||ahead>3||lateral>(stairFlow?.34f:.43f)) continue;
                 if(actor.PortalCommitted&&other.queued) continue;
                 // A seat occupant or someone waiting in an adjacent facility
                 // is an obstacle to pass, not a leader of this walking flow.
                 if(other.seated||other.resting||other.queued&&!actor.QueueCommitted) continue;
-                if(!actor.QueueCommitted&&other.velocity.sqrMagnitude<.01f)continue;
-                float alignment=other.velocity.sqrMagnitude>.01f?Vector3.Dot(other.velocity.normalized,forward):1;
+                bool stopped=other.velocity.sqrMagnitude<.01f;
+                if(!actor.QueueCommitted&&stopped&&(!actor.FollowingNarrowFlow||Vector3.Dot(other.actor.DesiredVelocity,forward)<.18f))continue;
+                float alignment=!stopped?Vector3.Dot(other.velocity.normalized,forward):1;
                 if(alignment<.45f) continue;
                 float gap=actor.QueueCommitted?actor.QueueGap:
-                    .48f+personal+requested*Mathf.Clamp(actor.Journey.Personality.ReactionDelay,.12f,.5f);
+                    actor.WalkingRadius+other.actor.WalkingRadius+personal+requested*Mathf.Clamp(actor.Journey.Personality.ReactionDelay,.12f,.5f);
                 float cap=Mathf.Max(0,Vector3.Dot(other.velocity,forward)+(ahead-gap)/.7f);
                 if(ahead<leaderGap) {leaderGap=ahead;preferred=Mathf.Min(preferred,cap);}
             }
@@ -281,10 +317,6 @@ namespace SubwayCarry.Gameplay3D
                 float cap=Mathf.Max(0,Vector3.Dot(actor.QueueLeader.Velocity,actor.QueueForward)+(ahead-actor.QueueGap)/.65f);
                 preferred=Mathf.Min(preferred,cap);
             }
-            bool useLearned=!laneLocked&&!actor.inTrain&&!actor.RecoveryActive&&!actor.WalkReviewCandidate&&
-                !actor.Journey.OnStairs&&(actor.Journey.ReservedGate==null||
-                    actor.Journey.GateAction==Metro3DPassengerJourney.GatePhase.Approach)&&
-                requested>=.35f&&neighborCount>0&&EvaluateLearned(actor,forward,requested);
             float best=float.PositiveInfinity;Vector3 selected=Vector3.zero;int selectedSide=0;
             int passageCount=world.Traffic.PassageClaims(actor,passageStarts,passageEnds);
             Matrix4x4 worldToFrame=actor.transform.parent.worldToLocalMatrix;
@@ -292,32 +324,46 @@ namespace SubwayCarry.Gameplay3D
             Vector3 playerOffset=player!=null?player.transform.position-origin:Vector3.zero;playerOffset.y=0;
             bool checkPlayer=player!=null&&Mathf.Abs(player.transform.position.y-origin.y)<1.5f&&
                 !(actor.inTrain&&actor.Riding!=null&&actor.Riding.Moving&&player.Riding!=actor.Riding);
-            foreach(float angle in Angles) {
-                if(laneLocked&&Mathf.Abs(angle)>.1f) continue;
-                if(Mathf.Abs(angle)>100&&!actor.RecoveryActive) continue;
-                Vector3 direction=Quaternion.Euler(0,angle,0)*forward;
-                float lookahead=Mathf.Min(Mathf.Max(.25f,requested*.6f),actor.SteeringDistance+.04f);
+            Vector3 localOrigin=worldToFrame.MultiplyPoint3x4(origin);
+            float lookahead=Mathf.Min(Mathf.Max(.25f,requested*.6f),actor.SteeringDistance+.04f);
+            float speedDenominator=Mathf.Max(.2f,requested);
+            foreach(float angle in anticipated!=0?AnticipationAngles:Angles) {
+                float absolute=Mathf.Abs(angle);
+                if(laneLocked&&angle!=0) break;
+                if(absolute>100&&!actor.RecoveryActive) continue;
+                // Every other term is nonnegative, so an angle that cannot
+                // beat the current choice needs neither a cast nor TTC work.
+                float angleCost=absolute*.013f;
+                if(angleCost>=best)continue;
+                float available=laneLocked||angle==0?preferred:requested;
+                if((requested-available)/speedDenominator*1.15f+angleCost>=best)continue;
+                Vector3 direction=angle==0?forward:Quaternion.Euler(0,angle,0)*forward;
                 float clear=Clearance(actor,origin+Vector3.up*.72f,direction,lookahead);
                 foreach(float scale in Speeds) {
-                    if(scale==0&&angle!=0) continue;
-                    // Lane followers do not turn a slow leader into an overtaking race.
-                    float available=laneLocked||Mathf.Abs(angle)<.1f?preferred:requested;
+                    if(scale==0&&angle!=0) break;
                     float speed=available*scale;
+                    float cost=(requested-speed)/speedDenominator*1.15f+angleCost;
+                    if(cost>=best)break;
                     if(speed>.01f&&speed*.45f+.06f>clear) {LastStaticRejects++;continue;}
                     Vector3 candidate=direction*speed;
-                    float cost=(requested-speed)/Mathf.Max(.2f,requested)*1.15f+Mathf.Abs(angle)*.013f;
-                    if(useLearned)cost+=learnedSteering.Cost(angle,scale);
                     for(int claim=0;claim<passageCount;claim++) {
                         float before=SegmentDistanceSquared(origin,passageStarts[claim],passageEnds[claim]);
                         float after=SegmentDistanceSquared(origin+candidate*.55f,passageStarts[claim],passageEnds[claim]);
                         if(before<.52f*.52f&&after>before+.002f)continue;
                         if(after<.52f*.52f)cost+=45+(.52f-Mathf.Sqrt(after))*100;
                     }
+                    if(useLearned)cost+=learnedSteering.Cost(angle,scale);
+                    if(anticipated!=0) {
+                        float lateral=Vector3.Dot(candidate,Vector3.Cross(Vector3.up,forward))*anticipated;
+                        cost+=Mathf.Clamp01((.20f-lateral)/.20f)*.48f;
+                        cost+=Mathf.Max(0,absolute-25)*.016f;
+                    }
                     if(angle<0) cost+=.08f;
                     if(actor.PassingSide!=0&&Time.time<actor.PassingUntil&&Mathf.Abs(angle)>.1f&&Mathf.Sign(angle)!=actor.PassingSide) cost+=1.25f;
-                    cost+=(candidate-actor.Velocity).sqrMagnitude*.32f;
+                    cost+=(candidate-currentVelocity).sqrMagnitude*.32f;
+                    if(cost>=best)continue;
                     Vector3 predicted=worldToFrame.MultiplyPoint3x4(origin+candidate*.45f);
-                    if(!OnOwnedSurface(actor,worldToFrame.MultiplyPoint3x4(origin),predicted)) continue;
+                    if(!OnOwnedSurface(actor,localOrigin,predicted)) continue;
                     foreach(var reservation in standSpaces) {
                         if(reservation.Key==actor||reservation.Key==null||reservation.Value.root==null||Mathf.Abs(reservation.Value.root.TransformPoint(reservation.Value.local).y-origin.y)>1.2f) continue;
                         Vector3 offset=reservation.Value.root.TransformPoint(reservation.Value.local)-origin;offset.y=0;
@@ -325,13 +371,14 @@ namespace SubwayCarry.Gameplay3D
                         float distance=(offset-candidate*.5f).magnitude;
                         if(distance<.52f) cost+=45+(.52f-distance)*100;
                     }
-                    for(int neighbor=0;neighbor<neighborCount;neighbor++) {
+                    for(int neighbor=0;neighbor<neighborCount&&cost<best;neighbor++) {
                         var other=neighbors[neighbor];Vector3 offset=other.offset;
                         // Preserve an escape from existing light contact without adding repulsion forces.
-                        if(offset.sqrMagnitude<.48f*.48f&&Vector3.Dot(offset,candidate-other.velocity)<-.015f) continue;
-                        cost+=CollisionCost(offset,actor.Velocity,candidate,other.velocity,other.seated?.34f:.48f,personal);
+                        float body=walkingRadius+(other.seated?.10f:other.actor.WalkingRadius);
+                        if(offset.sqrMagnitude<body*body&&Vector3.Dot(offset,candidate-other.velocity)<-.015f) continue;
+                        cost+=CollisionCost(offset,currentVelocity,candidate,other.velocity,body,personal);
                     }
-                    if(checkPlayer) cost+=CollisionCost(playerOffset,actor.Velocity,candidate,measuredPlayerVelocity,.48f,personal+.06f);
+                    if(checkPlayer&&cost<best)cost+=CollisionCost(playerOffset,currentVelocity,candidate,measuredPlayerVelocity,.48f,personal+.06f);
                     if(cost<best) {best=cost;selected=candidate;selectedSide=Mathf.Abs(angle)>.1f?(angle>0?1:-1):0;}
                 }
             }
@@ -339,6 +386,199 @@ namespace SubwayCarry.Gameplay3D
             if(best>=35||float.IsInfinity(best)) return Vector3.zero;
             if(selectedSide!=0&&selected.sqrMagnitude>.02f) actor.CommitPassingSide(selectedSide);
             return selected;
+        }
+        int AnticipatePassing(Metro3DPassenger actor,Vector3 origin,Vector3 forward,float speed,float radius)
+        {
+            if(speed<.35f)return 0;
+            Vector3 right=Vector3.Cross(Vector3.up,forward);
+            float earliest=2.05f;
+            int side=0;
+            for(int i=0;i<neighborCount;i++) {
+                var sample=neighbors[i];
+                if(sample.seated||sample.resting||sample.queued||sample.actor.transform.parent!=actor.transform.parent||
+                    Mathf.Abs(sample.actor.transform.position.y-origin.y)>.45f)continue;
+                float ahead=Vector3.Dot(sample.offset,forward);
+                if(ahead<.35f||ahead>4.2f)continue;
+                Vector3 theirIntent=sample.actor.DesiredVelocity;
+                Vector3 heading=theirIntent.sqrMagnitude>.04f?theirIntent:sample.velocity;
+                if(heading.sqrMagnitude<.03f||Vector3.Dot(heading,forward)>.45f*heading.magnitude)continue;
+                Vector3 relative=forward*speed-sample.velocity;
+                float t=Vector3.Dot(sample.offset,relative)/Mathf.Max(.01f,relative.sqrMagnitude);
+                if(t<.18f||t>=earliest)continue;
+                Vector3 gap=sample.offset-relative*t;
+                float space=radius+sample.actor.WalkingRadius+.20f;
+                if(gap.sqrMagnitude>space*space)continue;
+                float lateral=Vector3.Dot(gap,right);
+                // Keep a chosen side through the encounter. Both directions
+                // prefer their own right when neither person has a clear side.
+                side=Time.time<actor.PassingUntil?actor.PassingSide:lateral>.20f?-1:1;
+                earliest=t;
+            }
+            if(side==0)return 0;
+            if(TightAcross(actor,origin,right)||TightAcross(actor,origin+forward*(speed*earliest),right))return 0;
+            Vector3 chest=origin+Vector3.up*.72f;
+            Vector3 aim=(forward+right*side*.35f).normalized;
+            return Clearance(actor,chest,aim,.92f)>=.89f?side:0;
+        }
+        bool EvaluateLearned(Metro3DPassenger actor,Vector3 forward,float speed,Vector3 velocity,float radius,bool crossing)
+        {
+            if(!loadedSteering) {learnedSteering=Metro3DLearnedSteering.Load();loadedSteering=true;}
+            if(learnedSteering==null||!crossing&&!learnedSteering.GroupPolicy)return false;
+            long started=System.Diagnostics.Stopwatch.GetTimestamp();
+            learnedSteering.Begin(forward,speed,velocity,Time.time<actor.PassingUntil?actor.PassingSide:0);
+            for(int i=0;i<neighborCount;i++) {
+                var sample=neighbors[i];
+                learnedSteering.Observe(sample.offset,sample.velocity,radius+(sample.seated?.10f:sample.actor.WalkingRadius));
+            }
+            bool applied=learnedSteering.Evaluate();
+            if(applied)LearnedSteeringCalls++;
+            LearnedSteeringTicks+=System.Diagnostics.Stopwatch.GetTimestamp()-started;
+            return applied;
+        }
+        bool TryFlowYield(Metro3DPassenger actor,Vector3 origin,Vector3 forward,out Vector3 velocity)
+        {
+            velocity=Vector3.zero;
+            if(actor.FlowYieldActive) {
+                if(!actor.RejoiningFlow&&!ShouldKeepYielding(actor))actor.RejoinFlow();
+                Vector3 goal=actor.RejoiningFlow?actor.YieldOrigin:actor.YieldSpot;
+                Vector3 delta=goal-origin;delta.y=0;
+                bool reached=delta.sqrMagnitude<=.095f*.095f;
+                if(actor.RejoiningFlow&&(reached||Time.time>=actor.YieldLimit)) {
+                    if(reached)actor.FinishFlowRejoin();
+                    else actor.ClearFlowYield();
+                    return false;
+                }
+                if(!reached)velocity=Vector3.ClampMagnitude(delta*2.5f,.85f);
+                else actor.FaceJourney(actor.YieldFlow);
+                return true;
+            }
+            // A pair with room can use ordinary avoidance. Only look for
+            // a pocket when another rider is feeding the same narrow encounter.
+            if(neighborCount==0||actor.NarrowWalking)return false;
+            Vector3 right=Vector3.Cross(Vector3.up,forward);
+            float ownSpeed=Mathf.Max(0,Vector3.Dot(actor.Velocity,forward));
+            int nearest=-1;
+            bool closeLeader=false;
+            float earliest=float.PositiveInfinity;
+            for(int i=0;i<neighborCount;i++) {
+                var sample=neighbors[i];var other=sample.actor;
+                if(sample.resting||sample.seated||sample.queued||other.transform.parent!=actor.transform.parent)continue;
+                if(Mathf.Abs(other.transform.position.y-origin.y)>.45f)continue;
+                float ahead=Vector3.Dot(sample.offset,forward);
+                float lateral=Vector3.Dot(sample.offset,right);
+                if(ahead>.12f&&ahead<1.15f&&Mathf.Abs(lateral)<.43f&&Vector3.Dot(other.DesiredVelocity,forward)>.18f)
+                    closeLeader=true;
+                if(ahead<.38f||ahead>3.5f||Mathf.Abs(lateral)>.55f)continue;
+                float otherSpeed=-Vector3.Dot(sample.velocity,forward);
+                if(otherSpeed<-.10f||otherSpeed<.16f&&Vector3.Dot(other.DesiredVelocity,forward)>-.20f)continue;
+                float approachingSpeed=Mathf.Max(0,-Vector3.Dot(other.DesiredVelocity,forward));
+                float combined=Mathf.Max(ownSpeed,Vector3.Dot(actor.DesiredVelocity,forward)*.75f)+
+                    Mathf.Max(otherSpeed,approachingSpeed*.75f);
+                float time=(ahead-.48f)/Mathf.Max(.30f,combined);
+                if(time>1.75f&&ahead>1.05f||time>=earliest)continue;
+                earliest=time;nearest=i;
+            }
+            if(nearest<0) {
+                if(closeLeader&&TightAcross(actor,origin+forward*.95f,right))
+                    actor.FollowingNarrowFlow=true;
+                return false;
+            }
+            var approaching=neighbors[nearest];
+            Vector3 opposite=origin+approaching.offset;
+            bool ownInside=TightAcross(actor,origin,right);
+            bool alreadyInside=TryBottleneckCenter(actor,opposite,right,out var center);
+            if(!ownInside&&!alreadyInside&&!TryBottleneckCenter(actor,(origin+opposite)*.5f,right,out center))return false;
+            actor.FollowingNarrowFlow=true;
+            if(ownInside)return false;
+            if(!alreadyInside) {
+                float otherSpeed=-Vector3.Dot(approaching.velocity,forward);
+                // The pedestrian already moving through has priority. Use a
+                // stable tie break only when neither has a measurable lead.
+                if(ownSpeed>otherSpeed+.14f||
+                    ownSpeed>=otherSpeed-.14f&&actor.index<approaching.actor.index)return false;
+            }
+            Vector3 returnPoint=origin+right*Vector3.Dot(center-origin,right);
+            if(!CanFollowWalkingSegment(actor,returnPoint))return false;
+            for(int i=0;i<2;i++) {
+                Vector3 point=returnPoint+right*(i==0?.78f:-.78f)-forward*.12f;
+                if(!CanFollowWalkingSegment(actor,point)||!StaticSpaceFree(point,actor.transform.parent,.25f)||
+                    !SpaceFree(point,actor,.53f))continue;
+                bool closingPocket=false;
+                for(int n=0;n<neighborCount;n++) {
+                    var other=neighbors[n];
+                    if((origin+other.offset+other.velocity*.55f-point).sqrMagnitude<.52f*.52f) {
+                        closingPocket=true;break;
+                    }
+                }
+                if(closingPocket)continue;
+                actor.YieldToFlow(approaching.actor,point,returnPoint,forward);
+                velocity=(point-origin).normalized*.85f;
+                return true;
+            }
+            return false;
+        }
+        bool ShouldKeepYielding(Metro3DPassenger actor)
+        {
+            if(Time.time>=actor.YieldLimit)return false;
+            Vector3 forward=actor.YieldFlow,origin=actor.YieldOrigin;
+            // Wait for the occupied stretch, not just the first pedestrian.
+            // Otherwise a follower still in the opening meets our return step.
+            for(int i=0;i<neighborCount;i++) {
+                var sample=neighbors[i];var other=sample.actor;
+                if(sample.resting||sample.seated||other.transform.parent!=actor.transform.parent)continue;
+                Vector3 offset=other.transform.position-origin;
+                if(Mathf.Abs(offset.y)>.45f)continue;
+                offset.y=0;
+                float ahead=Vector3.Dot(offset,forward);
+                if(ahead<-.55f||ahead>3.35f||(offset-forward*ahead).sqrMagnitude>.65f*.65f)continue;
+                float toward=-Vector3.Dot(sample.velocity,forward);
+                if(toward>.16f||toward>=-.08f&&ahead<2.65f&&Vector3.Dot(other.DesiredVelocity,forward)<-.18f)return true;
+            }
+            if(actor.HasYieldingRider) {
+                Vector3 offset=actor.YieldingFor.transform.position-origin;
+                float ahead=Vector3.Dot(offset,forward);
+                if(ahead>=-.55f&&ahead<1.25f&&(offset-forward*ahead).sqrMagnitude<.56f*.56f&&
+                    Vector3.Dot(actor.YieldingFor.Velocity,forward)<.12f)return true;
+            }
+            return false;
+        }
+        bool TightAcross(Metro3DPassenger actor,Vector3 point,Vector3 right)
+            =>TryBottleneckCenter(actor,point,right,out _);
+        bool TryBottleneckCenter(Metro3DPassenger actor,Vector3 point,Vector3 right,out Vector3 center)
+        {
+            center=point;
+            Vector3 chest=point+Vector3.up*.72f;
+            float a=Clearance(actor,chest,right,.94f,.06f);
+            if(a>=.94f)return false;
+            float b=Clearance(actor,chest,-right,.94f,.06f);
+            if(a+b>=.94f)return false;
+            center=point+right*((a-b)*.5f);return true;
+        }
+        Vector3 AnticipateStairPass(Metro3DPassenger actor,Vector3 origin,Vector3 fallback)
+        {
+            Vector3 axis=actor.Journey.StairForward,outward=actor.Journey.StairOutward;
+            var root=actor.transform.parent;
+            foreach(var other in nearby) {
+                if(other==null||other==actor||other.transform.parent!=root||!other.isActiveAndEnabled||
+                    Vector3.Dot(other.Journey.StairForward,axis)>-.85f)continue;
+                Vector3 offset=other.transform.position-origin;
+                if(Mathf.Abs(offset.y)>1.5f)continue;
+                float ahead=Vector3.Dot(offset,axis),side=Vector3.Dot(offset,outward);
+                if(ahead<-.12f||ahead>3.4f||side<-.56f||side>.14f)continue;
+                actor.RememberStairPass();
+                break;
+            }
+            float shift=actor.UpdateStairPassOffset();
+            if(shift<=.001f||Vector3.Dot(fallback,axis)<.7f)return fallback;
+            Vector3 goal=actor.CurrentGoal-origin;
+            float forward=Vector3.Dot(goal,axis);
+            if(forward<.38f)return fallback;
+            // Open a shoulder-width lane before meeting the oncoming passenger.
+            // The actual capsule and railing still decide whether it fits.
+            float lateral=Vector3.Dot(goal,outward)+shift;
+            Vector3 direction=(axis*Mathf.Min(forward,1.05f)+outward*lateral).normalized;
+            if(Clearance(actor,origin+Vector3.up*.72f,direction,.45f)<.45f)return fallback;
+            return direction;
         }
         // One bounded candidate check after turn/acceleration constraints. The
         // steering search remains staggered at 10 Hz; this is not another solver.
@@ -351,6 +591,7 @@ namespace SubwayCarry.Gameplay3D
                 Vector3 origin=actor.transform.position;
                 float speed=candidate.magnitude;
                 float lookahead=speed*(Time.fixedDeltaTime+.08f)+speed*speed/(2*3.8f);
+                if(Vector3.Dot(candidate,actor.Journey.StairForward)<-.001f)return RejectWalking(Metro3DStopReason.Surface);
                 if(Clearance(actor,origin+Vector3.up*.72f,candidate/speed,lookahead)<lookahead)return RejectWalking(Metro3DStopReason.StaticObstacle);
                 var frame=actor.transform.parent;
                 if(!OnOwnedSurface(actor,frame.InverseTransformPoint(origin),frame.InverseTransformPoint(origin+candidate*.45f)))return RejectWalking(Metro3DStopReason.Surface);
@@ -367,18 +608,22 @@ namespace SubwayCarry.Gameplay3D
                     if(offset.sqrMagnitude<.55f*.55f&&Vector3.Dot(offset,candidate)<-.015f)continue;
                     if((offset-candidate*.5f).sqrMagnitude<.52f*.52f)return RejectWalking(Metro3DStopReason.ReservedPassage);
                 }
-                Query(origin,2);
+                Query(origin,2,actor.Riding!=null&&actor.Riding.Moving?frame:null);
+                Vector3 current=actor.Velocity,estimate=Vector3.Lerp(current,candidate,.7f);
+                float radius=actor.WalkingRadius;
                 foreach(var other in nearby) {
                     if(!Related(actor,other))continue;
                     Vector3 offset=other.transform.position-origin;offset.y=0;
-                    if(offset.sqrMagnitude<.48f*.48f&&Vector3.Dot(offset,candidate-other.Velocity)<-.015f)continue;
-                    if(CollisionCost(offset,actor.Velocity,candidate,other.Velocity,other.IsSeated?.34f:.48f,actor.PortalCommitted?.03f:.06f)>=35)return RejectWalking(Metro3DStopReason.Passenger);
+                    Vector3 otherVelocity=other.Velocity;
+                    float body=radius+(other.IsSeated?.10f:other.WalkingRadius),bodySquared=body*body;
+                    if(offset.sqrMagnitude<bodySquared&&Vector3.Dot(offset,candidate-otherVelocity)<-.015f)continue;
+                    if(ClosestGapSquared(offset,estimate-otherVelocity,out _)<bodySquared)return RejectWalking(Metro3DStopReason.Passenger);
                 }
                 var player=world.player;
                 if(player!=null&&Mathf.Abs(player.transform.position.y-origin.y)<1.5f&&
                     !(actor.inTrain&&actor.Riding!=null&&actor.Riding.Moving&&player.Riding!=actor.Riding)) {
                     Vector3 offset=player.transform.position-origin;offset.y=0;
-                    if(CollisionCost(offset,actor.Velocity,candidate,measuredPlayerVelocity,.48f,.06f)>=35)return RejectWalking(Metro3DStopReason.Passenger);
+                    if(ClosestGapSquared(offset,estimate-measuredPlayerVelocity,out _)<.48f*.48f)return RejectWalking(Metro3DStopReason.Passenger);
                 }
                 return candidate;
             } finally {WalkingStepTicks+=System.Diagnostics.Stopwatch.GetTimestamp()-started;}
@@ -462,33 +707,60 @@ namespace SubwayCarry.Gameplay3D
             if(world.player!=null&&Mathf.Abs(world.player.transform.position.y-from.y)<1.2f&&SegmentDistanceSquared(world.player.transform.position,from,to)<.52f*.52f)return false;
             return true;
         }
-        bool EvaluateLearned(Metro3DPassenger actor,Vector3 forward,float requested)
-        {
-            if(!loadedSteering){learnedSteering=Metro3DLearnedSteering.Load();loadedSteering=true;}
-            if(learnedSteering==null)return false;
-            learnedSteering.Begin(forward,requested,actor.Velocity,Time.time<actor.PassingUntil?actor.PassingSide:0);
-            for(int i=0;i<neighborCount;i++) {
-                var sample=neighbors[i];
-                learnedSteering.Observe(sample.offset,sample.velocity,sample.seated?.34f:.48f);
-            }
-            bool applied=learnedSteering.Evaluate();
-            if(applied)LearnedSteeringCalls++;
-            return applied;
-        }
-
         static float CollisionCost(Vector3 offset,Vector3 current,Vector3 candidate,Vector3 other,float body,float margin)
         {
             // Include the current achievable motion while the motor accelerates/brakes.
             Vector3 relative=Vector3.Lerp(current,candidate,.7f)-other;
-            float t=Mathf.Clamp(Vector3.Dot(offset,relative)/Mathf.Max(.001f,relative.sqrMagnitude),0,1.5f);
-            float distance=(offset-relative*t).magnitude;
-            if(distance<body) return 42+(body-distance)*100;
-            float comfort=body+margin;
-            return distance<comfort?(comfort-distance)*8*(1-t/2):0;
+            float squared=ClosestGapSquared(offset,relative,out float t),comfort=body+margin;
+            if(squared>=comfort*comfort)return 0;
+            float distance=Mathf.Sqrt(squared);
+            return distance<body?42+(body-distance)*100:(comfort-distance)*8*(1-t/2);
         }
-        float Clearance(Metro3DPassenger actor,Vector3 origin,Vector3 direction,float length)
+        static float ClosestGapSquared(Vector3 offset,Vector3 relative,out float time)
         {
-            int n=Physics.SphereCastNonAlloc(origin,.23f,direction,hits,length,~0,QueryTriggerInteraction.Ignore);
+            time=Mathf.Clamp(Vector3.Dot(offset,relative)/Mathf.Max(.001f,relative.sqrMagnitude),0,1.5f);
+            return (offset-relative*time).sqrMagnitude;
+        }
+
+        internal bool TryNarrowPassage(Metro3DPassenger actor,Vector3 desired,out int shoulder)
+        {
+            Vector3 feet=actor.transform.position,forward=desired.normalized;
+            Vector3 right=Vector3.Cross(Vector3.up,forward),chest=feet+Vector3.up*.72f;
+            shoulder=0;
+            if(actor.Journey.StairForward.sqrMagnitude>.5f&&Vector3.Dot(forward,actor.Journey.StairForward)<.75f)return false;
+            if(Clearance(actor,chest,forward,.55f,.23f)<.55f&&Clearance(actor,chest,forward,.55f,.18f)>=.55f) {
+                shoulder=Clearance(actor,chest,right,.35f,.10f)<Clearance(actor,chest,-right,.35f,.10f)?1:-1;
+                return true;
+            }
+            Query(feet,1);
+            foreach(var other in nearby) {
+                if(!Related(actor,other)||other.IsSeated)continue;
+                Vector3 offset=other.transform.position-feet;offset.y=0;
+                float ahead=Vector3.Dot(offset,forward);
+                if(ahead<-.18f||ahead>1.2f)continue;
+                float side=Vector3.Dot(offset,right),gap=Mathf.Abs(side);
+                bool opposingStair=Vector3.Dot(actor.Journey.StairForward,other.Journey.StairForward)<-.8f;
+                float minimum=Metro3DPassenger.NarrowRadius+(opposingStair?Metro3DPassenger.NarrowRadius:other.WalkingRadius);
+                // Only compact for a lateral gap. A person directly in the
+                // center of our lane is a leader or a real obstruction.
+                if(gap<minimum+.015f||gap>Metro3DPassenger.StandingRadius*2+.045f)continue;
+                shoulder=side>0?1:-1;return true;
+            }
+            return false;
+        }
+        internal bool CanRestoreWalkingRadius(Metro3DPassenger actor)
+        {
+            Vector3 feet=actor.transform.position;
+            int n=Physics.OverlapCapsuleNonAlloc(feet+Vector3.up*.32f,feet+Vector3.up*1.48f,
+                Metro3DPassenger.StandingRadius,contacts,~0,QueryTriggerInteraction.Ignore);
+            if(n==contacts.Length)return false;
+            for(int i=0;i<n;i++)if(!contacts[i].transform.IsChildOf(actor.transform))return false;
+            return true;
+        }
+        float Clearance(Metro3DPassenger actor,Vector3 origin,Vector3 direction,float length,float radius=0)
+        {
+            if(radius<=0)radius=actor.WalkingRadius-.01f;
+            int n=Physics.SphereCastNonAlloc(origin,radius,direction,hits,length,~0,QueryTriggerInteraction.Ignore);
             float clear=n==hits.Length?0:float.PositiveInfinity;
             for(int i=0;i<n;i++) {
                 var c=hits[i].collider;
@@ -512,7 +784,9 @@ namespace SubwayCarry.Gameplay3D
         {
             velocity=Vector3.zero;
             if(actor.QueueCommitted||actor.PortalCommitted) return false;
-            Vector3 forward=actor.CurrentGoal-actor.transform.position;forward.y=0;
+            // Yield relative to the current walkable leg. The final goal may
+            // be on the opposite side of the wall or around the next corner.
+            Vector3 forward=actor.DesiredVelocity;forward.y=0;
             if(forward.sqrMagnitude<.01f) return false;
             forward.Normalize();
             Vector3 right=Vector3.Cross(Vector3.up,forward);
@@ -544,18 +818,44 @@ namespace SubwayCarry.Gameplay3D
             // force or a learned-help override. Reservations/destination remain.
             if(blocker!=null)blocker.ClearDoorLanding(actor.transform.position+direction*.6f);
         }
+        internal bool OccupiesAlightingLanding(Metro3DPassenger actor,Metro3DTrain train,int door)
+        {
+            Vector3 inside=train.DoorPoint(door,false),outside=train.DoorPoint(door,true);
+            return BlocksLanding(actor,inside,outside+(outside-inside).normalized*.38f);
+        }
+
+        static bool BlocksLanding(Metro3DPassenger actor,Vector3 from,Vector3 to)
+        {
+            Vector3 feet=actor.transform.position,motion=actor.Velocity;
+            if(Mathf.Abs(feet.y-from.y)>.7f)return false;
+            motion.y=0;
+            Vector3 stop=feet+motion*(.1f+motion.magnitude/(2*3.8f));
+            return SegmentDistanceSquared(feet,from,to)<.52f*.52f||SegmentDistanceSquared(stop,from,to)<.52f*.52f;
+        }
+
         public void ClearLanding(Metro3DTrain train,int door,Metro3DPassenger crossing)
         {
-            Vector3 point=train.DoorPoint(door,false),outside=train.DoorPoint(door,true);Query(point,2);
+            if(!train.DoorsOpen||train.Moving)return;
+            Vector3 inside=train.DoorPoint(door,false),outside=train.DoorPoint(door,true);
+            Vector3 from=crossing.transform.position;
+            bool alighting=crossing.IsAlighting;
+            if(alighting&&!crossing.DoorCrossing&&
+                (!world.Traffic.IsAlightingHead(train,door,crossing)||(from-inside).sqrMagnitude>1.45f*1.45f))return;
+            Query(inside,2);
             int count=0;
             foreach(var other in nearby) {
-                if(count>=landing.Length||other==null||other==crossing||other.WantsToAlight)continue;
-                bool inside=other.inTrain&&other.Riding==train&&(other.transform.position-point).sqrMagnitude<1.3f*1.3f;
-                bool platform=crossing.IsAlighting&&!other.inTrain&&other.stationIndex==train.CurrentStop&&other.Journey.CanBoard&&(other.transform.position-outside).sqrMagnitude<.65f*.65f;
-                if(inside||platform)landing[count++]=other;
+                if(count>=landing.Length||other==null||other==crossing||other.IsSeated||other.WantsToAlight||other.PortalCommitted)continue;
+                bool onTrain=other.inTrain&&other.Riding==train;
+                bool onPlatform=alighting&&!other.inTrain&&other.stationIndex==train.CurrentStop&&other.Journey.CanBoard;
+                if(!onTrain&&!onPlatform)continue;
+                if((onPlatform&&OccupiesAlightingLanding(other,train,door))||
+                    (onTrain&&(BlocksLanding(other,inside,outside)||alighting&&BlocksLanding(other,from,inside))))
+                    landing[count++]=other;
             }
-            // Clearing a landing queries standing-space perception, so do not mutate Query's buffer while enumerating it.
-            for(int i=0;i<count;i++) {landing[i].ClearDoorLanding(point);landing[i]=null;}
+            for(int i=0;i<count;i++) {
+                var other=landing[i];landing[i]=null;
+                other.ClearDoorLanding(other.inTrain?inside:outside,true);
+            }
         }
     }
 }

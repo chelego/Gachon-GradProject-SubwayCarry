@@ -10,10 +10,20 @@ namespace SubwayCarry.Gameplay3D
     {
         public Metro3DWorld world;
         enum Phase { Approach, Opening, Dwell, Closing, Travel, Departing }
-        sealed class Service {public Metro3DTrain train;public Phase phase;public float timer;public int from,to;}
+        sealed class Service
+        {
+            public Metro3DTrain train;
+            public Phase phase;
+            public float timer;
+            public int from,to;
+            public IEnumerator<int> passengerSeed;
+        }
         readonly List<Service> services=new List<Service>(8);
         readonly float[] nextDeparture=new float[2];
+        readonly Plane[] viewPlanes=new Plane[6];
         int revision=-1;
+        float nextStationBuild;
+        bool farServicePending;
         public int Arrivals {get;private set;}
         public int ServicesCreated {get;private set;}
 
@@ -21,38 +31,64 @@ namespace SubwayCarry.Gameplay3D
         {
             if(world==null||world.session==null||world.session.Route==null||world.session.SimulationPaused)return;
             for(int i=world.Trains.Count-1;i>=0;i--)if(world.Trains[i]==null)world.Trains.RemoveAt(i);
-            if(revision!=world.RouteRevision) ResetRoute();
+            if(revision!=world.RouteRevision) {ResetRoute();return;}
+            bool seededCar=false;
             for(int i=services.Count-1;i>=0;i--) {
-                var s=services[i];if(s.train==null){services.RemoveAt(i);continue;}
+                var s=services[i];
+                if(s.train==null){s.passengerSeed?.Dispose();services.RemoveAt(i);continue;}
+                if(!seededCar&&s.passengerSeed!=null) {
+                    seededCar=s.passengerSeed.MoveNext();
+                    if(!seededCar){s.passengerSeed.Dispose();s.passengerSeed=null;}
+                }
                 if(s.train==world.train&&world.session.HasPackage) {s.train.Autonomous=false;s.to=s.train.CurrentStop;s.from=s.train.Moving?Mathf.Max(0,s.to-1):s.to;continue;}
                 if(!s.train.Autonomous) {s.train.Autonomous=true;s.phase=s.train.Moving?Phase.Travel:Phase.Opening;s.from=s.to=s.train.CurrentStop;s.timer=world.settings.dwellSeconds;}
                 Tick(s);
             }
             if(world.train!=null&&!world.session.HasPackage&&!Known(world.train)) Add(world.train,1,0,true);
+            if(seededCar)return;
             for(int direction=-1;direction<=1;direction+=2) {
                 int lane=direction>0?1:0,count=0;
                 foreach(var s in services)if(s.train!=null&&s.train.TravelDirection==direction)count++;
-                if(count>=world.settings.ambientTrainsPerDirection||Time.time<nextDeparture[lane])continue;
-                int stop=direction>0?0:world.session.Route.stops.Length-1;
+                int limit=world.settings.ambientTrainsPerDirection-(direction<0&&farServicePending?1:0);
+                if(count>=limit||Time.time<nextDeparture[lane])continue;
+                int stop=0;
                 if(!Free(null,world.ServiceSide*direction,stop,stop))continue;
                 Add(world.CreateTrain(world.ServiceSide*direction,stop),direction,stop,true);
                 nextDeparture[lane]=Time.time+Mathf.Max(35,world.settings.ambientTrainHeadway);
+                return;
             }
+            PrepareRoute();
         }
         bool Known(Metro3DTrain train) {foreach(var s in services)if(s.train==train)return true;return false;}
         void ResetRoute()
         {
             // EnsureRoute has already released old-route passengers; do not rebuild saved scenes.
-            foreach(var s in services)if(s.train!=null&&s.train!=world.train) Retire(s.train);
+            foreach(var s in services) {
+                s.passengerSeed?.Dispose();
+                if(s.train!=null&&s.train!=world.train)Retire(s.train);
+            }
             services.Clear();revision=world.RouteRevision;
-            world.EnsureStation(world.session.Route.stops.Length-1);
-            Physics.SyncTransforms();
+            // The hub can run both directions while the rest of the route is built.
+            nextStationBuild=Time.time+.45f;
+            farServicePending=world.settings.ambientTrainsPerDirection>1;
             if(world.train!=null) {
                 if(!world.session.HasPackage)Add(world.train,1,0,true);
                 else {world.train.ConfigureService(1,world.train.CurrentStop);services.Add(new Service{train=world.train,from=world.train.CurrentStop,to=world.train.CurrentStop});}
             }
             nextDeparture[1]=Time.time+Mathf.Max(35,world.settings.ambientTrainHeadway);
-            nextDeparture[0]=Time.time;
+            nextDeparture[0]=Time.time+.18f;
+        }
+        void PrepareRoute()
+        {
+            if(Time.time<nextStationBuild)return;
+            int end=world.session.Route.stops.Length-1;
+            if(world.stations.Count<=end) {
+                if(world.PrepareNextStation())nextStationBuild=Time.time+.10f;
+                return;
+            }
+            if(!farServicePending||!Free(null,-world.ServiceSide,end,end))return;
+            farServicePending=false;
+            Add(world.CreateTrain(-world.ServiceSide,end),-1,end,true);
         }
         void Add(Metro3DTrain train,int direction,int stop,bool approaching)
         {
@@ -62,9 +98,9 @@ namespace SubwayCarry.Gameplay3D
             Vector3 p=train.transform.localPosition;
             p.z=stop*Metro3DWorld.StationSpacing+(direction>0?-Metro3DTrain.FloorEnd-30:Metro3DTrain.FloorEnd+30);
             train.transform.localPosition=p;
-            world.Traffic.SeedTrain(train,stop);
             train.MoveTo(stop,world.settings.approachSeconds);
-            services.Add(new Service{train=train,phase=Phase.Approach,from=stop,to=stop});ServicesCreated++;
+            var seed=world.Traffic.SeedTrainCars(train,stop,stop==0);
+            services.Add(new Service{train=train,phase=Phase.Approach,from=stop,to=stop,passengerSeed=seed});ServicesCreated++;
         }
         bool Free(Service self,int side,int from,int to)
         {
@@ -83,10 +119,16 @@ namespace SubwayCarry.Gameplay3D
         void Tick(Service s)
         {
             var train=s.train;s.timer-=Time.deltaTime;
+            if(s.from==0&&(s.phase==Phase.Travel||s.phase==Phase.Departing)&&CanParkAfterHub(train))
+                world.Traffic.ParkHubRiders(train,s.phase==Phase.Departing);
             switch(s.phase) {
                 case Phase.Approach:
                 case Phase.Travel:
-                    if(!train.Moving){s.from=s.to;train.SetDoors(true);s.phase=Phase.Opening;Arrivals++;}break;
+                    if(!train.Moving&&s.passengerSeed==null) {
+                        s.from=s.to;
+                        world.Traffic.ArriveWithBackgroundRiders(train);
+                        train.SetDoors(true);s.phase=Phase.Opening;Arrivals++;
+                    }break;
                 case Phase.Opening:
                     if(train.DoorsOpen){s.phase=Phase.Dwell;s.timer=world.settings.dwellSeconds;}break;
                 case Phase.Dwell:
@@ -97,14 +139,17 @@ namespace SubwayCarry.Gameplay3D
                     if(train.OpenAmount>.001f)break;
                     int next=train.CurrentStop+train.TravelDirection;
                     if(next<0||next>=world.session.Route.stops.Length) {
-                        // No disappearing occupied trains or camera-dependent recycling.
-                        if(world.Traffic.HasPassengers(train.transform)||world.player.Riding==train){train.SetDoors(true);s.phase=Phase.Opening;break;}
+                        bool continuesBeyondHub=train.CurrentStop==0&&train.TravelDirection<0;
+                        if(world.player.Riding==train||!continuesBeyondHub&&world.Traffic.HasPassengers(train.transform)) {
+                            train.SetDoors(true);s.phase=Phase.Opening;break;
+                        }
                         train.DepartOutOfRoute(world.settings.approachSeconds);s.phase=Phase.Departing;break;
                     }
-                    if(!Free(s,train.side,train.CurrentStop,next))break;
+                    if(next>=world.stations.Count||!Free(s,train.side,train.CurrentStop,next))break;
                     s.from=train.CurrentStop;s.to=next;train.MoveTo(next,world.settings.travelSeconds);s.phase=Phase.Travel;break;
                 case Phase.Departing:
                     if(!train.Moving) {
+                        if(world.Traffic.HasPassengers(train.transform))break;
                         bool primary=train==world.train;
                         Retire(train);services.Remove(s);
                         if(primary)world.train=null;
@@ -113,14 +158,57 @@ namespace SubwayCarry.Gameplay3D
             // Rebind the primary pointer only to the normal-direction service.
             if(world.train==null)foreach(var candidate in services)if(candidate.train!=null&&candidate.train.TravelDirection>0){world.train=candidate.train;break;}
         }
+        bool CanParkAfterHub(Metro3DTrain train)
+        {
+            var player=world.player;
+            if(player==null||player.Riding==train||world.session.HasPackage&&train==world.train||
+                !world.Traffic.HasPassengers(train.transform))return false;
+            float z=train.transform.localPosition.z;
+            if(train.TravelDirection>0?z+Metro3DTrain.FloorStart<=Metro3DWorld.PlatformLength+4:z+Metro3DTrain.FloorEnd>=-4)
+                return false;
+            if(train.TravelDirection>0&&world.StationAt(player.transform.position)!=0)return false;
+            var camera=world.Observer!=null?world.Observer.View:player.view;
+            if(camera==null||!camera.isActiveAndEnabled)return true;
+            float length=Metro3DTrain.FloorEnd-Metro3DTrain.FloorStart;
+            var bounds=new Bounds(train.transform.TransformPoint(new Vector3(0,1.2f,Metro3DTrain.FloorStart+length*.5f)),
+                new Vector3(3.3f,2.8f,length+1));
+            GeometryUtility.CalculateFrustumPlanes(camera,viewPlanes);
+            return !GeometryUtility.TestPlanesAABB(viewPlanes,bounds);
+        }
         void Retire(Metro3DTrain train)
         {
             world.Traffic.RetireTrain(train);
             world.facilities.RemoveAll(f=>f==null||f.transform.IsChildOf(train.transform));
             Destroy(train.gameObject);
         }
+        internal float TimeToBoarding(Metro3DPassenger actor)
+        {
+            int stop=actor.stationIndex,direction=actor.Journey.TravelDirection;
+            float estimate=float.PositiveInfinity;
+            foreach(var service in services) {
+                var train=service.train;
+                if(train==null||train.TravelDirection!=direction||train.side!=actor.Journey.TrainSide||
+                    service.phase==Phase.Departing)continue;
+                int stopsAhead=(stop-service.to)*direction;
+                if(stopsAhead<0)continue;
+                float remaining=train.MovementRemaining;
+                if(stopsAhead==0) {
+                    if(train.CanBoard)return 0;
+                    if(service.phase==Phase.Dwell||service.phase==Phase.Closing)continue;
+                } else if(!train.Moving)remaining=Mathf.Max(0,service.timer)-world.settings.dwellSeconds;
+                remaining+=stopsAhead*(world.settings.travelSeconds+world.settings.dwellSeconds);
+                estimate=Mathf.Min(estimate,Mathf.Max(0,remaining)+world.settings.doorSeconds);
+            }
+            if(stop==0) {
+                float next=Mathf.Max(0,nextDeparture[direction>0?1:0]-Time.time);
+                estimate=Mathf.Min(estimate,next+world.settings.approachSeconds+world.settings.doorSeconds);
+            }
+            return estimate;
+        }
+
         public Metro3DTrain BoardingTrain(Metro3DPassenger actor)
         {
+            if(actor.inTrain||!actor.Journey.CanBoard)return null;
             foreach(var train in world.Trains)if(train!=null&&train.CanBoard&&train.CurrentStop==actor.stationIndex&&train.TravelDirection==actor.Journey.TravelDirection&&train.side==actor.Journey.TrainSide)return train;
             return null;
         }

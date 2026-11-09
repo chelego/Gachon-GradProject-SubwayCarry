@@ -20,6 +20,19 @@ namespace SubwayCarry.Gameplay3D
         public List<Transform> stations = new List<Transform>();
         public List<Metro3DFacility> facilities = new List<Metro3DFacility>();
         public List<Metro3DPassenger> passengers = new List<Metro3DPassenger>();
+        Metro3DSeatedActionLibrary seatedActions;
+        Metro3DPhonePoseLibrary phonePoses;
+        ResourceRequest phonePoseRequest;
+        internal Metro3DPhonePoseLibrary PhonePoses()
+        {
+            if(phonePoses!=null)return phonePoses;
+            phonePoseRequest??=Resources.LoadAsync<AnimationLab.AnimationLabPhoneMotion>(AnimationLab.AnimationLabPhoneMotion.ResourceName);
+            if(!phonePoseRequest.isDone)return null;
+            phonePoses=new Metro3DPhonePoseLibrary(phonePoseRequest.asset as AnimationLab.AnimationLabPhoneMotion);
+            phonePoseRequest=null;
+            return phonePoses;
+        }
+        internal Metro3DSeatedActionLibrary SeatedActions => seatedActions ??= new Metro3DSeatedActionLibrary(settings.seatedActions);
         public Metro3DStationTraffic Traffic {get;private set;}
         public Metro3DTransitSimulation Transit {get;private set;}
         public Metro3DAiObserver Observer {get;private set;}
@@ -28,6 +41,8 @@ namespace SubwayCarry.Gameplay3D
         string routeIdentity;
         readonly Dictionary<string, GameObject> modules = new Dictionary<string, GameObject>();
         Transform routeDecks;
+        Transform buildingStation,buildingDeck;
+        IEnumerator<Transform> stationBuild;
         float nextStationVisibility;
 
         void Awake()
@@ -39,13 +54,15 @@ namespace SubwayCarry.Gameplay3D
             if (player == null) BuildInitial();
             Metro3DWorldSign.PrepareExisting(transform);
             RepairLegacyFarFloorContacts();
+            foreach(var station in stations) if(station!=null) ExpandPassengerSpace(station);
+            Physics.SyncTransforms();
             Traffic=GetComponent<Metro3DStationTraffic>();
             if(Traffic==null) Traffic=gameObject.AddComponent<Metro3DStationTraffic>();
             Traffic.world=this;
             var crowd=GetComponent<Metro3DCrowd>();
             if(crowd==null) crowd=gameObject.AddComponent<Metro3DCrowd>();
             crowd.world=this;
-            if(train!=null&&!Trains.Contains(train))Trains.Add(train);
+            if(train!=null) {train.ConfigurePassengerSpace();if(!Trains.Contains(train))Trains.Add(train);}
             Transit=GetComponent<Metro3DTransitSimulation>();
             if(Transit==null) Transit=gameObject.AddComponent<Metro3DTransitSimulation>();
             Transit.world=this;
@@ -259,6 +276,7 @@ namespace SubwayCarry.Gameplay3D
             Text(t,new Vector3(0,2.15f,10.05f),"수인분당선  |  Suin–Bundang",Color.black,.07f,180,1.4f,.13f);
             Text(t,new Vector3(0,1.23f,Metro3DTrain.FloorStart+.11f),"승무원실  |  출입 금지",Color.black,.055f,180,.72f,.10f);
             Text(t,new Vector3(0,1.23f,Metro3DTrain.FloorEnd-.11f),"승무원실  |  출입 금지",Color.black,.055f,0,.72f,.10f);
+            trainComponent.ConfigurePassengerSpace();
             Trains.Add(trainComponent);
             return trainComponent;
         }
@@ -297,6 +315,7 @@ namespace SubwayCarry.Gameplay3D
             var route=session.Route.stops;
             string identity=string.Join("|",System.Array.ConvertAll(route,s=>s.id));
             if(routeIdentity==identity) return;
+            CancelStationBuild();
             int direction=route.Length>1&&(route[1].id=="suseo"||route[1].id=="bokjeong")?-1:1;
             if(routeIdentity!=null) {
                 Traffic.RecycleAll();
@@ -316,22 +335,79 @@ namespace SubwayCarry.Gameplay3D
         {
             var route=session.Route.stops;
             while(stations.Count<=stop&&stations.Count<route.Length) {
-                int i=stations.Count; CreateStation(i,route[i].label,route[i].id);
-                Traffic.Seed(i,false);
-                int segment=i-1;
-                if(segment<0) continue;
-                Slab("Rail corridor deck",routeDecks,new Vector3(0,-1.55f,segment*StationSpacing+StationSpacing*.5f),new Vector3(6.54f,.15f,StationSpacing),settings.rubber);
+                BeginStationBuild();
+                while(stationBuild.MoveNext()) { }
+                FinishStationBuild();
+            }
+        }
+
+        internal bool PrepareNextStation()
+        {
+            BeginStationBuild();
+            const double budgetSeconds=.004;
+            double deadline=Time.realtimeSinceStartupAsDouble+budgetSeconds;
+            do {
+                if(!stationBuild.MoveNext()) {FinishStationBuild();return true;}
+            } while(Time.realtimeSinceStartupAsDouble<deadline);
+            return false;
+        }
+
+        void BeginStationBuild()
+        {
+            if(stationBuild!=null)return;
+            // A script reload cannot restore the iterator. Discard its partial geometry.
+            CancelStationBuild();
+            stationBuild=BuildRouteStation(stations.Count).GetEnumerator();
+        }
+
+        void FinishStationBuild()
+        {
+            stationBuild.Dispose();stationBuild=null;
+            buildingStation=null;buildingDeck=null;
+        }
+
+        void CancelStationBuild()
+        {
+            stationBuild?.Dispose();stationBuild=null;
+            if(buildingStation!=null) {
+                facilities.RemoveAll(f=>f==null||f.transform.IsChildOf(buildingStation));
+                Destroy(buildingStation.gameObject);
+            }
+            if(buildingDeck!=null)Destroy(buildingDeck.gameObject);
+            buildingStation=null;buildingDeck=null;
+        }
+
+        IEnumerable<Transform> BuildRouteStation(int index)
+        {
+            var stop=session.Route.stops[index];
+            foreach(var part in BuildStationParts(index,stop.label,stop.id)) {
+                if(part!=null)buildingStation=part;
+                yield return null;
+            }
+            int segment=index-1;
+            if(segment>=0) {
+                buildingDeck=new GameObject("Rail corridor to station "+index).transform;
+                buildingDeck.SetParent(routeDecks,false);
+                Slab("Rail corridor deck",buildingDeck,new Vector3(0,-1.55f,segment*StationSpacing+StationSpacing*.5f),new Vector3(6.54f,.15f,StationSpacing),settings.rubber);
                 float start=segment*StationSpacing+PlatformLength-2;
                 float end=(segment+1)*StationSpacing-2;
-                float center=(start+end)*.5f,length=end-start;
-                foreach(float track in new[]{-TrackCenterX,TrackCenterX}) for(float z=start+1;z<end;z+=2) Module("TrackModule",routeDecks,new Vector3(track,-1,z));
-                for(float z=start+1;z<end;z+=2) {var tunnel=Module("TunnelSegment",routeDecks,new Vector3(0,0,z)); AddStaticMeshContact(tunnel);}
+                foreach(float track in new[]{-TrackCenterX,TrackCenterX}) for(float z=start+1;z<end;z+=2) {
+                    Module("TrackModule",buildingDeck,new Vector3(track,-1,z));
+                    yield return null;
+                }
+                for(float z=start+1;z<end;z+=2) {
+                    var tunnel=Module("TunnelSegment",buildingDeck,new Vector3(0,0,z)); AddStaticMeshContact(tunnel);
+                    yield return null;
+                }
                 for(float z=start+10;z<end;z+=20) {
-                    var lightObject=new GameObject("Tunnel service light"); lightObject.transform.SetParent(routeDecks,false); lightObject.transform.localPosition=new Vector3(-3.16f,2.35f,z);
+                    var lightObject=new GameObject("Tunnel service light"); lightObject.transform.SetParent(buildingDeck,false); lightObject.transform.localPosition=new Vector3(-3.16f,2.35f,z);
                     var light=lightObject.AddComponent<Light>(); light.type=LightType.Point; light.color=new Color(.82f,.86f,.9f); light.range=10; light.intensity=.65f;
-                    Slab("Tunnel lamp",routeDecks,new Vector3(-3.16f,2.5f,z),new Vector3(.16f,.08f,.38f),settings.luminous,false);
+                    Slab("Tunnel lamp",buildingDeck,new Vector3(-3.16f,2.5f,z),new Vector3(.16f,.08f,.38f),settings.luminous,false);
+                    yield return null;
                 }
             }
+            stations.Add(buildingStation);
+            Traffic.Seed(index,false);
         }
 
         public void ResetServiceSide() {var route=session.Route.stops;ServiceSide=route.Length>1&&(route[1].id=="suseo"||route[1].id=="bokjeong")?-1:1;}

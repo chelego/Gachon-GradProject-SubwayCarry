@@ -10,6 +10,7 @@ namespace SubwayCarry.Gameplay3D
         public SliceDeliveryCatalog deliveries;
         public RenderPipelineAsset renderPipeline;
         public GameObject passengerPrefab;
+        public Metro3DSeatedActionSource[] seatedActions;
         public GameObject environmentLibrary;
         public AnimationClip idle, walk, sit;
         public Material tile, stone, metal, glass, yellow, rubber, seat, ceiling, luminous, box;

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using SubwayCarry.Prototype.ArtMapSlice;
 using UnityEngine;
 
 namespace SubwayCarry.Gameplay3D
@@ -11,6 +12,40 @@ namespace SubwayCarry.Gameplay3D
         public int SpawnedCount {get;private set;}
         public int CompletedCount {get;private set;}
         public int EntranceArrivals {get;private set;}
+        public int BackgroundPooled {get;private set;}
+        public int LogicalArrivals {get;private set;}
+        public int PoolCount => pool.Count;
+        public int DoorClaimCount => doorOwners.Count;
+        public int BackgroundRiderCount {
+            get {
+                int count=offMapRiders.Count;
+                foreach(var riders in detachedRiders.Values)count+=riders.Count;
+                return count;
+            }
+        }
+
+        internal sealed class RiderSnapshot
+        {
+            public System.Guid id;
+            public int index,origin,stop,direction;
+            public string originId,destinationId,label;
+            public float due,speed,seatPreference;
+        }
+
+        readonly Dictionary<Metro3DTrain,List<RiderSnapshot>> detachedRiders=new();
+        readonly List<RiderSnapshot> offMapRiders=new();
+        System.Random trainArrivals;
+        static System.Random TrainRandom()
+        {
+#if UNITY_EDITOR
+            if(Application.isBatchMode) {
+                var args=System.Environment.GetCommandLineArgs();
+                int at=System.Array.IndexOf(args,"-journeySeed");
+                if(at>=0&&at+1<args.Length&&int.TryParse(args[at+1],out int seed))return new System.Random(seed);
+            }
+#endif
+            return new System.Random();
+        }
         readonly Stack<Metro3DPassenger> pool=new Stack<Metro3DPassenger>();
         readonly Dictionary<Transform,int> occupancy=new Dictionary<Transform,int>();
         readonly HashSet<Transform> seeded=new HashSet<Transform>();
@@ -21,19 +56,24 @@ namespace SubwayCarry.Gameplay3D
         readonly Dictionary<Metro3DFacility,int> gateIntentCounts=new Dictionary<Metro3DFacility,int>();
         const int GateQueueCapacity=6;
         public int GateSelectionCount => gateSelections.Count;
-        readonly Dictionary<(Metro3DTrain,int),Metro3DPassenger> doorOwners=new Dictionary<(Metro3DTrain,int),Metro3DPassenger>();
+        readonly Dictionary<(Metro3DTrain,int,int),Metro3DPassenger> doorOwners=new Dictionary<(Metro3DTrain,int,int),Metro3DPassenger>();
         readonly Dictionary<(Metro3DTrain,int,bool),List<Metro3DPassenger>> doorQueues=new Dictionary<(Metro3DTrain,int,bool),List<Metro3DPassenger>>();
         readonly Dictionary<Metro3DPassenger,int> doorSides=new Dictionary<Metro3DPassenger,int>();
+        readonly HashSet<Metro3DPassenger> gateCrossings=new HashSet<Metro3DPassenger>();
         readonly Dictionary<Metro3DPassenger,Vector3> standing=new Dictionary<Metro3DPassenger,Vector3>();
         public sealed class SupportSpot
         {
             public Metro3DTrain train;
+            public Transform frame;
             public Vector3 feet,grip,normal;
-            public bool lean;
+            // Keep the phone hand on the open side of a side lean.
+            public Vector3 LeanFacing=>sideLean?Vector3.Cross(normal,Vector3.up).normalized:normal;
+            public bool lean,doorSide,screenDoor,sideLean;
             public Collider surface;
             public Metro3DPassenger occupant;
         }
         readonly Dictionary<Metro3DTrain,List<SupportSpot>> supports=new Dictionary<Metro3DTrain,List<SupportSpot>>();
+        readonly Dictionary<Transform,List<SupportSpot>> platformSupports=new Dictionary<Transform,List<SupportSpot>>();
         readonly Dictionary<Metro3DPassenger,SupportSpot> supportClaims=new Dictionary<Metro3DPassenger,SupportSpot>();
         readonly Collider[] contacts=new Collider[16];
         readonly RaycastHit[] ground=new RaycastHit[16];
@@ -49,18 +89,16 @@ namespace SubwayCarry.Gameplay3D
         public void ChoosePassengerDestination(int origin,bool aboard,int direction,System.Random random,out int stop,out string id,out string label,out int travelDirection)
         {
             var route=world.session.Route.stops;
-            if(!aboard) {
+            if(!aboard||origin==0&&direction<0) {
                 if(demandRevision!=world.RouteRevision)BuildBackgroundDemand();
                 if(backgroundDemand.TryGetValue(route[origin].id,out var choices)&&choices.Count>0) {
                     int count=0;
-                    foreach(var choice in choices)if(direction==0||choice.physicalDirection==direction*world.ServiceSide)count++;
+                    foreach(var choice in choices)if(IsServedDemand(choice,origin,direction,route,out _))count++;
                     if(count>0) {
                         int pick=random.Next(count);
                         foreach(var choice in choices) {
-                            if(direction!=0&&choice.physicalDirection!=direction*world.ServiceSide)continue;
-                            if(pick--!=0)continue;
-                            id=choice.id;label=choice.label;travelDirection=choice.physicalDirection*world.ServiceSide;stop=-1;
-                            for(int i=0;i<route.Length;i++)if(route[i].id==id&&(i>origin?1:-1)==travelDirection){stop=i;break;}
+                            if(!IsServedDemand(choice,origin,direction,route,out int modeledStop)||pick--!=0)continue;
+                            id=choice.id;label=choice.label;travelDirection=choice.physicalDirection*world.ServiceSide;stop=modeledStop;
                             return;
                         }
                     }
@@ -68,6 +106,17 @@ namespace SubwayCarry.Gameplay3D
             }
             stop=Metro3DPassengerJourney.ChooseDestination(origin,route.Length,direction,random);
             id=route[stop].id;label=route[stop].label;travelDirection=stop>origin?1:-1;
+        }
+        bool IsServedDemand(Demand choice,int origin,int direction,SliceRouteStop[] route,out int modeledStop)
+        {
+            modeledStop=-1;
+            int heading=choice.physicalDirection*world.ServiceSide;
+            if(direction!=0&&direction!=heading)return false;
+            for(int i=origin+heading;i>=0&&i<route.Length&&route[i].line==route[origin].line;i+=heading)
+                if(route[i].id==choice.id) {modeledStop=i;return true;}
+            // Only the opposite platform at the hub has a service that
+            // continues beyond the currently constructed route.
+            return origin==0&&heading<0;
         }
         void BuildBackgroundDemand()
         {
@@ -98,6 +147,11 @@ namespace SubwayCarry.Gameplay3D
         {
             if(world==null||world.session==null||world.session.SimulationPaused||Time.time<nextArrival) return;
             nextArrival=Time.time+world.settings.passengerArrivalSeconds*(.8f+(float)arrivals.NextDouble()*.8f);
+            for(int i=offMapRiders.Count-1;i>=0;i--) {
+                if(Time.time<offMapRiders[i].due)continue;
+                LogicalArrivals++;
+                offMapRiders.RemoveAt(i);
+            }
             // The hub keeps receiving people even when the player never leaves its concourse.
             // Other physically constructed stations run the same arrival stream.
             for(int stop=0;stop<world.stations.Count;stop++) {
@@ -147,18 +201,115 @@ namespace SubwayCarry.Gameplay3D
                 Rent(stop,false,p,!concourse,concourse?far:p.z>Metro3DWorld.PlatformLength*.5f,null,0,concourse);
             }
         }
-        public void SeedTrain(Metro3DTrain train,int stop)
+        public void SeedTrain(Metro3DTrain train,int stop,bool incomingHub=false)
         {
-            if(train==null||!seeded.Add(train.transform))return;
+            using(var seed=SeedTrainCars(train,stop,incomingHub))
+                while(seed.MoveNext()) { }
+        }
+        internal IEnumerator<int> SeedTrainCars(Metro3DTrain train,int stop,bool incomingHub)
+        {
+            if(train==null||!seeded.Add(train.transform))yield break;
             Physics.SyncTransforms();
-            for(int i=0;i<Metro3DTrain.CarCount*world.settings.passengersPerCar;i++) {
-                int car=i/world.settings.passengersPerCar,row=(i%world.settings.passengersPerCar)/2;
-                Vector3 p=new Vector3(i%2==0?-.38f:.38f,0,Metro3DTrain.FloorStart+car*Metro3DTrain.CarPitch+1.45f+row*1.95f);
-                if(!SpawnClear(train.transform,p))continue;
-                Rent(stop,true,p,true,false,train,train.TravelDirection);
+            int capacity=world.settings.passengersPerCar;
+            if(incomingHub)trainArrivals??=TrainRandom();
+            var boardingPositions=new int[capacity];
+            for(int car=0;car<Metro3DTrain.CarCount;car++) {
+                for(int i=0;i<capacity;i++)boardingPositions[i]=i;
+                if(incomingHub)for(int i=capacity-1;i>0;i--) {
+                    int other=trainArrivals.Next(i+1);
+                    (boardingPositions[i],boardingPositions[other])=(boardingPositions[other],boardingPositions[i]);
+                }
+                int count=incomingHub?trainArrivals.Next(Mathf.CeilToInt(capacity*.65f),capacity+1):capacity;
+                int alighters=incomingHub?Mathf.Max(1,Mathf.RoundToInt(count*Mathf.Lerp(.18f,.34f,(float)trainArrivals.NextDouble()))):0;
+                for(int i=0;i<count;i++) {
+                    Vector3 p=BoardingPosition(car,boardingPositions[i]);
+                    if(!SpawnClear(train.transform,p))continue;
+                    var actor=Rent(stop,true,p,true,false,train,train.TravelDirection);
+                    if(alighters<=0)continue;
+                    ChoosePassengerDestination(0,false,-train.TravelDirection,trainArrivals,out int origin,out string originId,out _,out _);
+                    actor.Journey.ArrivesAtHub(origin,originId,train.TravelDirection);
+                    alighters--;
+                }
+                yield return car;
             }
         }
-        Metro3DPassenger Rent(int stop,bool inside,Vector3 position,bool existing,bool far,Metro3DTrain service=null,int direction=0,bool concourse=false)
+
+        Vector3 BoardingPosition(int car,int slot)
+            => new Vector3(slot%2==0?-.38f:.38f,0,Metro3DTrain.FloorStart+car*Metro3DTrain.CarPitch+1.45f+slot/2*1.95f);
+
+        internal int ParkHubRiders(Metro3DTrain train,bool leavesModeledRoute)
+        {
+            List<RiderSnapshot> riders=null;
+            int count=0;
+            for(int i=world.passengers.Count-1;i>=0;i--) {
+                var actor=world.passengers[i];
+                if(actor==null||!actor.inTrain||actor.Riding!=train||actor.PortalCommitted)continue;
+                if(actor.TryGetComponent<SubwayCarry.AI.HelpNPC.Metro3DHelperAgent>(out var helper)&&helper.IsHelping)continue;
+                var trip=actor.Journey;
+                var snapshot=new RiderSnapshot{id=actor.PersistentId,index=actor.index,origin=trip.OriginStop,originId=trip.OriginId,
+                    stop=trip.DestinationStop,destinationId=trip.DestinationId,label=trip.DestinationLabel,direction=trip.TravelDirection,speed=trip.SpeedScale,seatPreference=trip.SeatPreference};
+                if(leavesModeledRoute) {
+                    snapshot.due=Time.time+OutsideTravelSeconds(snapshot.destinationId);
+                    offMapRiders.Add(snapshot);
+                } else {
+                    if(riders==null&&!detachedRiders.TryGetValue(train,out riders)) {
+                        riders=new List<RiderSnapshot>();
+                        detachedRiders.Add(train,riders);
+                    }
+                    riders.Add(snapshot);
+                }
+                Recycle(actor,false);
+                count++;
+            }
+            BackgroundPooled+=count;
+            return count;
+        }
+
+        float OutsideTravelSeconds(string destination)
+        {
+            int hops=1;
+            foreach(var order in world.settings.deliveries.orders) {
+                var stops=order.stops;
+                if(stops==null||stops.Length<2||stops[0].id!="gachon")continue;
+                bool north=stops[1].id=="bokjeong"||stops[1].id=="suseo";
+                if(north!=(world.ServiceSide>0))continue;
+                for(int i=1;i<stops.Length&&stops[i].line==stops[0].line;i++)
+                    if(stops[i].id==destination)hops=Mathf.Max(hops,i);
+            }
+            return hops*world.settings.travelSeconds+(hops-1)*world.settings.dwellSeconds;
+        }
+
+        internal void ArriveWithBackgroundRiders(Metro3DTrain train)
+        {
+            if(!detachedRiders.TryGetValue(train,out var riders))return;
+            string station=world.session.Route.stops[train.CurrentStop].id;
+            var player=world.player;
+            var view=world.Observer!=null?world.Observer.View:player!=null?player.view:null;
+            bool visible=player!=null&&(player.Riding==train||world.StationAt(player.transform.position)==train.CurrentStop)
+                ||view!=null&&world.StationAt(view.transform.position)==train.CurrentStop;
+            if(!visible) {
+                LogicalArrivals+=riders.RemoveAll(r=>r.destinationId==station);
+                if(riders.Count==0)detachedRiders.Remove(train);
+                return;
+            }
+            Physics.SyncTransforms();
+            int capacity=world.settings.passengersPerCar;
+            int slot=0;
+            for(int i=riders.Count-1;i>=0&&slot<capacity*Metro3DTrain.CarCount;i--) {
+                while(slot<capacity*Metro3DTrain.CarCount) {
+                    Vector3 position=BoardingPosition(slot/capacity,slot%capacity);
+                    slot++;
+                    if(!SpawnClear(train.transform,position))continue;
+                    Rent(train.CurrentStop,true,position,true,false,train,train.TravelDirection,snapshot:riders[i]);
+                    Physics.SyncTransforms();
+                    riders.RemoveAt(i);
+                    break;
+                }
+            }
+            if(riders.Count==0)detachedRiders.Remove(train);
+        }
+
+        Metro3DPassenger Rent(int stop,bool inside,Vector3 position,bool existing,bool far,Metro3DTrain service=null,int direction=0,bool concourse=false,RiderSnapshot snapshot=null)
         {
             Metro3DPassenger actor;
             if(pool.Count>0) actor=pool.Pop();
@@ -170,7 +321,9 @@ namespace SubwayCarry.Gameplay3D
             actor.gameObject.SetActive(false);
             actor.transform.SetParent(root,false); actor.transform.localPosition=position;
             actor.transform.localRotation=Quaternion.Euler(0,inside?90:world.ServiceSide==1?90:270,0);
-            actor.InitialDirection=direction;actor.Initialize(world,serial++,stop,inside,existing,far);
+            actor.InitialDirection=direction;
+            actor.Initialize(world,snapshot!=null?snapshot.index:serial++,stop,inside,existing,far);
+            if(snapshot!=null)actor.RestoreBackgroundJourney(snapshot);
             if(!inside&&existing) {
                 // The chosen destination owns the platform, not the delivery's direction.
                 var local=actor.transform.localPosition;local.x=-actor.Journey.TrainSide*Mathf.Abs(local.x);actor.transform.localPosition=local;
@@ -192,7 +345,7 @@ namespace SubwayCarry.Gameplay3D
         public void RecycleAll()
         {
             for(int i=world.passengers.Count-1;i>=0;i--) Recycle(world.passengers[i],false);
-            seeded.Clear(); gates.Clear(); gateQueues.Clear();gateSelections.Clear();gateIntentCounts.Clear(); doorOwners.Clear(); doorQueues.Clear();doorSides.Clear(); occupancy.Clear();standing.Clear();supports.Clear();supportClaims.Clear();
+            detachedRiders.Clear();offMapRiders.Clear();seeded.Clear(); gates.Clear(); gateQueues.Clear();gateCrossings.Clear();gateSelections.Clear();gateIntentCounts.Clear(); doorOwners.Clear(); doorQueues.Clear();doorSides.Clear(); occupancy.Clear();standing.Clear();supports.Clear();platformSupports.Clear();supportClaims.Clear();
         }
         public void RetireTrain(Metro3DTrain train)
         {
@@ -203,10 +356,15 @@ namespace SubwayCarry.Gameplay3D
                 Debug.LogWarning("Passenger remained on retiring service: "+actor.name+" goal="+actor.Journey.DestinationId);
                 Recycle(actor,false);
             }
+            if(detachedRiders.TryGetValue(train,out var riders)) {
+                // A service retiring is not evidence of a destination arrival.
+                foreach(var rider in riders) Debug.LogWarning("Detached passenger remained on retiring service: "+rider.destinationId);
+                detachedRiders.Remove(train);
+            }
             seeded.Remove(train.transform);
             supports.Remove(train);occupancy.Remove(train.transform);
             world.GetComponent<Metro3DCrowd>().ForgetSurface(train.transform);
-            for(int d=0;d<Metro3DTrain.DoorZ.Length;d++) {doorOwners.Remove((train,d));doorQueues.Remove((train,d,true));doorQueues.Remove((train,d,false));}
+            for(int d=0;d<Metro3DTrain.DoorZ.Length;d++) {for(int lane=-1;lane<=1;lane++)doorOwners.Remove((train,d,lane));doorQueues.Remove((train,d,true));doorQueues.Remove((train,d,false));}
         }
         static void PruneQueue(List<Metro3DPassenger> queue)
         {
@@ -307,10 +465,12 @@ namespace SubwayCarry.Gameplay3D
             if(!world.GetComponent<Metro3DCrowd>().PassageFree(actor,actor.transform.position,beyond)) {
                 actor.SetQueueContext(null,actor.QueueForward,QueueGap(actor),true);return false;
             }
-            return gate.gateDoor.Passable;
+            if(!gate.gateDoor.Passable)return false;
+            gateCrossings.Add(actor);return true;
         }
         public void ReleaseGate(Metro3DPassenger actor)
         {
+            gateCrossings.Remove(actor);
             if(gateSelections.TryGetValue(actor,out var selected)) {
                 if(gateIntentCounts.TryGetValue(selected,out int count))gateIntentCounts[selected]=Mathf.Max(0,count-1);
                 gateSelections.Remove(actor);
@@ -331,11 +491,35 @@ namespace SubwayCarry.Gameplay3D
             // Admission order is stable across both approach branches. Repeated
             // nearest-door sorting starves the slightly more distant branch.
             int slot=queue.IndexOf(actor);
+            Vector3 entry=train.DoorPoint(door,boarding);
             Metro3DPassenger previous=null;
-            for(int i=slot-1;i>=0;i--) if(doorSides.TryGetValue(queue[i],out int previousSide)&&previousSide==side) {previous=queue[i];break;}
-            Vector3 p=train.transform.InverseTransformPoint(train.DoorPoint(door,boarding));
-            if(boarding) {p.x-=train.side*.55f;p.z+=side*.95f;}
-            else {
+            for(int i=slot-1;i>=0;i--) {
+                var candidate=queue[i];
+                if(!doorSides.TryGetValue(candidate,out int previousSide)||previousSide!=side||
+                    boarding&&(candidate.transform.position-entry).sqrMagnitude>2.65f*2.65f)continue;
+                previous=candidate;break;
+            }
+            Vector3 p=train.transform.InverseTransformPoint(entry);
+            bool yielding=boarding&&HasAlightersNear(train,door);
+            if(boarding) {
+                var crowd=world.GetComponent<Metro3DCrowd>();
+                bool crowded=NearbyBoarders(queue,entry)>=4;
+                if(!yielding&&!crowded) {
+                    actor.ClearQueueContext();
+                    if(DoorOwner(train,door,0)!=null||DoorOwner(train,door,side)!=null)
+                        return train.DoorPoint(door,true,side)+train.transform.TransformDirection(Vector3.left*train.side)*.56f;
+                    return DoorOwner(train,door,-side)!=null||OppositeBoarderReady(actor,train,door,queue,side,1.65f)
+                        ?train.DoorPoint(door,true,side):entry;
+                }
+                Vector3 outward=train.transform.TransformDirection(Vector3.left*train.side);
+                if(yielding&&(actor.transform.position-entry).sqrMagnitude<1.65f*1.65f&&
+                    !crowd.OccupiesAlightingLanding(actor,train,door)) {
+                    actor.SetQueueContext(null,-outward,QueueGap(actor),true);
+                    return actor.transform.position;
+                }
+                p.x-=train.side*(crowded?.45f:.12f);p.z+=side*.88f;
+                if(!crowded)previous=null;
+            } else {
                 // Opposite door destinations must not build opposing queues
                 // against the same bench-side line. Keep right in the central
                 // aisle until passage is granted, then align to the actual door.
@@ -343,32 +527,106 @@ namespace SubwayCarry.Gameplay3D
             }
             Vector3 axis=Vector3.back*side;
             actor.SetQueueContext(previous,train.transform.TransformDirection(axis),QueueGap(actor),
-                slot!=0||!train.DoorsOpen||(boarding&&HasAlightersNear(train,door)));
+                slot!=0||!train.DoorsOpen||yielding);
             return QueuePoint(actor,previous,train.transform,p,axis);
         }
-        public bool TryDoor(Metro3DPassenger actor,Metro3DTrain train,int door,bool boarding)
+        static int NearbyBoarders(List<Metro3DPassenger> queue,Vector3 entry)
         {
-            if(!train.DoorsOpen||!doorQueues.TryGetValue((train,door,boarding),out var queue)||queue.Count==0||queue[0]!=actor) return false;
-            if(boarding&&(HasAlightersNear(train,door)||!train.CanBoard)) return false;
-            if(doorOwners.TryGetValue((train,door),out var owner)&&owner!=null&&owner.isActiveAndEnabled&&owner!=actor) return false;
-            if(boarding) world.GetComponent<Metro3DCrowd>().ClearLanding(train,door,actor);
-            if(!world.GetComponent<Metro3DCrowd>().PassageFree(actor,train,door))return false;
-            doorOwners[(train,door)]=actor; return true;
+            int count=0;
+            foreach(var passenger in queue) {
+                if((passenger.transform.position-entry).sqrMagnitude>2.65f*2.65f)continue;
+                if(++count>=4)break;
+            }
+            return count;
+        }
+
+        internal bool IsAlightingHead(Metro3DTrain train,int door,Metro3DPassenger actor)
+            => doorQueues.TryGetValue((train,door,false),out var queue)&&queue.Count>0&&queue[0]==actor;
+        internal bool TryAlternateAlightingDoor(Metro3DPassenger actor,Metro3DTrain train,int door,int tried,out int alternate)
+        {
+            alternate=-1;
+            int first=door/Metro3DTrain.DoorsPerCar*Metro3DTrain.DoorsPerCar;
+            float best=float.PositiveInfinity;
+            var crowd=world.GetComponent<Metro3DCrowd>();
+            for(int i=first;i<first+Metro3DTrain.DoorsPerCar;i++) {
+                if((tried&(1<<i))!=0)continue;
+                if(DoorOwner(train,i,0)!=null||DoorOwner(train,i,-1)!=null||DoorOwner(train,i,1)!=null)continue;
+                if(doorQueues.TryGetValue((train,i,false),out var queue)) {
+                    PruneQueue(queue);
+                    if(queue.Count>0)continue;
+                }
+                Vector3 inside=train.DoorPoint(i,false),outside=train.DoorPoint(i,true);
+                float distance=(inside-actor.transform.position).sqrMagnitude;
+                if(distance>=best||!crowd.PassageFree(actor,inside,outside))continue;
+                best=distance;alternate=i;
+            }
+            return alternate>=0;
+        }
+        Metro3DPassenger DoorOwner(Metro3DTrain train,int door,int lane)
+            =>doorOwners.TryGetValue((train,door,lane),out var owner)&&owner!=null&&owner.isActiveAndEnabled?owner:null;
+
+        bool OppositeBoarderReady(Metro3DPassenger actor,Metro3DTrain train,int door,List<Metro3DPassenger> queue,int side,float distance)
+        {
+            var entry=train.DoorPoint(door,true,-side);
+            foreach(var other in queue) {
+                if(other==null||other==actor||!other.isActiveAndEnabled||other.DoorCrossing||
+                    !doorSides.TryGetValue(other,out int otherSide)||otherSide!=-side)continue;
+                if((other.transform.position-entry).sqrMagnitude<distance*distance)return true;
+            }
+            return false;
+        }
+
+        internal bool IsSharedDoorCrossing(Metro3DTrain train,int door,int lane)
+            =>train!=null&&lane!=0&&DoorOwner(train,door,-lane)!=null;
+
+        internal bool TryDoor(Metro3DPassenger actor,Metro3DTrain train,int door,bool boarding,out int lane)
+        {
+            lane=0;
+            if(!train.DoorsOpen||train.Moving||!doorQueues.TryGetValue((train,door,boarding),out var queue))return false;
+            int slot=queue.IndexOf(actor);
+            if(slot<0||!boarding&&slot!=0||boarding&&(HasAlightersNear(train,door)||!train.CanBoard))return false;
+            if(DoorOwner(train,door,0)!=null)return false;
+            var left=DoorOwner(train,door,-1);var right=DoorOwner(train,door,1);
+            var crowd=world.GetComponent<Metro3DCrowd>();
+            if(boarding&&doorSides.TryGetValue(actor,out int side)) {
+                if((side<0?left:right)!=null)return false;
+                bool shared=left!=null||right!=null;
+                Vector3 laneEntry=train.DoorPoint(door,true,side);
+                bool near=(actor.transform.position-laneEntry).sqrMagnitude<1.18f*1.18f;
+                if(shared&&!near)return false;
+                if(near&&(shared||OppositeBoarderReady(actor,train,door,queue,side,1.18f)))lane=side;
+            }
+            if(lane==0&&(left!=null||right!=null))return false;
+            Vector3 entry=train.DoorPoint(door,boarding,lane),exit=train.DoorPoint(door,!boarding,lane);
+            if(!crowd.CanApproachDirect(actor,entry))return false;
+            if(boarding) {
+                // The nearer ready branch gets the first claim. A second rider
+                // can use the other lane only once both are at the opening.
+                for(int i=0;i<slot;i++) {
+                    var previous=queue[i];
+                    if(previous==null||!previous.isActiveAndEnabled||previous.DoorCrossing)continue;
+                    if(lane!=0&&doorSides.TryGetValue(previous,out int previousSide)&&previousSide!=lane)continue;
+                    if((previous.transform.position-entry).sqrMagnitude<1.18f*1.18f&&crowd.CanApproachDirect(previous,entry))return false;
+                }
+                crowd.ClearLanding(train,door,actor);
+            }
+            if(!crowd.PassageFree(actor,entry,exit)||!crowd.PassageFree(actor,actor.transform.position,entry))return false;
+            doorOwners[(train,door,lane)]=actor;return true;
         }
         public int PassageClaims(Metro3DPassenger except,Vector3[] starts,Vector3[] ends)
         {
+            if(doorOwners.Count==0&&gateCrossings.Count==0)return 0;
             int count=0;Vector3 position=except.transform.position;
             foreach(var pair in doorOwners) {
                 var owner=pair.Value;var train=pair.Key.Item1;
                 if(owner==null||owner==except||!owner.isActiveAndEnabled||!owner.PortalCommitted||train==null||train.Moving)continue;
-                Vector3 inside=train.DoorPoint(pair.Key.Item2,false),outside=train.DoorPoint(pair.Key.Item2,true);
+                Vector3 inside=train.DoorPoint(pair.Key.Item2,false,pair.Key.Item3),outside=train.DoorPoint(pair.Key.Item2,true,pair.Key.Item3);
                 if(Mathf.Abs(inside.y-position.y)>1.5f||((inside+outside)*.5f-position).sqrMagnitude>16)continue;
                 if(count+2>starts.Length)break;
                 starts[count]=inside;ends[count++]=outside;
                 starts[count]=owner.transform.position;ends[count++]=owner.CurrentGoal;
             }
-            foreach(var pair in gateQueues) {
-                if(pair.Value.Count==0)continue;var owner=pair.Value[0];
+            foreach(var owner in gateCrossings) {
                 if(owner==null||owner==except||!owner.isActiveAndEnabled||!owner.Journey.CrossingGate)continue;
                 if(Mathf.Abs(owner.transform.position.y-position.y)>1.5f||(owner.transform.position-position).sqrMagnitude>16||count>=starts.Length)continue;
                 starts[count]=owner.transform.position;ends[count++]=owner.CurrentGoal;
@@ -378,6 +636,7 @@ namespace SubwayCarry.Gameplay3D
         public Vector3 PlatformWaitingPoint(Metro3DPassenger actor)=>PlatformWaitingPoint(actor,null);
         public Vector3 PlatformWaitingPoint(Metro3DPassenger actor,Vector3? avoid)
         {
+            ReleaseStanding(actor);
             Transform root=world.stations[actor.stationIndex];var crowd=world.GetComponent<Metro3DCrowd>();
             Vector3 selected=actor.transform.position;float best=float.PositiveInfinity;
             foreach(float doorZ in Metro3DTrain.DoorZ) for(int row=0;row<3;row++) for(int flank=-1;flank<=1;flank+=2) {
@@ -388,7 +647,7 @@ namespace SubwayCarry.Gameplay3D
                 bool claimed=false;
                 foreach(var claim in standing) if(claim.Key!=null&&claim.Key!=actor&&!claim.Key.inTrain&&claim.Key.transform.parent==root&&(claim.Value-local).sqrMagnitude<.62f*.62f) {claimed=true;break;}
                 if(claimed) continue;
-                float score=distance+crowd.LocalDensity(point,root)*2;
+                float score=distance+crowd.LocalDensity(point,root)*6;
                 if(score<best) {best=score;selected=point;}
             }
             standing[actor]=root.InverseTransformPoint(selected);return selected;
@@ -406,9 +665,9 @@ namespace SubwayCarry.Gameplay3D
             }
             foreach(var claim in standing) if(claim.Key!=null&&claim.Key!=actor&&!claim.Key.inTrain&&claim.Key.transform.parent==root&&(claim.Value-local).sqrMagnitude<.6f*.6f)return false;
             var crowd=world.GetComponent<Metro3DCrowd>();Vector3 point=root.TransformPoint(local);
-            if(!crowd.SpaceFree(point,actor,.52f)||!crowd.StaticSpaceFree(point,root))return false;
+            if(crowd.LocalDensity(point,root)>.38f||!crowd.SpaceFree(point,actor,.72f)||!crowd.StaticSpaceFree(point,root))return false;
             if(world.player!=null&&(world.player.transform.position-point).sqrMagnitude<.6f*.6f)return false;
-            standing[actor]=local;return true;
+            ReleaseStanding(actor);standing[actor]=local;return true;
         }
         public Vector3 TrainStandingPoint(Metro3DPassenger actor,Metro3DTrain train)=>TrainStandingPoint(actor,train,null);
         public Vector3 TrainStandingPoint(Metro3DPassenger actor,Metro3DTrain train,Vector3? clearFrom)
@@ -417,21 +676,28 @@ namespace SubwayCarry.Gameplay3D
             var crowd=world.GetComponent<Metro3DCrowd>();
             SupportSpot chosen=null;
             foreach(var spot in Supports(train)) {
-                if(spot.occupant!=null) continue;
+                if(spot.occupant!=null||spot.doorSide) continue;
                 if(!spot.lean&&NearDoor(spot.feet.z,1.3f)) continue;
                 var point=train.transform.TransformPoint(spot.feet);
                 if(clearFrom.HasValue&&(point-clearFrom.Value).sqrMagnitude<.85f*.85f)continue;
                 float score=(point-actor.transform.position).sqrMagnitude+(spot.lean?Mathf.Lerp(3,.3f,actor.Journey.Personality.PersonalSpace):0);
+                if(score>=distance)continue;
+                score+=crowd.LocalDensity(point,train.transform)*9;
                 if(score>=distance||!crowd.SpaceFree(point,actor,.58f)||!crowd.StaticSpaceFree(point,train.transform)||Reserved(train,spot.feet,actor)) continue;
                 chosen=spot;best=point;distance=score;
             }
-            for(int car=0;car<Metro3DTrain.CarCount;car++) for(int row=0;row<25;row++) foreach(float x in new[]{-.38f,.38f}) {
+            for(int car=0;car<Metro3DTrain.CarCount;car++) for(int row=0;row<25;row++) {
                 float z=Metro3DTrain.FloorStart+car*Metro3DTrain.CarPitch+1+row*.7f;
-                if(NearDoor(z,1.3f)) continue;
-                Vector3 local=new Vector3(x,0,z),point=train.transform.TransformPoint(local);
-                if(clearFrom.HasValue&&(point-clearFrom.Value).sqrMagnitude<.85f*.85f)continue;
-                float score=(point-actor.transform.position).sqrMagnitude+2;if(score>=distance||!crowd.SpaceFree(point,actor,.58f)||!crowd.StaticSpaceFree(point,train.transform)||Reserved(train,local,actor)) continue;
-                chosen=null;best=point;distance=score;
+                if(NearDoor(z,1.3f))continue;
+                for(int side=-1;side<=1;side+=2) {
+                    Vector3 local=new Vector3(side*.38f,0,z),point=train.transform.TransformPoint(local);
+                    if(clearFrom.HasValue&&(point-clearFrom.Value).sqrMagnitude<.85f*.85f)continue;
+                    float score=(point-actor.transform.position).sqrMagnitude+2;
+                    if(score>=distance)continue;
+                    score+=crowd.LocalDensity(point,train.transform)*9;
+                    if(score>=distance||!crowd.SpaceFree(point,actor,.58f)||!crowd.StaticSpaceFree(point,train.transform)||Reserved(train,local,actor))continue;
+                    chosen=null;best=point;distance=score;
+                }
             }
             if(float.IsPositiveInfinity(distance)) {
                 // No valid place: remain in a clear aisle and retry later, never
@@ -440,28 +706,101 @@ namespace SubwayCarry.Gameplay3D
                 return train.transform.TransformPoint(local);
             }
             standing[actor]=train.transform.InverseTransformPoint(best);
-            if(chosen!=null) {chosen.occupant=actor;supportClaims[actor]=chosen;}
+            if(chosen!=null) ClaimSupport(actor,chosen,out best);
             return best;
         }
         bool Reserved(Metro3DTrain train,Vector3 local,Metro3DPassenger actor)
         {
-            foreach(var r in standing) if(r.Key!=actor&&r.Key!=null&&r.Key.Riding==train&&(r.Value-local).sqrMagnitude<.58f*.58f) return true;
+            foreach(var r in standing) if(r.Key!=actor&&r.Key!=null&&r.Key.Riding==train&&
+                r.Key.transform.parent==actor.transform.parent&&(r.Value-local).sqrMagnitude<.58f*.58f) return true;
             return false;
         }
         public SupportSpot SupportFor(Metro3DPassenger actor)=>supportClaims.TryGetValue(actor,out var spot)?spot:null;
+        internal int OccupiedSeatNeighbors(Metro3DFacility seat)
+        {
+            Vector3 origin=seat.anchor.localPosition;
+            int occupied=0;
+            foreach(var other in world.facilities) {
+                if(other==null||other.Available||other.kind!=Metro3DFacilityKind.Seat||other.anchor==null||
+                    other==seat||other.anchor.parent!=seat.anchor.parent)continue;
+                Vector3 delta=other.anchor.localPosition-origin;
+                if(delta.sqrMagnitude<.64f*.64f&&Mathf.Abs(Vector3.Dot(delta,seat.anchor.localRotation*Vector3.forward))<.15f)
+                    occupied++;
+            }
+            return occupied;
+        }
         static bool NearDoor(float z,float distance) {foreach(float door in Metro3DTrain.DoorZ) if(Mathf.Abs(z-door)<distance) return true;return false;}
         public bool TryLeanPoint(Metro3DPassenger actor,Metro3DTrain train,out Vector3 point)
         {
             point=actor.transform.position;SupportSpot best=null;float distance=2.5f*2.5f;
             var crowd=world.GetComponent<Metro3DCrowd>();
             foreach(var spot in Supports(train)) {
-                if(!spot.lean||spot.occupant!=null) continue;
+                if(!spot.lean||spot.occupant!=null||spot.doorSide&&train.MovementRemaining<13) continue;
                 Vector3 p=train.transform.TransformPoint(spot.feet);float d=(p-point).sqrMagnitude;
+                if(spot.doorSide&&!crowd.CanFollowWalkingSegment(actor,p))continue;
                 if(d>=distance||!crowd.SpaceFree(p,actor,.58f)||!crowd.StaticSpaceFree(p,train.transform)||Reserved(train,spot.feet,actor)) continue;
                 distance=d;best=spot;
             }
-            if(best==null) return false;
-            ReleaseStanding(actor);best.occupant=actor;supportClaims[actor]=best;standing[actor]=best.feet;point=train.transform.TransformPoint(best.feet);return true;
+            return ClaimSupport(actor,best,out point);
+        }
+        bool ClaimSupport(Metro3DPassenger actor,SupportSpot spot,out Vector3 point)
+        {
+            point=actor.transform.position;
+            if(spot==null)return false;
+            float sidePreference=Mathf.Repeat(actor.index*.5698403f+.39f,1f);
+            spot.sideLean=spot.lean&&sidePreference<(spot.screenDoor?.9f:.1f);
+            ReleaseStanding(actor);spot.occupant=actor;supportClaims[actor]=spot;standing[actor]=spot.feet;
+            point=spot.frame.TransformPoint(spot.feet);return true;
+        }
+        internal bool TryPlatformLeanPoint(Metro3DPassenger actor,out Vector3 point)
+        {
+            var frame=actor.transform.parent;
+            if(!platformSupports.TryGetValue(frame,out var spots)) {
+                spots=new List<SupportSpot>();platformSupports.Add(frame,spots);
+                for(int side=-1;side<=1;side+=2) {
+                    for(float z=8;z<Metro3DWorld.PlatformLength-8;z+=3.6f) {
+                        Vector3 feet=new Vector3(side*(Metro3DWorld.ExpandedPlatformOuterX-.48f),0,z);
+                        AddLeanSpot(spots,frame,null,feet,Vector3.right*side,"Visible wall ground boundary");
+                    }
+                    foreach(float door in Metro3DTrain.DoorZ) for(int flank=-1;flank<=1;flank+=2) {
+                        float z=door+flank*1.6f;
+                        if(NearDoor(z,1.45f))continue;
+                        Vector3 feet=new Vector3(side*(Metro3DWorld.ScreenDoorX+.45f),0,z);
+                        AddLeanSpot(spots,frame,null,feet,Vector3.left*side,"PSD fixed glazing boundary");
+                    }
+                }
+            }
+            var crowd=world.GetComponent<Metro3DCrowd>();
+            SupportSpot best=null;float distance=8.5f*8.5f;
+            foreach(var spot in spots) {
+                if(spot.occupant!=null||spot.surface==null||!spot.surface.enabled||spot.feet.x*actor.Journey.TrainSide>=0)continue;
+                Vector3 p=frame.TransformPoint(spot.feet);
+                float d=(p-actor.transform.position).sqrMagnitude;
+                if(d>=distance||!crowd.SpaceFree(p,actor,.58f)||!crowd.StaticSpaceFree(p,frame)||
+                    Reserved(null,spot.feet,actor))continue;
+                float score=d+crowd.LocalDensity(p,frame)*10+(crowd.CanFollowWalkingSegment(actor,p)?0:5);
+                if(score>=distance)continue;
+                best=spot;distance=score;
+            }
+            return ClaimSupport(actor,best,out point);
+        }
+        void AddLeanSpot(List<SupportSpot> spots,Transform frame,Metro3DTrain train,Vector3 feet,Vector3 back,string colliderName)
+        {
+            Vector3 origin=frame.TransformPoint(feet)+Vector3.up*1.28f;
+            Vector3 direction=frame.TransformDirection(back);
+            int count=Physics.RaycastNonAlloc(origin,direction,ground,.58f,~0,QueryTriggerInteraction.Ignore);
+            if(count==ground.Length)return;
+            RaycastHit high=default;
+            float nearest=float.PositiveInfinity;
+            for(int i=0;i<count;i++) {
+                var hit=ground[i];
+                if(hit.collider is CharacterController||hit.distance>=nearest)continue;
+                high=hit;nearest=hit.distance;
+            }
+            if(high.collider==null||high.collider.name!=colliderName||!high.collider.transform.IsChildOf(frame)||Mathf.Abs(high.normal.y)>.15f)return;
+            if(!high.collider.Raycast(new Ray(origin-Vector3.up*.46f,direction),out var low,.58f)||Vector3.Dot(high.normal,low.normal)<.92f)return;
+            spots.Add(new SupportSpot {train=train,frame=frame,feet=feet,lean=true,doorSide=train!=null,grip=frame.InverseTransformPoint(high.point),
+                normal=frame.InverseTransformDirection(high.normal),surface=high.collider,screenDoor=colliderName=="PSD fixed glazing boundary"});
         }
         public void ReleaseStanding(Metro3DPassenger actor) {
             standing.Remove(actor);
@@ -475,8 +814,13 @@ namespace SubwayCarry.Gameplay3D
             // every passenger/frame. Crossbar contact matches the authored mesh.
             foreach(Transform module in train.transform) if(module.name=="GrabRail") {
                 Vector3 origin=module.localPosition;
-                for(int i=-3;i<=3;i++) list.Add(new SupportSpot {train=train,feet=new Vector3(Mathf.Sign(origin.x)*.38f,0,origin.z+i*.5f),grip=origin+new Vector3(0,1.72f,i*.5f)});
+                for(int i=-3;i<=3;i++) list.Add(new SupportSpot {train=train,frame=train.transform,feet=new Vector3(Mathf.Sign(origin.x)*.38f,0,origin.z+i*.5f),grip=origin+new Vector3(0,1.72f,i*.5f)});
             }
+            for(int side=-1;side<=1;side+=2) foreach(float door in Metro3DTrain.DoorZ)
+                for(int end=-1;end<=1;end+=2) {
+                    Vector3 feet=new Vector3(side*.97f,0,door+end*1.20f);
+                    if(!NearDoor(feet.z,1.02f))AddLeanSpot(list,train.transform,train,feet,Vector3.right*side,"Visible carriage side boundary");
+                }
             for(int car=0;car<Metro3DTrain.CarCount;car++) foreach(bool end in new[]{false,true}) foreach(float x in new[]{-.95f,.95f}) {
                 float edge=Metro3DTrain.FloorStart+car*Metro3DTrain.CarPitch+(end?Metro3DTrain.CarLength:0);
                 Vector3 feet=new Vector3(x,0,edge+(end?-.37f:.37f));
@@ -484,7 +828,7 @@ namespace SubwayCarry.Gameplay3D
                 Vector3 origin=train.transform.TransformPoint(feet)+Vector3.up*1.3f;
                 if(!Physics.Raycast(origin,back,out var high,.5f,~0,QueryTriggerInteraction.Ignore)||!high.collider.transform.IsChildOf(train.transform)||high.collider is CharacterController||Mathf.Abs(high.normal.y)>.15f) continue;
                 if(!Physics.Raycast(origin-Vector3.up*.45f,back,out var low,.5f,~0,QueryTriggerInteraction.Ignore)||low.collider!=high.collider||Vector3.Dot(low.normal,high.normal)<.92f) continue;
-                list.Add(new SupportSpot {train=train,feet=feet,lean=true,grip=train.transform.InverseTransformPoint(high.point),normal=train.transform.InverseTransformDirection((low.normal+high.normal).normalized),surface=high.collider});
+                list.Add(new SupportSpot {train=train,frame=train.transform,feet=feet,lean=true,grip=train.transform.InverseTransformPoint(high.point),normal=train.transform.InverseTransformDirection((low.normal+high.normal).normalized),surface=high.collider});
             }
             return list;
         }
@@ -493,11 +837,17 @@ namespace SubwayCarry.Gameplay3D
         {
             actor.ClearQueueContext();doorSides.Remove(actor);
             // At most 16 doors/service; no full crowd search per agent.
-            if(actor.Riding!=null) for(int d=0;d<Metro3DTrain.DoorZ.Length;d++) if(doorOwners.TryGetValue((actor.Riding,d),out var owner)&&owner==actor) doorOwners.Remove((actor.Riding,d));
-            foreach(var train in world.Trains)if(train!=null)for(int d=0;d<Metro3DTrain.DoorZ.Length;d++)if(doorOwners.TryGetValue((train,d),out var owner)&&owner==actor)doorOwners.Remove((train,d));
+            foreach(var train in world.Trains) if(train!=null)
+                for(int d=0;d<Metro3DTrain.DoorZ.Length;d++) for(int lane=-1;lane<=1;lane++)
+                    if(doorOwners.TryGetValue((train,d,lane),out var owner)&&owner==actor)doorOwners.Remove((train,d,lane));
             foreach(var queue in doorQueues.Values) queue.Remove(actor);
         }
-        public bool HasDoorCrossing(Metro3DTrain train) {for(int d=0;d<Metro3DTrain.DoorZ.Length;d++) if(doorOwners.TryGetValue((train,d),out var owner)&&owner!=null&&owner.isActiveAndEnabled) return true;return false;}
+        public bool HasDoorCrossing(Metro3DTrain train)
+        {
+            for(int d=0;d<Metro3DTrain.DoorZ.Length;d++) for(int lane=-1;lane<=1;lane++)
+                if(DoorOwner(train,d,lane)!=null)return true;
+            return false;
+        }
         public bool HasAlighters(Metro3DTrain train) {foreach(var a in world.passengers) if(a.inTrain&&a.Riding==train&&a.WantsToAlight) return true;return false;}
     }
 }

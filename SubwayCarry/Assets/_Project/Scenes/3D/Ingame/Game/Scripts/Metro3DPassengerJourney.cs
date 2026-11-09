@@ -19,7 +19,7 @@ namespace SubwayCarry.Gameplay3D
         public bool TransferWaiting {get;private set;}
         public int TravelDirection {get;private set;}=1;
         public int TrainSide => actor.world.ServiceSide*TravelDirection;
-        public bool AtDestination(int stop)=>HasModeledDestination&&(TravelDirection>0?stop>=DestinationStop:stop<=DestinationStop);
+        public bool AtDestination(int stop)=>HasModeledDestination&&stop==DestinationStop;
         public float SpeedScale {get;private set;}
         public float SeatPreference {get;private set;}
         public PassengerAiV2RuntimePersonality Personality {get;private set;}
@@ -35,6 +35,11 @@ namespace SubwayCarry.Gameplay3D
         public Vector3 GateFacing => gate!=null?actor.BodyFacingIntent:Vector3.zero;
         public bool CrossingGate => crossing;
         public bool OnStairs => stairCommitted;
+        internal Vector3 StairForward {get;private set;}
+        internal Vector3 StairOutward {get;private set;}
+        bool stairNextPrepared,stairNextAvailable;
+        Vector3 stairNext;
+        const float StairLaneOffset=.30f;
         public bool StairApproaching {get;private set;}
         public bool ReviewStairActive {get;private set;}
         public string ReviewStairPhase=>!ReviewStairActive?"평지":stairCommitted?"계단 통과":"계단 진입 준비";
@@ -85,7 +90,7 @@ namespace SubwayCarry.Gameplay3D
             // onto a lower planar grid solely because their X/Z coordinates match.
             Move(point,!actor.CanWalkDirect(worldPoint));
         }
-        bool far,crossing,stairCommitted,tagging,exitLease;
+        bool far,crossing,stairCommitted,aligning,tagging,exitLease;
         float tagUntil;
         float gateProgressAt;
         Vector3 gateProgressPosition;
@@ -105,6 +110,7 @@ namespace SubwayCarry.Gameplay3D
         public void Initialize(Metro3DPassenger passenger,int origin,bool inside,bool existing,bool farEntrance)
         {
             ReviewStairActive=StairApproaching=reviewStairFinished=false;
+            StairForward=StairOutward=Vector3.zero;stairNextPrepared=false;
             actor=passenger; OriginStop=origin; far=farEntrance;
             var route=actor.world.session.Route.stops;
             var random=new System.Random(unchecked(actor.index*7919+origin*104729+17));
@@ -123,7 +129,7 @@ namespace SubwayCarry.Gameplay3D
             if(Blackboard==null) Blackboard=gameObject.AddComponent<PassengerAiV2JourneyBlackboard>();
             Planner=GetComponent<PassengerAiV2FullJourneyPlanner>();
             if(Planner==null) Planner=gameObject.AddComponent<PassengerAiV2FullJourneyPlanner>();
-            Planner.Initialize(Blackboard); gate=null; tagging=crossing=exitLease=stairCommitted=TransferWaiting=hasCommand=false; gateSlot=-1;
+            Planner.Initialize(Blackboard); gate=null; aligning=tagging=crossing=exitLease=stairCommitted=TransferWaiting=hasCommand=false; gateSlot=-1;
             GateAction=GatePhase.None;actor.FaceTravel();ContinuationMisses=0;
             if(existing) {
                 Complete(PassengerAiV2FullJourneyStage.EnterOriginStation); Blackboard.MarkEntryCardTagged();
@@ -132,6 +138,18 @@ namespace SubwayCarry.Gameplay3D
             }
         }
         void Complete(PassengerAiV2FullJourneyStage stage) {Planner.CompleteCurrentStage(stage);hasCommand=false;}
+        internal void ArrivesAtHub(int origin,string id,int direction)
+        {
+            OriginStop=Mathf.Max(0,origin);OriginId=id;
+            DestinationStop=0;DestinationId="gachon";DestinationLabel=actor.world.StopLabel(0);
+            TravelDirection=direction;HasModeledDestination=true;
+        }
+        internal void RestoreRider(Metro3DStationTraffic.RiderSnapshot rider)
+        {
+            OriginStop=rider.origin;OriginId=rider.originId;DestinationStop=rider.stop;
+            DestinationId=rider.destinationId;DestinationLabel=rider.label;TravelDirection=rider.direction;
+            HasModeledDestination=rider.stop>=0;SpeedScale=rider.speed;SeatPreference=rider.seatPreference;
+        }
         public void EnterConcourse() {Complete(PassengerAiV2FullJourneyStage.EnterOriginStation);}
         void Move(Vector3 local,bool navigate)
         {
@@ -161,8 +179,7 @@ namespace SubwayCarry.Gameplay3D
                 case PassengerAiV2FullJourneyStage.ReachDestinationConcourse:
                     Stair(stage==PassengerAiV2FullJourneyStage.ReachDestinationConcourse);return true;
                 case PassengerAiV2FullJourneyStage.LeaveDestinationStation:
-                    var exit=Metro3DStationTraffic.Entrance(far,actor.world.settings.departureFloor);
-                    exit.x=far?.55f:-.55f;
+                    Vector3 exit=ExitDestination();
                     Move(exit,true);
                     if(Reached(exit)) {Blackboard.MarkJourneyCompleted();Complete(stage);actor.world.Traffic.Recycle(actor,true);}
                     return true;
@@ -176,7 +193,7 @@ namespace SubwayCarry.Gameplay3D
                 CancelGate();actor.WaitJourney();Planner.ReportRecoverableFailure("Fare gate unavailable; reservation released");return;
             }
             if(gate==null) {
-                gate=traffic.SelectGate(actor,far,outgoing);gateSlot=-1;hasCommand=tagging=false;
+                gate=traffic.SelectGate(actor,far,outgoing);gateSlot=-1;hasCommand=aligning=tagging=false;
                 gateProgressAt=Time.time;gateProgressPosition=actor.transform.position;gateOutgoing=outgoing;GateAction=GatePhase.Approach;
             }
             if(gate==null) {Planner.ReportRecoverableFailure("No cached fare-gate bank for station");return;}
@@ -188,15 +205,34 @@ namespace SubwayCarry.Gameplay3D
                 Vector3 approach=actor.transform.parent.InverseTransformPoint(traffic.GateApproach(actor,gate,direction));
                 int slot=traffic.GateSlot(actor,gate);
                 if(gateSlot!=slot) {gateSlot=slot;hasCommand=false;}
-                if(tagging&&slot!=0) {tagging=false;actor.CancelJourneyContinuation();}
+                if(slot!=0) {
+                    aligning=false;
+                    if(tagging) {tagging=false;actor.CancelJourneyContinuation();}
+                }
                 if(!tagging) {
                     GateAction=slot<0?GatePhase.Approach:slot==0?GatePhase.Align:GatePhase.Queue;
-                    actor.FollowQueueGoal(actor.transform.parent.TransformPoint(approach));
-                    if(slot<0&&!traffic.GateAtCapacity(gate)&&Time.time-gateProgressAt>8) {CancelGate();Planner.ReportRecoverableFailure("Gate approach blocked; release selection and retry");return;}
-                    if(slot!=0||!Reached(approach,.08f))return;
+                    if(aligning&&!Reached(approach,.22f))aligning=false;
+                    if(!aligning) {
+                        Vector3 feet=actor.transform.localPosition;
+                        // A follower's target is a spacing estimate, not a place to walk
+                        // backwards to when the person ahead slows down.
+                        if(slot>0&&Mathf.Abs(feet.x-approach.x)<.24f&&(approach.z-feet.z)*direction<=.18f) {
+                            actor.FaceJourney(axis);
+                            actor.HoldJourney();
+                            return;
+                        }
+                        if(slot!=0||!Reached(approach,.14f)||Mathf.Abs(feet.x-approach.x)>.09f) {
+                            actor.FollowQueueGoal(actor.transform.parent.TransformPoint(approach),preferDirect:true);
+                            if(slot<0&&!traffic.GateAtCapacity(gate)&&Time.time-gateProgressAt>8) {
+                                CancelGate();Planner.ReportRecoverableFailure("Gate approach blocked; release selection and retry");
+                            }
+                            return;
+                        }
+                        aligning=true;
+                    }
                     actor.FaceJourney(axis);actor.HoldJourney();
                     if(actor.Velocity.sqrMagnitude>.0144f||Vector3.Dot(actor.transform.forward,axis)<.97f)return;
-                    tagging=true;tagUntil=Time.time+.25f+actor.QueueReactionDelay;GateAction=GatePhase.Tag;
+                    aligning=false;tagging=true;tagUntil=Time.time+.25f+actor.QueueReactionDelay;GateAction=GatePhase.Tag;
                     actor.PrepareJourneyContinuation(actor.transform.parent.TransformPoint(p+Vector3.forward*direction*(actor.GateClearanceDistance(gate.gateDoor.passageHalfLength)+.08f)),actor.transform.parent.TransformPoint(AfterGate(outgoing)));
                 }
                 actor.FaceJourney(axis);actor.HoldJourney();
@@ -212,10 +248,23 @@ namespace SubwayCarry.Gameplay3D
             actor.FaceJourney(axis);
             FinishGatePassage();
         }
+        Vector3 ExitDestination()
+        {
+            Vector3 exit=Metro3DStationTraffic.Entrance(far,actor.world.settings.departureFloor);
+            // A stable personal target spreads walkers across the same physical opening.
+            // Keep clearance from the walls for the capsule and let local avoidance handle people.
+            uint choice=unchecked((uint)actor.index*2654435761u+(uint)actor.stationIndex*2246822519u);
+            exit.x=Mathf.Lerp(-1.55f,1.55f,(choice>>16)/65535f);
+            return exit;
+        }
         Vector3 AfterGate(bool outgoing)
         {
-            if(outgoing) {var exit=Metro3DStationTraffic.Entrance(far,actor.world.settings.departureFloor);exit.x=far?.55f:-.55f;return exit;}
-            var top=Metro3DStationTraffic.StairTop(far,TrainSide,actor.world.settings.departureFloor);top.x+=.26f;return top;
+            if(outgoing)return ExitDestination();
+            var top=Metro3DStationTraffic.StairTop(far,TrainSide,actor.world.settings.departureFloor);
+            top.x+=StairLaneOffset;
+            // Prepare exactly the approach point that the stair action takes
+            // ownership of, otherwise its first tick drops the prepared path.
+            return top-Vector3.forward*(far?-.65f:.65f);
         }
         // Called after the single motor step as well as the low-frequency action tick.
         public void FinishGatePassage()
@@ -233,23 +282,20 @@ namespace SubwayCarry.Gameplay3D
             float direction=(far?-1:1)*(gateOutgoing?-1:1);
             Vector3 feet=actor.transform.localPosition,p=gate.transform.localPosition;
             float progress=(feet.z-p.z)*direction;
-            if(progress<gate.gateDoor.passageHalfLength+.24f+.14f||Mathf.Abs(feet.x-p.x)>.12f)return;
-            GateAction=GatePhase.ExitClear;
-            // Ownership ends by spatial clearance, not by a release timer. Keep
-            // the successor out while this body still needs the turning outlet.
-            if(progress<actor.GateClearanceDistance(gate.gateDoor.passageHalfLength))return;
+            if(progress<actor.GateClearanceDistance(gate.gateDoor.passageHalfLength)||Mathf.Abs(feet.x-p.x)>.12f)return;
             Vector3 next=actor.transform.parent.TransformPoint(AfterGate(gateOutgoing));
             // Keep the FIFO head until the turning body clears the outlet.
             // Its motor is free to follow the prepared next path meanwhile.
             actor.ClearQueueContext();exitLease=true;crossing=false;GateAction=GatePhase.Exit;
             Complete(Blackboard.CurrentStage);
             hasCommand=true;commanded=next;
-            if(!actor.ContinueJourney(next))ContinuationMisses++;
+            Vector3 forward=actor.transform.parent.TransformDirection(Vector3.forward*direction);
+            if(!actor.ContinueJourney(next,forward))ContinuationMisses++;
         }
         public void CancelGate()
         {
             if(actor!=null&&actor.world!=null&&actor.world.Traffic!=null)actor.world.Traffic.ReleaseGate(actor);
-            gate=null;crossing=tagging=exitLease=hasCommand=false;gateSlot=-1;GateAction=GatePhase.None;
+            gate=null;aligning=crossing=tagging=exitLease=hasCommand=false;gateSlot=-1;GateAction=GatePhase.None;
             if(actor!=null) {actor.FaceTravel();actor.CancelJourneyContinuation();}
         }
         void OnDisable() {CancelGate();}
@@ -259,7 +305,7 @@ namespace SubwayCarry.Gameplay3D
             Vector3 top=Metro3DStationTraffic.StairTop(far,TrainSide,actor.world.settings.departureFloor);
             Vector3 bottom=Metro3DStationTraffic.StairBottom(far,TrainSide);
             // Opposing flows keep to separate sides of the actual stair tread.
-            float lane=ascending?-.26f:.26f;top.x+=lane;bottom.x+=lane;
+            float lane=ascending?-StairLaneOffset:StairLaneOffset;top.x+=lane;bottom.x+=lane;
             Vector3 entry=ascending?bottom:top,exit=ascending?top:bottom;
             if(actor.WalkReviewCandidate) {
                 // Same entrance-portal execution used by Walk's minimal fixture;
@@ -270,17 +316,56 @@ namespace SubwayCarry.Gameplay3D
                 if(!ascending){actor.WaitJourney();actor.SetWaitingPoint();}return;
             }
             Vector3 feet=actor.transform.parent.InverseTransformPoint(actor.transform.position);
-            if(stairCommitted&&Mathf.Abs(feet.x+TrainSide*7.76f)>.6f&&Mathf.Abs(feet.y-entry.y)<.4f) {
-                stairCommitted=false;hasCommand=false;
-            }
+            Vector3 axis=exit-entry;axis.y=0;axis.Normalize();
+            float along=Vector3.Dot(feet-entry,axis);
+            var frame=actor.transform.parent;
+            Vector3 forward=frame.TransformDirection(axis);
+            StairOutward=frame.TransformDirection(Vector3.right*Mathf.Sign(lane));
             if(!stairCommitted) {
-                Move(entry,true);if(!Reached(entry)) return;
-                stairCommitted=true;hasCommand=false;
+                float lateral=Mathf.Abs(feet.x-entry.x);
+                bool onLanding=Mathf.Abs(feet.y-entry.y)<.4f;
+                // Lock the straight approach before an ordinary avoidance
+                // turn takes someone out of the lane at the foot of the flight.
+                bool aligned=onLanding&&along>=-3.6f&&along<-.32f&&lateral<.72f;
+                if(aligned&&!StairApproaching) {
+                    Vector3 point=actor.transform.parent.TransformPoint(entry);
+                    if(actor.TryWalkStairApproach(point))StairApproaching=true;
+                } else if(!aligned)StairApproaching=false;
+                StairForward=StairApproaching?forward:Vector3.zero;
+                if(!onLanding||along<-.32f||along>.65f||lateral>.20f) {
+                    // From the side, join the lane just before the flight.
+                    // A path ending at the first step can overshoot the entry
+                    // and ask the actor to walk back into oncoming traffic.
+                    if(!StairApproaching) {
+                        Vector3 join=entry-axis*.65f;
+                        if(onLanding&&along>=-.32f&&along<=.65f&&lateral<.72f)
+                            join=entry+axis*Mathf.Max(0,along);
+                        MoveStairLanding(join);
+                    }
+                    return;
+                }
+                // Once inside, keep the flight destination through crowd contact.
+                stairCommitted=true;hasCommand=false;StairApproaching=false;
+                StairForward=forward;
             }
-            Move(exit,false);
-            if(!Reached(exit)) return;
-            stairCommitted=false;Complete(Blackboard.CurrentStage);
-            if(!ascending) {actor.WaitJourney();actor.SetWaitingPoint();}
+            // The authored entrance/exit markers sit .8 m out on the landing.
+            // Start the next leg once the capsule clears the actual end of the
+            // flight. The current straight aim remains beyond that plane.
+            Vector3 clearLanding=exit+axis*(actor.WalkingRadius+.14f-.8f);
+            Move(clearLanding+axis*.38f,false);
+            if(!ascending&&!stairNextPrepared&&Mathf.Abs(feet.y-clearLanding.y)<.65f&&
+                Vector3.Dot(clearLanding-feet,axis)<2.2f) {
+                stairNext=actor.world.Traffic.PlatformWaitingPoint(actor);
+                stairNextAvailable=(stairNext-actor.transform.position).sqrMagnitude>.04f;
+                if(stairNextAvailable)actor.PrepareJourneyContinuation(frame.TransformPoint(clearLanding),stairNext);
+                stairNextPrepared=true;
+            }
+            if(Vector3.Dot(feet-clearLanding,axis)<0||Mathf.Abs(feet.y-exit.y)>.18f)return;
+            stairCommitted=false;StairForward=StairOutward=Vector3.zero;Complete(Blackboard.CurrentStage);
+            if(ascending)Gate(true);
+            else if(stairNextPrepared&&stairNextAvailable)actor.ContinueToPlatformWait(stairNext,forward);
+            else actor.SetWaitingPoint();
+            stairNextPrepared=false;
         }
         public void BeginBoard()
         {
@@ -288,7 +373,8 @@ namespace SubwayCarry.Gameplay3D
             Complete(PassengerAiV2FullJourneyStage.WaitForOriginTrain);
         }
         public void CancelBoard() {if(!TransferWaiting) Blackboard.SetStage(PassengerAiV2FullJourneyStage.BoardOriginTrain);}
-        public bool CanBoard => HasModeledDestination&&(Waiting||Blackboard.CurrentStage==PassengerAiV2FullJourneyStage.BoardOriginTrain);
+        public bool CanBoard => (HasModeledDestination||OriginStop==0&&TravelDirection<0)
+            &&(Waiting||Blackboard.CurrentStage==PassengerAiV2FullJourneyStage.BoardOriginTrain);
         public void OnBoard()
         {
             if(TransferWaiting) {TransferWaiting=false;return;}
@@ -299,7 +385,13 @@ namespace SubwayCarry.Gameplay3D
             if(Blackboard.CurrentStage!=PassengerAiV2FullJourneyStage.ChooseTrainActivity) return;
             Blackboard.MarkTrainActivityUsed();Complete(PassengerAiV2FullJourneyStage.ChooseTrainActivity);
         }
-        public void PreparingToAlight() {Blackboard.MarkPreparedToAlight();}
+        public void PreparingToAlight()
+        {
+            // A rider already at the next stop can prepare before selecting a cabin activity.
+            if(Blackboard.CurrentStage==PassengerAiV2FullJourneyStage.ChooseTrainActivity)
+                Complete(PassengerAiV2FullJourneyStage.ChooseTrainActivity);
+            Blackboard.MarkPreparedToAlight();
+        }
         public void OnAlight(int stop)
         {
             if(!AtDestination(stop)) {TransferWaiting=true;actor.SetWaitingPoint();return;}

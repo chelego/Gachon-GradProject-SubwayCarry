@@ -152,9 +152,9 @@ namespace SubwayCarry.Gameplay3D
                 float distance=(head-cam.transform.position).sqrMagnitude;
                 if(distance>32*32)continue;
                 Vector3 p=cam.WorldToViewportPoint(head);
-                if(p.z<.1f||p.x<0||p.x>1||p.y<0||p.y>1||!Visible(actor,head))continue;
+                if(p.z<.1f||p.x<0||p.x>1||p.y<0||p.y>1)continue;
                 int at=0;while(at<labels.Count&&labels[at].distance<distance)at++;
-                if(at>=32)continue;
+                if(at>=32||!Visible(actor,head))continue;
                 var j=actor.Journey;
                 Vector3 desired=actor.Velocity.sqrMagnitude>.01f?actor.Velocity:actor.MovementIntent;desired.y=0;
                 float angle=Mathf.Atan2(Vector3.Dot(desired,cam.transform.right),Vector3.Dot(desired,Vector3.ProjectOnPlane(cam.transform.forward,Vector3.up)))*Mathf.Rad2Deg;
@@ -183,19 +183,23 @@ namespace SubwayCarry.Gameplay3D
             detail.Append("물리 서비스 노선 ").Append(j.OriginStop<route.Length?route[j.OriginStop].line:"").Append(" / 방향 ").Append(j.TravelDirection>0?"정방향":"역방향").Append(" / 승강장 측 ").Append(j.TrainSide).Append('\n');
             var train=actor.Riding;detail.Append("열차 ").Append(train!=null?train.name:"미탑승 · 선택 확정 없음").Append(" / 현재 ").Append(actor.inTrain?"객차":world.StopLabel(actor.stationIndex)).Append('\n');
             detail.Append("여정 ").Append(j.Blackboard.CurrentStage).Append(" / 행동 ").Append(actor.ActivityLabel).Append(" / ").Append(j.GateAction).Append('\n');
-            detail.Append("보행 ").Append(actor.WalkPhase).Append(" / 희망 ").Append(actor.DesiredVelocity.magnitude.ToString("F2")).Append(" / 회피 ").Append(actor.AvoidanceVelocity.magnitude.ToString("F2")).Append(" / 실제 ").Append(actor.Velocity.magnitude.ToString("F2")).Append(" m/s\n");
+            detail.Append("보행 ").Append(actor.WalkPhase).Append(" · ").Append(actor.ActiveSteeringPolicy).Append(" / 희망 ").Append(actor.DesiredVelocity.magnitude.ToString("F2")).Append(" / 회피 ").Append(actor.AvoidanceVelocity.magnitude.ToString("F2")).Append(" / 실제 ").Append(actor.Velocity.magnitude.ToString("F2")).Append(" m/s\n");
             detail.Append("속도 벡터 희망 ").Append(actor.DesiredVelocity.ToString("F2")).Append(" / 회피 ").Append(actor.AvoidanceVelocity.ToString("F2")).Append(" / 실제 ").Append(actor.Velocity.ToString("F2")).Append('\n');
-            detail.Append("몸 ").Append(actor.transform.eulerAngles.y.ToString("F1")).Append("° / 회전 ").Append(actor.RotationDegreesPerSecond.ToString("F1")).Append("°/s / 누적 ").Append(actor.RotationTravel.ToString("F0")).Append("° / 시선: 독립 제어 없음\n");
+            detail.Append("몸 ").Append(actor.transform.eulerAngles.y.ToString("F1")).Append("° / 회전 ").Append(actor.RotationDegreesPerSecond.ToString("F1")).Append("°/s / 누적 ").Append(actor.RotationTravel.ToString("F0")).Append("°\n");
             detail.Append("정지 이유 ").Append(world.session.SimulationPaused?Metro3DStopReason.SimulationPaused:actor.StopReason).Append(" / 막힘 ").Append(actor.BlockedSeconds.ToString("F1")).Append("s\n");
             detail.Append("경로 ").Append(actor.PathPointIndex).Append('/').Append(actor.PathPointCount).Append(" / 다음점 ").Append(actor.PathWaypoint.ToString("F2")).Append(" / 선행점 ").Append(actor.TravelLookahead.ToString("F2")).Append('\n');
             detail.Append("시설 ").Append(j.ReservedGate!=null?j.ReservedGate.name:actor.Seat!=null?actor.Seat.name:"없음").Append(" / 줄 ").Append(j.GateQueueSlot).Append(" / 준비 경로 ").Append(actor.ContinuationReady).Append('\n');
             detail.Append("최근 복구 ").Append(j.Blackboard.LastRecoveryReason).Append(" / 누적 ").Append(j.Blackboard.RecoveryCount);
+            detail.Append("\n성향 ").Append(j.Personality.DisplayName);
+            if(actor.SeatedPastimeLabel.Length>0)
+                detail.Append(" / ").Append(actor.SeatedPastimeLabel).Append(" · ").Append(actor.SeatedPastimeStage);
+            if(actor.PhoneActivity.Length>0)detail.Append(" / ").Append(actor.PhoneActivity);
             actor.MotionTrial?.AppendDetails(detail);
             selectedDetails=detail.ToString();
         }
         void OnGUI()
         {
-            if(world==null||world.player==null||(!Active&&!SimulationFrozen))return;
+            if(world==null||world.player==null||(!Active&&!SimulationFrozen)||Event.current.type!=EventType.Repaint)return;
             if(labelStyle==null){labelStyle=new GUIStyle(GUI.skin.label){font=world.settings.font,fontSize=13,alignment=TextAnchor.MiddleCenter};hintStyle=new GUIStyle(labelStyle){alignment=TextAnchor.UpperLeft,fontSize=14};}
             Matrix4x4 matrix=GUI.matrix;Color color=GUI.color;GUI.matrix=Matrix4x4.identity;
             float hintY=Active?16:Screen.height-75;

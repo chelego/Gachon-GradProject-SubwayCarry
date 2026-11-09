@@ -63,7 +63,7 @@ namespace SubwayCarry.Gameplay3D
         public int PathPointCount => pathCount;
         public float BlockedSeconds => blockedFor;
         public float ComfortableTurnRate => Mathf.Lerp(105,145,Journey!=null?Mathf.Clamp01(Journey.Personality.Mobility):.5f);
-        public float GateClearanceDistance(float halfLength) => halfLength+.24f+Mathf.Clamp(world.settings.npcSpeed*Journey.SpeedScale/(ComfortableTurnRate*Mathf.Deg2Rad),.35f,.7f)+.12f;
+        public float GateClearanceDistance(float halfLength) => halfLength+WalkingRadius+.14f;
         bool pivoting;
         float curvedTurnRate;
         public int InitialDirection {get;set;}
@@ -76,6 +76,8 @@ namespace SubwayCarry.Gameplay3D
         public Metro3DTrain Riding => riding;
         public bool DoorCrossing => (state==Activity.Board||state==Activity.Alight)&&(waypoint==1||waypoint==2);
         public float SteeringDistance {get;private set;}
+        internal bool LearnedSteeringActive {get;set;}
+        internal string ActiveSteeringPolicy => LearnedSteeringActive&&crowd!=null?crowd.SteeringPolicy:"규칙";
         public bool PortalCommitted => DoorCrossing||(Journey!=null&&Journey.CrossingGate);
         public Metro3DPassenger QueueLeader {get;private set;}
         public Vector3 QueueForward {get;private set;}
@@ -113,6 +115,57 @@ namespace SubwayCarry.Gameplay3D
         public bool WaitingForQueue => ExpectedQueueWait;
         float queueUntil,nextQueuePath,yieldUntil,backoffUntil;
         bool queuePermissionWait;
+        internal const float StandingRadius=.24f, NarrowRadius=.19f;
+        internal Metro3DPassenger YieldingFor {get;private set;}
+        internal Vector3 YieldSpot {get;private set;}
+        internal Vector3 YieldOrigin {get;private set;}
+        internal Vector3 YieldFlow {get;private set;}
+        internal float YieldLimit {get;private set;}
+        internal bool FlowYieldActive=>YieldLimit>0;
+        internal bool RejoiningFlow {get;private set;}
+        internal bool FollowingNarrowFlow {get;set;}
+        float flowApproachUntil;
+        internal bool ContinueNarrowFlow(Vector3 origin,Vector3 direction)
+        {
+            float progress=Vector3.Dot(origin-YieldOrigin,YieldFlow);
+            return Time.time<flowApproachUntil&&progress>-.4f&&progress<2.85f&&Vector3.Dot(direction,YieldFlow)>.72f;
+        }
+        internal void FinishFlowRejoin()
+        {
+            ClearFlowYield();
+            flowApproachUntil=Time.time+8f;
+        }
+        internal void RejoinFlow() {RejoiningFlow=true;YieldLimit=Time.time+4;FaceTravel();}
+        System.Guid yieldedRider;
+        internal bool HasYieldingRider => YieldingFor!=null&&YieldingFor.isActiveAndEnabled&&YieldingFor.PersistentId==yieldedRider;
+        internal bool CanYieldToFlow => state==Activity.Walk&&!inTrain&&!WalkReviewCandidate&&!PortalCommitted&&!QueueActive&&
+            Journey.ReservedGate==null&&Journey.StairForward.sqrMagnitude<.5f;
+        internal void YieldToFlow(Metro3DPassenger other,Vector3 point,Vector3 returnPoint,Vector3 forward)
+        {
+            YieldingFor=other;yieldedRider=other.PersistentId;YieldSpot=point;
+            YieldOrigin=returnPoint;YieldFlow=forward;YieldLimit=Time.time+12f;flowApproachUntil=0;
+        }
+        internal void ClearFlowYield()
+        {
+            if(!FlowYieldActive)return;
+            YieldingFor=null;YieldLimit=0;RejoiningFlow=false;FaceTravel();
+        }
+        internal float WalkingRadius {get;private set;}=StandingRadius;
+        void SetWalkingRadius(float radius)
+        {
+            motor.radius=radius;
+            WalkingRadius=radius;
+        }
+        internal float NarrowPoseWeight {get;private set;}
+        internal int NarrowPoseSide {get;private set;}
+        internal bool NarrowWalking => narrowUntil>Time.time||WalkingRadius<StandingRadius-.01f;
+        float narrowUntil,stairPassUntil,stairPassOffset;
+        internal void RememberStairPass()=>stairPassUntil=Time.time+.62f;
+        internal float UpdateStairPassOffset()
+        {
+            stairPassOffset=Mathf.MoveTowards(stairPassOffset,Time.time<stairPassUntil?.15f:0,.045f);
+            return stairPassOffset;
+        }
         int recoveryStage;
         Vector3 recoveryVelocity,backoffFrom;
         public void SetQueueContext(Metro3DPassenger leader,Vector3 direction,float gap,bool permissionWait)
@@ -122,13 +175,21 @@ namespace SubwayCarry.Gameplay3D
         }
         public void ClearQueueContext() {queueUntil=0;QueueLeader=null;queuePermissionWait=false;FaceTravel();}
         public void CommitPassingSide(int side) {PassingSide=side;PassingUntil=Time.time+.85f;}
-        public void FollowQueueGoal(Vector3 point)
+        public void FollowQueueGoal(Vector3 point,bool preferDirect=false)
         {
             // Queue following is locomotion inside a facility action, not a
             // transition out of Board/Alight. Losing that action resets its
             // alignment waypoint on the next decision tick.
             if(state!=Activity.Board&&state!=Activity.Alight) state=Activity.Walk;
-            if(crowd.CanApproachDirect(this,point)) SetTarget(point,false);
+            bool direct=preferDirect?crowd.CanFollowWalkingSegment(this,point):crowd.CanApproachDirect(this,point);
+            if(direct) {
+                if(preferDirect&&(pendingPath||pathIndex<pathCount)) {
+                    // A queued path can keep an obsolete near point even though its destination
+                    // is now reachable directly. Switch the active path, not just its target.
+                    pendingPath=false;pathCount=pathIndex=0;nextSteering=0;
+                }
+                SetTarget(point,false);
+            }
             else if(Time.time>=nextQueuePath||(!pendingPath&&pathIndex>=pathCount)) {
                 nextQueuePath=Time.time+.65f;SetTarget(point,true);
             }
@@ -168,6 +229,47 @@ namespace SubwayCarry.Gameplay3D
         }
         public bool IsAlighting => state==Activity.Alight;
         public int AlightingDoor => state==Activity.Alight?door:-1;
+        Metro3DSeatedPastime seatedPastime;
+        Metro3DPassengerContacts contacts;
+        public string PhoneActivity => contacts?.PhoneLabel ?? "";
+        enum TransitNotice { None, Board, PrepareAlight, Alight }
+        TransitNotice noticedTransit;
+        Metro3DTrain noticedTrain;
+        float transitResponseAt, transitLookUntil;
+        internal bool PhoneTransitLook => DoorCrossing||Time.time<transitLookUntil;
+        internal bool SettledStanding => motor!=null&&motor.enabled&&motor.isGrounded&&seat==null&&!DoorCrossing&&
+            !NarrowWalking&&!Journey.OnStairs&&Velocity.sqrMagnitude<.055f*.055f&&
+            (state==Activity.Wait||ExpectedQueueWait);
+
+        bool NoticeTransit(TransitNotice cue,Metro3DTrain train)
+        {
+            if(cue!=noticedTransit||train!=noticedTrain) {
+                noticedTransit=cue;noticedTrain=train;
+                float response=contacts?.HasPhoneInUse==true?QueueReactionDelay:0;
+                transitResponseAt=Time.time+response;
+                transitLookUntil=cue==TransitNotice.None?0:transitResponseAt+.95f;
+            }
+            return Time.time>=transitResponseAt;
+        }
+
+        internal bool PhoneSituation(bool continuing,out bool walking)
+        {
+            bool doorActivity=state==Activity.Board||state==Activity.Alight;
+            walking=state==Activity.Walk||doorActivity;
+            if(seat!=null||MotionTrial!=null||world.walkingReviewOnly||world.Transit==null||
+                WalkReviewCandidate||WalkReviewControlled||helperTaskActive||NarrowWalking||NarrowPoseWeight>.001f||
+                Journey.OnStairs||Journey.StairApproaching||!continuing&&(FlowYieldActive||RecoveryActive))return false;
+            if(doorActivity)return continuing;
+            if(QueueActive||PortalCommitted)return false;
+            if(!walking)return state==Activity.Wait&&(inTrain||Journey.Waiting);
+            var gate=Journey.ReservedGate;
+            return Journey.GateAction==Metro3DPassengerJourney.GatePhase.None||
+                Journey.GateAction==Metro3DPassengerJourney.GatePhase.Approach&&
+                (gate==null||FlatDistance(transform.position,gate.transform.position)>2.2f);
+        }
+        public string SeatedPastimeLabel => seatedPastime?.Label ?? "";
+        public string SeatedPastimeStage => seatedPastime?.Stage ?? "";
+        internal void ApplySeatedPastimePose() => seatedPastime?.ApplyPose();
         public bool IsSeated => state==Activity.Sit||state==Activity.SitDown;
         public bool IsResting => state==Activity.Wait;
         public Metro3DFacility Seat => seat;
@@ -179,9 +281,12 @@ namespace SubwayCarry.Gameplay3D
         public float SittingWeight => state==Activity.Sit?1:state==Activity.SitDown?Mathf.SmoothStep(0,1,transitionTime/.9f):state==Activity.StandUp?1-Mathf.SmoothStep(0,1,transitionTime/.9f):0;
         public bool WantsToAlight => inTrain&&riding!=null&&riding.DoorsOpen&&!riding.Moving
             &&(Journey.AtDestination(riding.CurrentStop)||(riding==world.train&&world.session.TransferAtCurrentStop));
+        const float AlightingLeadSeconds = 12;
         enum Activity { Walk,Wait,SitDown,Sit,StandUp,Board,Alight }
         Activity state;
         Metro3DFacility seat;
+        float nextPlatformRestCheck,nextIdleGroundProbe;
+        bool checkedMovingSupport;
         Metro3DTrain riding;
         Metro3DTrain boardingTrain;
         Metro3DTrain egressTrain;
@@ -201,7 +306,8 @@ namespace SubwayCarry.Gameplay3D
         public float AnimationSpeed => animator!=null?animator.GetFloat(Speed):0;
         public int AnimationState => animator!=null?animator.GetCurrentAnimatorStateInfo(0).shortNameHash:0;
         public bool AnimationTransition => animator!=null&&animator.IsInTransition(0);
-        int pathCount,pathIndex,waypoint,door;
+        int pathCount,pathIndex,waypoint,door,alightingDoorsTried;
+        float blockedAlightingDoorSince;
         bool pendingPath,triedSeat;
         Vector3 target,targetLocal,transitionFrom,transitionTo,velocity,steering;
         float nextDecision,nextSteering,verticalSpeed,transitionTime,blockedFor,retryAt;
@@ -219,23 +325,28 @@ namespace SubwayCarry.Gameplay3D
         {
             WalkReviewCandidate=WalkReviewControlled=WalkReviewFrozen=WalkReviewAnimationCandidate=false;nextReviewLook=reviewAnimationSpeed=0;
             if(MotionTrial!=null)MotionTrial.Release();
+            seatedPastime?.Clear();seatedPastime=null;
             if(crowd!=null)crowd.Unregister(this);
+            noticedTransit=TransitNotice.None;noticedTrain=null;transitResponseAt=transitLookUntil=0;
             PersistentId=System.Guid.NewGuid();pivoting=false;curvedTurnRate=RotationTravel=0;StopReason=Metro3DStopReason.None;WalkPhase=Metro3DWalkPhase.Still;
             DesiredVelocity=PathWaypoint=TravelLookahead=Vector3.zero;RotationDegreesPerSecond=0;WalkingAlignmentScale=1;
             world=owner;index=id;stationIndex=stop;inTrain=inside;helperUntil=clearYieldUntil=0;helperTaskActive=false;
             queueUntil=nextQueuePath=yieldUntil=backoffUntil=0;recoveryStage=PassingSide=0;PassingUntil=0;QueueLeader=null;
+            YieldingFor=null;YieldLimit=flowApproachUntil=0;RejoiningFlow=FollowingNarrowFlow=false;
             animator=GetComponentInChildren<Animator>(true);motor=GetComponent<CharacterController>();crowd=world.GetComponent<Metro3DCrowd>();
             ResumeTransitionAnimation();egressTrain=null;
             riding=inside?GetComponentInParent<Metro3DTrain>():null;boardingTrain=null;seat=null;triedSeat=pendingPath=false;pathCount=pathIndex=waypoint=0;
             velocity=steering=Velocity=Vector3.zero;verticalSpeed=blockedFor=0;state=Activity.Wait;target=transform.position;targetLocal=transform.localPosition;
             FaceTravel();
             CancelJourneyContinuation();
+            nextPlatformRestCheck=Time.time+2+(id%9)*.21f;checkedMovingSupport=false;nextIdleGroundProbe=0;
             nextDecision=Time.time+(id%13)*.025f;nextSteering=Time.time+(id%7)*.013f;motor.enabled=true;
-            motor.radius=.24f;motor.skinWidth=.025f;
+            SetWalkingRadius(StandingRadius);motor.skinWidth=.025f;
+            NarrowPoseWeight=narrowUntil=stairPassUntil=stairPassOffset=0;NarrowPoseSide=0;
             // Acceleration starts below the prefab's old 1mm movement cutoff.
             // Discarding those steps pins measured-velocity feedback at zero.
             motor.minMoveDistance=0;
-            var contacts=GetComponent<Metro3DPassengerContacts>();if(contacts==null) contacts=gameObject.AddComponent<Metro3DPassengerContacts>();contacts.Initialize(this);
+            contacts=GetComponent<Metro3DPassengerContacts>();if(contacts==null) contacts=gameObject.AddComponent<Metro3DPassengerContacts>();contacts.Initialize(this);
             Journey=GetComponent<Metro3DPassengerJourney>();if(Journey==null) Journey=gameObject.AddComponent<Metro3DPassengerJourney>();
             Journey.Initialize(this,stop,inside,existing,far);
             var colors=new[]{Color.white,new Color(.82f,.88f,1),new Color(1,.85f,.7f),new Color(.85f,.85f,.9f),new Color(.75f,.9f,.9f),new Color(.9f,.8f,1)};
@@ -245,7 +356,7 @@ namespace SubwayCarry.Gameplay3D
                     if(renderer.sharedMaterials[slot]!=null&&renderer.sharedMaterials[slot].name=="CommuterCoat") renderer.SetPropertyBlock(tint,slot);
             }
             if(animator!=null) {
-                animator.applyRootMotion=false;animator.cullingMode=AnimatorCullingMode.CullUpdateTransforms;
+                animator.applyRootMotion=false;animator.cullingMode=AnimatorCullingMode.CullCompletely;
                 walkReferenceSpeed=WalkReferenceSpeed*Mathf.Abs(animator.transform.lossyScale.z)/.9731136f;
             }
             if(isActiveAndEnabled)crowd.Register(this);
@@ -259,6 +370,8 @@ namespace SubwayCarry.Gameplay3D
             if(WalkReviewFrozen)return;
             if(world==null||world.session.SimulationPaused) {Velocity=Vector3.zero;Animate(0);return;}
             if(state==Activity.SitDown||state==Activity.StandUp) {UpdateTransition();return;}
+            if(MotionTrial!=null)seatedPastime?.Clear();
+            else seatedPastime?.Tick(Time.deltaTime);
             if(!WalkReviewControlled&&Time.time>=nextDecision) {nextDecision=Time.time+.25f;Decide();}Animate(Velocity.magnitude);
         }
         void FixedUpdate()
@@ -267,6 +380,23 @@ namespace SubwayCarry.Gameplay3D
             Quaternion beforeRotation=transform.rotation;
             if(WalkReviewControlled||WalkReviewCandidate&&Journey.ReviewStairActive)Journey.TickReviewStair();
             bool walking=state==Activity.Walk||state==Activity.Board||state==Activity.Alight;
+            // A settled platform passenger still blocks people and can turn
+            // or decide to leave. Refresh the ground contact periodically,
+            // instead of pushing the same capsule into the floor at 50 Hz.
+            if(state==Activity.Wait&&!inTrain&&!WalkReviewControlled&&Journey.Waiting&&Journey.ReservedGate==null&&
+                !QueueActive&&!NarrowWalking&&!FlowYieldActive&&Velocity.sqrMagnitude<.000001f&&motor.isGrounded) {
+                float now=Time.fixedTime;
+                if(now<nextIdleGroundProbe) {
+                    float dt=Time.fixedDeltaTime;
+                    ApplyBodyFacing(Vector3.zero,dt);
+                    float rotation=Quaternion.Angle(beforeRotation,transform.rotation);
+                    RotationDegreesPerSecond=rotation/dt;RotationTravel+=rotation;
+                    DesiredVelocity=Velocity=velocity=steering=Vector3.zero;LearnedSteeringActive=false;
+                    WalkingAlignmentScale=1;WalkPhase=Metro3DWalkPhase.Still;UpdateStopReason(false);
+                    return;
+                }
+                nextIdleGroundProbe=now+.12f+(index&3)*.02f;
+            }
             if(Journey.OnStairs) {pendingPath=false;pathCount=pathIndex=0;}
             target=transform.parent.TransformPoint(targetLocal);Vector3 goal=target;
             int previousPoint=pathIndex;
@@ -322,9 +452,43 @@ namespace SubwayCarry.Gameplay3D
                 float remaining=Mathf.Max(0,delta.magnitude-(inTrain?.09f:.2f)-speed*.1f);
                 requested=Mathf.Min(requested,Mathf.Sqrt(cornerSpeed*cornerSpeed+2*3.8f*remaining));
             }
-            Vector3 desired=walking&&!pendingPath&&delta.magnitude>.07f?delta.normalized*requested:Vector3.zero;
+            Vector3 flight=Journey.StairForward;
+            bool stairFlow=flight.sqrMagnitude>.5f;
+            Vector3 walkingDirection=delta;
+            if(stairFlow) {
+                // Return to our lane within a few steps, rather than drifting
+                // toward its center over the entire length of the flight.
+                float forward=Vector3.Dot(delta,flight);
+                walkingDirection=delta-flight*forward+flight*Mathf.Clamp(forward,0,1.05f);
+            }
+            Vector3 desired=walking&&!pendingPath&&delta.magnitude>.07f?walkingDirection.normalized*requested:Vector3.zero;
             DesiredVelocity=desired;
-            if(Time.time>=nextSteering) {nextSteering=Time.time+.1f;steering=desired.sqrMagnitude>.001f?crowd.SafeVelocity(this,desired):Vector3.zero;SteeringCost=crowd.LastSteeringCost;StaticRejects=crowd.LastStaticRejects;}
+            bool steerNow=Time.time>=nextSteering;
+            if(steerNow&&state==Activity.Walk&&!inTrain&&!WalkReviewCandidate&&!PortalCommitted&&!QueueActive&&Journey.ReservedGate==null&&
+                (stairFlow||blockedFor>.28f||NarrowWalking)&&desired.sqrMagnitude>.035f&&
+                crowd.TryNarrowPassage(this,desired,out int shoulder)) {
+                if(!NarrowWalking&&NarrowPoseWeight<.05f)NarrowPoseSide=shoulder;
+                narrowUntil=Time.time+.36f;
+            }
+            if(DoorCrossing&&world.Traffic.IsSharedDoorCrossing(boardingTrain,door,doorLane)) {
+                if(!NarrowWalking&&NarrowPoseWeight<.05f)NarrowPoseSide=doorLane*boardingTrain.side;
+                narrowUntil=Time.time+.30f;
+            }
+            if(NarrowWalking&&Time.time>=narrowUntil&&steerNow&&crowd.CanRestoreWalkingRadius(this))
+                SetWalkingRadius(StandingRadius);
+            NarrowPoseWeight=Mathf.MoveTowards(NarrowPoseWeight,NarrowWalking?1:0,Time.fixedDeltaTime*4.2f);
+            if(NarrowPoseWeight>=.75f&&Time.time<narrowUntil&&WalkingRadius>NarrowRadius)
+                SetWalkingRadius(NarrowRadius);
+            if(steerNow) {
+                nextSteering=Time.time+.1f;
+                LearnedSteeringActive=false;
+                Vector3 limited=NarrowWalking?Vector3.ClampMagnitude(desired,.75f):desired;
+                FollowingNarrowFlow=false;
+                if(!CanYieldToFlow||limited.sqrMagnitude<=.001f)ClearFlowYield();
+                steering=limited.sqrMagnitude>.001f?crowd.SafeVelocity(this,limited):Vector3.zero;
+                SteeringCost=crowd.LastSteeringCost;StaticRejects=crowd.LastStaticRejects;
+            }
+            if(stairFlow||NarrowWalking||FlowYieldActive||FollowingNarrowFlow)yieldUntil=backoffUntil=0;
             if(!walking||pendingPath||delta.magnitude<=.07f) steering=Vector3.zero;
             if(Time.time<yieldUntil) steering=Vector3.zero;
             else if(Time.time<backoffUntil) {
@@ -341,7 +505,7 @@ namespace SubwayCarry.Gameplay3D
             UpdateStopReason(walking);
             bool progressing=Velocity.magnitude>=.045f;
             bool arrived=pathIndex>=pathCount&&FlatDistance(transform.position,target)<.23f;
-            if(ExpectedQueueWait||!walking||pendingPath||arrived||progressing) {
+            if(stairFlow||NarrowWalking||FlowYieldActive||FollowingNarrowFlow||ExpectedQueueWait||!walking||pendingPath||arrived||progressing) {
                 blockedFor=0;recoveryStage=0;
             } else blockedFor+=Time.fixedDeltaTime;
             if(!PortalCommitted&&blockedFor>.9f&&recoveryStage==0) {crowd.RequestPassage(this);yieldUntil=Time.time+.25f;recoveryStage=1;}
@@ -399,7 +563,12 @@ namespace SubwayCarry.Gameplay3D
                 curvedTurnRate=Mathf.MoveTowards(curvedTurnRate,turn,dt*540);
                 if(Mathf.Abs(curvedTurnRate*dt)>Mathf.Abs(change))curvedTurnRate=change/dt;
                 Vector3 direction=Quaternion.AngleAxis(curvedTurnRate*dt,Vector3.up)*from;
-                float nextSpeed=Mathf.MoveTowards(actualSpeed,preferred.magnitude,dt*(preferred.magnitude<actualSpeed?3.8f:2.3f));
+                float requestedSpeed=preferred.magnitude;
+                // Tight final approaches need a smaller radius than ordinary
+                // corridor turns. Ease off before the arc overshoots the goal.
+                if(FinalWalkTarget&&SteeringDistance<1&&Mathf.Abs(change)>45)
+                    requestedSpeed*=Mathf.Lerp(1,.22f,Mathf.InverseLerp(45,105,Mathf.Abs(change)));
+                float nextSpeed=Mathf.MoveTowards(actualSpeed,requestedSpeed,dt*(requestedSpeed<actualSpeed?3.8f:2.3f));
                 candidate=direction*nextSpeed;
                 // Motor follows the feasible arc; the body follows that same
                 // motion. The social-navigation vector remains a separate intent.
@@ -491,16 +660,24 @@ namespace SubwayCarry.Gameplay3D
             if(!inTrain&&Journey.Tick()) return;
             var active=boardingTrain!=null?boardingTrain:world.Transit.BoardingTrain(this);
             if(inTrain&&riding!=null) {
-                bool prepare=WantsToAlight||(riding.Moving&&Journey.AtDestination(riding.CurrentStop));
+                bool prepare=WantsToAlight||riding.Moving&&riding.MovementRemaining<=AlightingLeadSeconds
+                    &&Journey.AtDestination(riding.CurrentStop);
                 if(prepare) {
+                    var cue=WantsToAlight?TransitNotice.Alight:TransitNotice.PrepareAlight;
+                    if(!NoticeTransit(cue,riding))return;
                     Journey.PreparingToAlight();
                     world.Traffic.ReleaseStanding(this);
                     if(state==Activity.Sit) {BeginStand();return;}
-                    if(state!=Activity.Alight) {ReleaseSeat();door=riding.NearestDoor(transform.position);waypoint=0;state=Activity.Alight;SetTarget(riding.DoorPoint(door,false),true);}
+                    if(state!=Activity.Alight) {
+                        ReleaseSeat();door=riding.NearestDoor(transform.position);waypoint=0;state=Activity.Alight;
+                        alightingDoorsTried=1<<door;blockedAlightingDoorSince=0;
+                        SetTarget(riding.DoorPoint(door,false),true);
+                    }
                     AdvanceDoor(false);return;
                 }
             }
             if(!inTrain&&Journey.CanBoard&&active!=null&&active.CanBoard&&active.CurrentStop==stationIndex) {
+                if(!NoticeTransit(TransitNotice.Board,active))return;
                 if(state==Activity.Sit) {BeginStand();return;}
                 if(state!=Activity.Board) {ReleaseSeat();world.Traffic.ReleaseStanding(this);boardingTrain=active;door=active.NearestDoor(transform.position);waypoint=0;state=Activity.Board;Journey.BeginBoard();}
                 AdvanceDoor(true);return;
@@ -509,8 +686,21 @@ namespace SubwayCarry.Gameplay3D
                 world.Traffic.ReleaseDoor(this);boardingTrain=null;Journey.CancelBoard();SetWaitingPoint();return;
             }
             if(state==Activity.Board) {AdvanceDoor(true);return;}
-            if(state==Activity.Sit||state==Activity.SitDown||state==Activity.StandUp) return;
-            if(state==Activity.Walk&&FlatDistance(transform.position,target)<.23f) {if(seat!=null) {BeginSit();return;}WaitJourney();}
+            if(state!=Activity.Alight&&Time.time>=transitLookUntil)NoticeTransit(TransitNotice.None,null);
+            if(!inTrain&&Journey.CanBoard&&UpdatePlatformRest())return;
+            if(state==Activity.Sit) {ChooseSeatedPastime();return;}
+            if(state==Activity.SitDown||state==Activity.StandUp) return;
+            if(state==Activity.Walk&&FlatDistance(transform.position,target)<(world.Traffic.SupportFor(this)!=null?.105f:.23f)) {
+                if(seat!=null) {BeginSit();return;}
+                WaitJourney();
+            }
+            if(state==Activity.Wait&&inTrain&&riding!=null&&riding.MovementRemaining>16&&!checkedMovingSupport) {
+                checkedMovingSupport=true;
+                if(Journey.Personality.PersonalSpace>.23f&&index%3!=0&&world.Traffic.SupportFor(this)?.lean!=true&&
+                    world.Traffic.TryLeanPoint(this,riding,out var lean)) {
+                    WalkJourney(lean,false);return;
+                }
+            }
             if(state==Activity.Wait)SetWaitingFacing();
             if(state==Activity.Wait&&!triedSeat) {
                 triedSeat=true;
@@ -518,50 +708,101 @@ namespace SubwayCarry.Gameplay3D
                 Journey.ActivityChosen();
             }
         }
-        void SetWaitingFacing()
+        void ChooseSeatedPastime()
         {
-            if(!inTrain) {
-                if(Journey.Waiting)FaceJourney(world.stations[stationIndex].TransformDirection(Vector3.right*Journey.TrainSide));
+            if(world.walkingReviewOnly||MotionTrial!=null||seat==null||world.settings.seatedActions==null||
+                world.settings.seatedActions.Length==0)return;
+            if(seatedPastime?.Active==true) {
+                if(seatedPastime.NeedsLegRoom&&!crowd.SpaceFree(seat.anchor.position,this,.57f))seatedPastime.Release();
                 return;
             }
-            var support=world.Traffic.SupportFor(this);
-            if(support!=null)FaceJourney(support.lean?riding.transform.TransformDirection(support.normal):riding.transform.forward*(index%2==0?1:-1),60);
+            float available;
+            if(inTrain) {
+                if(riding==null||!riding.Moving||riding.CurrentStop==stationIndex)return;
+                float lead=Journey.AtDestination(riding.CurrentStop)?AlightingLeadSeconds:0;
+                available=riding.MovementRemaining-lead;
+            } else {
+                if(!Journey.CanBoard||world.Transit==null)return;
+                available=world.Transit.TimeToBoarding(this)-6;
+            }
+            if(available<6)return;
+            seatedPastime??=new Metro3DSeatedPastime(this,world.SeatedActions);
+            seatedPastime.Choose(Mathf.Min(available,40),crowd);
         }
+
+        bool UpdatePlatformRest()
+        {
+            if(Time.time<nextPlatformRestCheck||state!=Activity.Wait&&state!=Activity.Walk&&seat==null)return false;
+            nextPlatformRestCheck=Time.time+(seat!=null?1.25f:4+(index%5)*.2f);
+            float wait=world.Transit.TimeToBoarding(this);
+            if(seat!=null&&wait<6) {
+                if(state==Activity.Sit)BeginStand();
+                else if(state==Activity.Walk) {ReleaseSeat();SetWaitingPoint();}
+                return true;
+            }
+            if(seat!=null||wait<12||world.Traffic.SupportFor(this)!=null||Journey.OnStairs)return false;
+            Vector3 local=transform.localPosition;
+            if(Mathf.Abs(local.y)>.18f||local.x*Journey.TrainSide>=-Metro3DWorld.ScreenDoorX)return false;
+            float density=crowd.LocalDensity(transform.position,transform.parent);
+            float preference=Journey.SeatPreference+(1-Mathf.Clamp01(Journey.Personality.Mobility))*.14f-density*.10f;
+            float timePreference=Mathf.InverseLerp(16,40,wait);
+            if(preference>Mathf.Lerp(.54f,.38f,timePreference)&&TrySeat(Mathf.Lerp(5,10,timePreference)))return true;
+            float leanInterest=Mathf.Repeat(index*.618034f,1);
+            if(leanInterest>Mathf.Lerp(.25f,.57f,Journey.Personality.Patience)||
+                !world.Traffic.TryPlatformLeanPoint(this,out var point))return false;
+            WalkJourney(point,!crowd.CanFollowWalkingSegment(this,point));return true;
+        }
+
+        void SetWaitingFacing()
+        {
+            var support=world.Traffic.SupportFor(this);
+            if(support!=null&&support.frame==transform.parent) {
+                Vector3 facing=support.lean?support.frame.TransformDirection(support.LeanFacing):
+                    support.frame.forward*(index%2==0?1:-1);
+                FaceJourney(facing,100);
+            } else if(!inTrain&&Journey.Waiting)
+                FaceJourney(world.stations[stationIndex].TransformDirection(Vector3.right*Journey.TrainSide));
+        }
+        int doorLane;
         void AdvanceDoor(bool boarding)
         {
             Metro3DTrain t=boarding?boardingTrain:riding;if(t==null) return;
-            if(!boarding)crowd.ClearLanding(t,door,this);
+            if(!boarding&&waypoint!=0)crowd.ClearLanding(t,door,this);
             if(waypoint==0) {
                 Vector3 approach=world.Traffic.DoorApproach(this,t,door,boarding);
-                if((target-approach).sqrMagnitude>.0025f) FollowQueueGoal(approach);
-                else FaceQueue();
-                // A branch head watches its actual opening; followers watch the queue flow.
-                if(QueueLeader==null&&FlatDistance(transform.position,approach)<.28f)
-                    FaceJourney(t.DoorPoint(door,!boarding)-transform.position);
-                bool alreadyAtDoor=!boarding&&FlatDistance(transform.position,t.DoorPoint(door,false))<.25f;
-                if(!t.DoorsOpen||(!alreadyAtDoor&&FlatDistance(transform.position,approach)>.28f)||!world.Traffic.TryDoor(this,t,door,boarding)) return;
-                // Queue beside the door, align in front of its opening, then
-                // cross straight through. A diagonal from the side queue hits
-                // the fixed glazing even when the opening itself is clear.
-                waypoint=1;ClearQueueContext();SetTarget(t.DoorPoint(door,boarding),false);
+                Vector3 entry=t.DoorPoint(door,boarding);
+                float distance=FlatDistance(transform.position,entry);
+                float queueDistance=FlatDistance(transform.position,approach);
+                bool direct=boarding?!QueueActive&&distance<.86f:distance<1.15f;
+                if(!boarding)crowd.ClearLanding(t,door,this);
+                if(t.DoorsOpen&&(direct||queueDistance<.28f)&&world.Traffic.TryDoor(this,t,door,boarding,out doorLane)) {
+                    waypoint=1;ClearQueueContext();SetTarget(t.DoorPoint(door,boarding,doorLane),false);
+                } else {
+                    if((target-approach).sqrMagnitude>.0025f)FollowQueueGoal(approach);
+                    else FaceQueue();
+                    if(QueueLeader==null&&queueDistance<.28f)FaceJourney(entry-transform.position);
+                    if(!boarding&&t.DoorsOpen&&(direct||queueDistance<.28f))RetryBlockedAlightingDoor(t);
+                    else blockedAlightingDoorSince=0;
+                    return;
+                }
             }
             if(waypoint==1) {
-                if(FlatDistance(transform.position,t.DoorPoint(door,boarding))<.35f)FaceJourney(t.DoorPoint(door,!boarding)-t.DoorPoint(door,boarding));
-                if(FlatDistance(transform.position,t.DoorPoint(door,boarding))>.15f) return;
-                waypoint=2;SetTarget(t.DoorPoint(door,!boarding),false);
+                // Finish the diagonal approach before facing across the threshold.
+                if(FlatDistance(transform.position,t.DoorPoint(door,boarding,doorLane))>.15f) return;
+                waypoint=2;SetTarget(t.DoorPoint(door,!boarding,doorLane),false);
             }
             if(waypoint!=2) return;
-            FaceJourney(t.DoorPoint(door,!boarding)-t.DoorPoint(door,boarding));
+            FaceJourney(t.DoorPoint(door,!boarding,doorLane)-t.DoorPoint(door,boarding,doorLane));
             Vector3 local=t.transform.InverseTransformPoint(transform.position);
             // Completion is the feet crossing the physical boundary, not hitting one occupied point exactly.
-            bool crossed=boarding?t.Contains(transform.position)&&Mathf.Abs(local.x)<1.1f
+            bool crossed=boarding?t.Contains(transform.position)&&Mathf.Abs(local.x)<(doorLane==0?1.1f:.85f)
                 :(-t.side*world.stations[t.CurrentStop].InverseTransformPoint(transform.position).x)>Metro3DWorld.ScreenDoorX+.24f;
             if(!crossed) return;
             world.Traffic.ReleaseDoor(this);var old=transform.parent;
             inTrain=boarding;stationIndex=t.CurrentStop;transform.SetParent(boarding?t.transform:world.stations[stationIndex],true);
             egressTrain=boarding?null:t;egressDoor=door;
             if(!boarding)egressPoint=transform.parent.InverseTransformPoint(t.DoorPoint(door,true));
-            world.Traffic.ChangedParent(old,transform.parent);riding=boarding?t:null;boardingTrain=null;triedSeat=false;WaitJourney();
+            world.Traffic.ChangedParent(old,transform.parent);riding=boarding?t:null;boardingTrain=null;triedSeat=checkedMovingSupport=false;WaitJourney();
             if(boarding) {
                 Journey.OnBoard();triedSeat=true;
                 if(!(Journey.SeatPreference>.48f&&TrySeat())) {state=Activity.Walk;SetTarget(world.Traffic.TrainStandingPoint(this,riding),true);}
@@ -570,6 +811,16 @@ namespace SubwayCarry.Gameplay3D
             else Journey.OnAlight(stationIndex);
         }
         public void WalkJourney(Vector3 p,bool navigate) {state=Activity.Walk;SetTarget(p,navigate);}
+        internal bool TryWalkStairApproach(Vector3 point)
+        {
+            // The landing is already identified by the stair action. Check a
+            // short segment on it, then leave each step to the normal Motor.
+            Vector3 ahead=Vector3.MoveTowards(transform.position,point,1.15f);
+            if(!crowd.CanFollowWalkingSegment(this,ahead))return false;
+            WalkJourney(point,false);
+            pendingPath=false;pathCount=pathIndex=0;nextSteering=0;
+            return true;
+        }
         // A short, cancellable local task. Destination, gate and train decisions stay with Journey.
         public bool TryHelperTarget(Vector3 point)
         {
@@ -594,14 +845,48 @@ namespace SubwayCarry.Gameplay3D
             continuationFrom=from;continuationGoal=goal;continuationPending=true;crowd.Request(this);
         }
         public void CancelJourneyContinuation() {continuationPending=continuationReady=false;continuationCount=0;}
-        public bool ContinueJourney(Vector3 goal)
+        public bool ContinueJourney(Vector3 goal,Vector3 gateForward=default)
         {
             bool ready=continuationReady&&continuationCount>0&&(goal-continuationGoal).sqrMagnitude<.01f;
             FaceTravel();
-            state=Activity.Walk;target=goal;targetLocal=transform.parent.InverseTransformPoint(goal);pathIndex=0;pendingPath=false;nextSteering=0;
+            state=Activity.Walk;target=goal;targetLocal=transform.parent.InverseTransformPoint(goal);
+            pathIndex=pathCount=0;pendingPath=false;nextSteering=0;
+            if(gateForward!=Vector3.zero&&crowd.CanShortenWalkingPath(this,goal)) {
+                CancelJourneyContinuation();
+                return true;
+            }
+            if(ready&&gateForward!=Vector3.zero) {
+                // The precomputed path starts from an estimated position. Join a
+                // reachable point in front of the actual feet after the crossing.
+                ready=false;
+                for(int i=Mathf.Min(continuationCount-1,3);i>=0;i--) {
+                    Vector3 point=transform.parent.TransformPoint(continuationPath[i]);
+                    Vector3 offset=point-transform.position;offset.y=0;
+                    if(Vector3.Dot(offset,gateForward)<-.04f||offset.sqrMagnitude<.18f*.18f||
+                        !crowd.CanShortenWalkingPath(this,point))continue;
+                    pathIndex=i;ready=true;break;
+                }
+            }
             if(ready) {pathCount=continuationCount;System.Array.Copy(continuationPath,path,pathCount);}
-            else {pathCount=0;RequestPath();}
+            else RequestPath();
             CancelJourneyContinuation();return ready;
+        }
+        void RetryBlockedAlightingDoor(Metro3DTrain train)
+        {
+            if(!world.Traffic.IsAlightingHead(train,door,this)) {blockedAlightingDoorSince=0;return;}
+            if(blockedAlightingDoorSince==0)blockedAlightingDoorSince=Time.time;
+            if(Time.time-blockedAlightingDoorSince<6)return;
+            blockedAlightingDoorSince=Time.time-4;
+            if(!world.Traffic.TryAlternateAlightingDoor(this,train,door,alightingDoorsTried,out int alternate))return;
+            world.Traffic.ReleaseDoor(this);
+            door=alternate;alightingDoorsTried|=1<<door;blockedAlightingDoorSince=0;
+            FollowQueueGoal(world.Traffic.DoorApproach(this,train,door,false));
+            Journey.Planner.ReportRecoverableFailure("Alighting lane occupied; using another door in the carriage");
+        }
+        internal void ContinueToPlatformWait(Vector3 point,Vector3 landingForward)
+        {
+            triedSeat=true;
+            ContinueJourney(point,landingForward);
         }
         public void SetWaitingPoint()
         {
@@ -609,7 +894,7 @@ namespace SubwayCarry.Gameplay3D
             Vector3 point=world.Traffic.PlatformWaitingPoint(this);
             SetTarget(point,true);
         }
-        bool TrySeat()
+        bool TrySeat(float maxDistance=6)
         {
             // A personal-space-oriented, less fatigued rider may prefer a real
             // nearby wall rather than consume a seat. Destination stays fixed.
@@ -619,8 +904,16 @@ namespace SubwayCarry.Gameplay3D
             Metro3DFacility best=null;float score=float.NegativeInfinity;
             foreach(var f in world.facilities) {
                 if(f==null||f.kind!=Metro3DFacilityKind.Seat||!f.Available||f.trainFacility!=inTrain||f.approach==null||!f.transform.IsChildOf(transform.parent)) continue;
-                float d=FlatDistance(transform.position,f.approach.position);if(d>6) continue;
-                float s=6-d;if(s>score) {best=f;score=s;}
+                if(!inTrain) {
+                    var local=transform.parent.InverseTransformPoint(f.approach.position);
+                    if(local.x*Journey.TrainSide>=0||Mathf.Abs(f.approach.position.y-transform.position.y)>.4f)continue;
+                }
+                float d=FlatDistance(transform.position,f.approach.position);
+                if(d>maxDistance||!inTrain&&!crowd.SpaceFree(f.approach.position,this,.47f))continue;
+                float s=maxDistance-d;
+                if(s<=score||f.anchor==null)continue;
+                s-=world.Traffic.OccupiedSeatNeighbors(f)*4.5f+crowd.LocalDensity(f.approach.position,transform.parent)*2.2f;
+                if(s>score) {best=f;score=s;}
             }
             if(best==null||!best.Claim(this)) return false;
             world.Traffic.ReleaseStanding(this);
@@ -658,19 +951,25 @@ namespace SubwayCarry.Gameplay3D
                     ReleaseSeat();WaitJourney();triedSeat=true;
                     if(inTrain) {state=Activity.Walk;SetTarget(world.Traffic.TrainStandingPoint(this,riding),true);}
                 }
+                var support=world.Traffic.SupportFor(this);
+                if(!inTrain&&support!=null&&support.lean) {
+                    Vector3 unavailable=target;
+                    WalkJourney(world.Traffic.PlatformWaitingPoint(this,unavailable),true);
+                }
                 Journey.Planner.ReportRecoverableFailure("No collision-clear local path; destination retained");
             }
         }
         public void ClearDoorLanding()
             => ClearDoorLanding(transform.position);
-        public void ClearDoorLanding(Vector3 point)
+        public void ClearDoorLanding(Vector3 point) => ClearDoorLanding(point,false);
+        internal void ClearDoorLanding(Vector3 point,bool alightingPriority)
         {
-            if(state==Activity.Sit||state==Activity.SitDown||state==Activity.StandUp||state==Activity.Alight||seat!=null) return;
-            if(!inTrain&&!Journey.CanBoard)return;
-            if(Time.time<clearYieldUntil||state==Activity.Walk&&Velocity.magnitude>.08f) return;
-            // A stationary rider blocking an alighter/stand-up landing yields
-            // to a genuinely free spot away from that landing, then resumes the
-            // same journey. Repeated requests do not retarget moving people.
+            if(state==Activity.Sit||state==Activity.SitDown||state==Activity.StandUp||state==Activity.Alight) return;
+            if(!inTrain&&!Journey.CanBoard||PortalCommitted||helperTaskActive)return;
+            if(Time.time<clearYieldUntil||!alightingPriority&&(seat!=null||state==Activity.Walk&&Velocity.magnitude>.08f)) return;
+            // A confirmed obstruction of the alighting lane takes precedence
+            // over an unfinished walk to a seat or standing position.
+            ReleaseSeat();
             clearYieldUntil=Time.time+1.5f;
             if(state==Activity.Board) {
                 if(waypoint==0&&boardingTrain!=null)FollowQueueGoal(world.Traffic.DoorApproach(this,boardingTrain,door,true));
@@ -681,11 +980,13 @@ namespace SubwayCarry.Gameplay3D
         }
         void BeginSit()
         {
+            if(contacts?.PutPhoneAwayForSeat()==true)return;
             state=Activity.SitDown;transitionTime=0;transitionFrom=transform.localPosition;transitionTo=transform.parent.InverseTransformPoint(seat.anchor.position);
             motor.enabled=false;velocity=steering=Velocity=Vector3.zero;animator.CrossFadeInFixedTime("SitDown",.12f);MotionTrial?.CrossFadeLegacy("SitDown",.12f);Animate(0);
         }
         void BeginStand()
         {
+            if(seatedPastime?.Release()==true)return;
             // Do not animate a disabled capsule into an occupied aisle and then
             // enable it inside another passenger. Reserve and clear the landing.
             if(seat==null||!crowd.PrepareStandSpace(this,seat.approach.position)) return;
@@ -711,11 +1012,16 @@ namespace SubwayCarry.Gameplay3D
             else {ReleaseSeat();motor.enabled=true;crowd.ReleaseStandSpace(this);WaitJourney();triedSeat=true;nextDecision=0;animator.CrossFadeInFixedTime("Locomotion",.12f);MotionTrial?.CrossFadeLegacy("Locomotion",.12f);}
         }
         void ResumeTransitionAnimation() {if(transitionPaused&&animator!=null)animator.speed=transitionAnimatorSpeed;transitionPaused=false;}
-        void ReleaseSeat() {if(seat!=null) {seat.Release(this);seat=null;}}
+        void ReleaseSeat() {seatedPastime?.Clear();if(seat!=null) {seat.Release(this);seat=null;}}
+        internal void RestoreBackgroundJourney(Metro3DStationTraffic.RiderSnapshot rider)
+        {
+            PersistentId=rider.id;
+            Journey.RestoreRider(rider);
+        }
         public void ResetForPool() {if(MotionTrial!=null)MotionTrial.Release();ResumeTransitionAnimation();Journey.CancelGate();CancelJourneyContinuation();ClearQueueContext();ReleaseSeat();crowd.Unregister(this);motor.enabled=false;pendingPath=false;pathCount=0;Velocity=velocity=steering=Vector3.zero;}
         public void RelocateToPlatform() {ReleaseSeat();motor.enabled=false;transform.position=world.stations[stationIndex].TransformPoint(world.PlatformWaitingPoint(index%world.settings.passengerCount));motor.enabled=true;WaitJourney();triedSeat=false;}
         static float FlatDistance(Vector3 a,Vector3 b) {a.y=b.y;return Vector3.Distance(a,b);}
-        void OnDisable() {FaceTravel();if(crowd!=null) crowd.Unregister(this);}
+        void OnDisable() {seatedPastime?.Clear();FaceTravel();if(crowd!=null) crowd.Unregister(this);}
         void OnDestroy() {ReleaseSeat();if(crowd!=null) crowd.Unregister(this);if(world!=null) world.passengers.Remove(this);}
     }
 }

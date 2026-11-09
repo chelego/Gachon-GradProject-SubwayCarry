@@ -60,7 +60,10 @@ namespace SubwayCarry.Gameplay3D.Editor
             }
             string glassName="Circulation_SafetyGlass",glassPath=Metro3DBuilder.Root+"/Art/Materials/Circulation/"+glassName+".mat";
             var glass=AssetDatabase.LoadAssetAtPath<Material>(glassPath);
+            bool newGlass=glass==null;
             if(glass==null) {glass=new Material(Shader.Find("Universal Render Pipeline/Lit")); AssetDatabase.CreateAsset(glass,glassPath);}
+            // Preserve the existing user's blend-mode edit; initialize only newly created glass.
+            if(newGlass) {
             glass.SetColor("_BaseColor",new Color(.9f,.96f,.96f,.10f)); glass.SetFloat("_Metallic",0); glass.SetFloat("_Smoothness",.94f);
             glass.SetFloat("_Surface",1); glass.SetFloat("_Blend",0); glass.SetFloat("_BlendModePreserveSpecular",1);
             glass.SetFloat("_SrcBlend",(float)BlendMode.One); glass.SetFloat("_DstBlend",(float)BlendMode.OneMinusSrcAlpha);
@@ -68,7 +71,9 @@ namespace SubwayCarry.Gameplay3D.Editor
             glass.SetFloat("_ZWrite",0); glass.SetFloat("_Cull",(float)CullMode.Off);
             glass.SetOverrideTag("RenderType","Transparent"); glass.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); glass.EnableKeyword("_ALPHAPREMULTIPLY_ON"); glass.renderQueue=(int)RenderQueue.Transparent;
             glass.enableInstancing=true;
-            EditorUtility.SetDirty(glass); AssetDatabase.SaveAssetIfDirty(glass); materials.Add(glassName,glass);
+            EditorUtility.SetDirty(glass); AssetDatabase.SaveAssetIfDirty(glass);
+            }
+            materials.Add(glassName,glass);
             foreach(var name in new[]{"StationStaircase","StationEscalator"}) CreatePrefab(name,materials);
         }
 
