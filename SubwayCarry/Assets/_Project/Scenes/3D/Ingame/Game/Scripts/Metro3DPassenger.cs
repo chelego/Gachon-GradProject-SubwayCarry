@@ -83,6 +83,8 @@ namespace SubwayCarry.Gameplay3D
         public Vector3 QueueForward {get;private set;}
         public float QueueGap {get;private set;}
         public bool QueueActive => Time.time<queueUntil;
+        internal bool FollowingQueueContinuously {get;private set;}
+        internal bool ContinuousQueueAllowed => Journey.ReservedGate==null;
         public bool QueueCommitted {
             get {
                 if(!QueueActive||FlatDistance(transform.position,CurrentGoal)>=1.6f) return false;
@@ -114,8 +116,88 @@ namespace SubwayCarry.Gameplay3D
         }
         public bool WaitingForQueue => ExpectedQueueWait;
         float queueUntil,nextQueuePath,yieldUntil,backoffUntil;
+        System.Guid queueLeaderId;
+
+        bool TryContinuousQueue(Metro3DPassenger leader,float freeSpeed,out Vector3 intent)
+        {
+            intent=Vector3.zero;
+            if(pendingPath||pathIndex<pathCount||!TryQueueLink(leader,out float ahead))
+                return false;
+
+            float leadSpeed=Mathf.Max(0,Vector3.Dot(leader.Velocity,QueueForward));
+            float ownSpeed=Mathf.Max(0,Vector3.Dot(Velocity,QueueForward));
+            float reservedGap=WalkingRadius+leader.WalkingRadius+.065f;
+            float comfortableGap=Mathf.Max(reservedGap,QueueGap)+ownSpeed*QueueReactionDelay*.32f;
+            float openGap=Mathf.Max(0,ahead-reservedGap);
+            float brakeCap=Mathf.Sqrt(leadSpeed*leadSpeed+2*3.8f*openGap);
+            // Follow measured lead speed immediately. Small spacing errors
+            // change speed gradually and never request a backwards turn.
+            float error=ahead-comfortableGap;
+            float correction=Metro3DQueueMotionPolicy.Correction(error,leadSpeed-ownSpeed,leadSpeed);
+            float follow=leadSpeed+error*1.55f+correction*Mathf.InverseLerp(0,.30f,leadSpeed);
+            float speed=Mathf.Min(freeSpeed,brakeCap,Mathf.Max(0,follow));
+            // The leader sets pace; the authored lane target sets lateral
+            // position. Copying the leader's lateral avoidance amplifies it.
+            Vector3 slotOffset=Vector3.ProjectOnPlane(CurrentGoal-transform.position,Vector3.up);
+            Vector3 laneError=slotOffset-QueueForward*Vector3.Dot(slotOffset,QueueForward);
+            intent=(QueueForward+Vector3.ClampMagnitude(laneError*.42f,.13f)).normalized*speed;
+            return true;
+        }
+        bool TryQueueLink(Metro3DPassenger leader,out float ahead)
+        {
+            ahead=0;
+            if(!QueueActive||!ContinuousQueueAllowed||PortalCommitted||leader==null||leader.PersistentId!=queueLeaderId||
+                !leader.isActiveAndEnabled||leader.transform.parent!=transform.parent)return false;
+            Vector3 delta=leader.transform.position-transform.position;
+            ahead=Vector3.Dot(delta,QueueForward);
+            Vector3 sideways=Vector3.ProjectOnPlane(delta,Vector3.up)-QueueForward*ahead;
+            return Mathf.Abs(delta.y)<.4f&&ahead>0&&ahead<2.5f&&sideways.sqrMagnitude<.38f*.38f;
+        }
         bool queuePermissionWait;
         internal const float StandingRadius=.24f, NarrowRadius=.19f;
+        SkinnedMeshRenderer wardrobeRenderer;
+        Transform wardrobeRoot;
+        Vector3 baseWardrobeScale;
+        Mesh baseSkin;
+        Transform[] baseBones;
+        Metro3DRocketboxCast.MountedAvatar externalAvatar;
+        internal SkinnedMeshRenderer ExternalPassengerSkin=>externalAvatar?.Skin;
+
+        internal void SetRiderLook(Metro3DRiderWardrobe wardrobe,Metro3DRiderLook look)
+        {
+            if(wardrobeRenderer==null) {
+                wardrobeRoot=transform.Find("HumanModel");
+                wardrobeRenderer=wardrobeRoot!=null?wardrobeRoot.GetComponentInChildren<SkinnedMeshRenderer>(true):null;
+                if(wardrobeRenderer==null)return;
+                baseWardrobeScale=wardrobeRoot.localScale;
+                baseSkin=wardrobeRenderer.sharedMesh;
+                baseBones=wardrobeRenderer.bones;
+            }
+            float ratio=look==Metro3DRiderLook.Child?.73f:look==Metro3DRiderLook.Senior?.94f:1;
+            float width=look==Metro3DRiderLook.Child?.77f:1;
+            wardrobeRoot.localScale=Vector3.Scale(baseWardrobeScale,new Vector3(width,ratio,width));
+            if(wardrobe.PublisherCast.TryMount(this,wardrobeRenderer,baseSkin,baseBones,look,index,ref externalAvatar)) {
+                wardrobeRenderer.enabled=false;
+                wardrobeRenderer.sharedMesh=null;
+                walkReferenceSpeed*=look==Metro3DRiderLook.Child?.82f:look==Metro3DRiderLook.Senior?.93f:1;
+                return;
+            }
+            externalAvatar?.Dispose();
+            externalAvatar=null;
+            wardrobeRoot.localScale=baseWardrobeScale;
+            wardrobeRenderer.sharedMesh=baseSkin;
+            wardrobeRenderer.enabled=true;
+        }
+
+        internal void RetargetPassengerVisual()
+        {
+            if(externalAvatar==null)return;
+            float sitting=SittingWeight;
+            bool alignHands=sitting>.01f||contacts!=null&&(contacts.Holding||contacts.Leaning||contacts.HasPhoneInUse)
+                ||Journey.GateAction==Metro3DPassengerJourney.GatePhase.Tag;
+            externalAvatar.Apply(sitting,alignHands);
+            if(seatedPastime?.HeldPhone is Transform phone)externalAvatar.MatchPhonePalm(phone);
+        }
         internal Metro3DPassenger YieldingFor {get;private set;}
         internal Vector3 YieldSpot {get;private set;}
         internal Vector3 YieldOrigin {get;private set;}
@@ -170,10 +252,11 @@ namespace SubwayCarry.Gameplay3D
         Vector3 recoveryVelocity,backoffFrom;
         public void SetQueueContext(Metro3DPassenger leader,Vector3 direction,float gap,bool permissionWait)
         {
-            QueueLeader=leader;QueueForward=direction.normalized;QueueGap=gap;
+            QueueLeader=leader;queueLeaderId=leader==null?System.Guid.Empty:leader.PersistentId;
+            QueueForward=direction.normalized;QueueGap=gap;
             queuePermissionWait=permissionWait;queueUntil=Time.time+.8f;
         }
-        public void ClearQueueContext() {queueUntil=0;QueueLeader=null;queuePermissionWait=false;FaceTravel();}
+        public void ClearQueueContext() {queueUntil=0;QueueLeader=null;queueLeaderId=System.Guid.Empty;FollowingQueueContinuously=false;queuePermissionWait=false;FaceTravel();}
         public void CommitPassingSide(int side) {PassingSide=side;PassingUntil=Time.time+.85f;}
         public void FollowQueueGoal(Vector3 point,bool preferDirect=false)
         {
@@ -181,6 +264,16 @@ namespace SubwayCarry.Gameplay3D
             // transition out of Board/Alight. Losing that action resets its
             // alignment waypoint on the next decision tick.
             if(state!=Activity.Board&&state!=Activity.Alight) state=Activity.Walk;
+            if(TryQueueLink(QueueLeader,out _)&&Mathf.Abs(point.y-transform.position.y)<.28f) {
+                Vector3 delta=Vector3.ProjectOnPlane(point-transform.position,Vector3.up);
+                float travel=Vector3.Dot(delta,QueueForward);
+                Vector3 lateral=delta-QueueForward*travel;
+                // While already in the lane, a newly shortened spacing slot
+                // is a place to wait. It is never a reason to turn back.
+                if(travel<0&&lateral.sqrMagnitude<.18f*.18f) {
+                    point-=QueueForward*travel;
+                }
+            }
             bool direct=preferDirect?crowd.CanFollowWalkingSegment(this,point):crowd.CanApproachDirect(this,point);
             if(direct) {
                 if(preferDirect&&(pendingPath||pathIndex<pathCount)) {
@@ -331,7 +424,8 @@ namespace SubwayCarry.Gameplay3D
             PersistentId=System.Guid.NewGuid();pivoting=false;curvedTurnRate=RotationTravel=0;StopReason=Metro3DStopReason.None;WalkPhase=Metro3DWalkPhase.Still;
             DesiredVelocity=PathWaypoint=TravelLookahead=Vector3.zero;RotationDegreesPerSecond=0;WalkingAlignmentScale=1;
             world=owner;index=id;stationIndex=stop;inTrain=inside;helperUntil=clearYieldUntil=0;helperTaskActive=false;
-            queueUntil=nextQueuePath=yieldUntil=backoffUntil=0;recoveryStage=PassingSide=0;PassingUntil=0;QueueLeader=null;
+            queueUntil=nextQueuePath=yieldUntil=backoffUntil=0;recoveryStage=PassingSide=0;PassingUntil=0;
+            QueueLeader=null;queueLeaderId=System.Guid.Empty;FollowingQueueContinuously=false;
             YieldingFor=null;YieldLimit=flowApproachUntil=0;RejoiningFlow=FollowingNarrowFlow=false;
             animator=GetComponentInChildren<Animator>(true);motor=GetComponent<CharacterController>();crowd=world.GetComponent<Metro3DCrowd>();
             ResumeTransitionAnimation();egressTrain=null;
@@ -368,6 +462,11 @@ namespace SubwayCarry.Gameplay3D
         void Update()
         {
             if(WalkReviewFrozen)return;
+            if(externalAvatar!=null&&animator!=null){
+                var skin=externalAvatar.Skin;
+                var cull=skin.isVisible||skin.updateWhenOffscreen?AnimatorCullingMode.AlwaysAnimate:AnimatorCullingMode.CullCompletely;
+                if(animator.cullingMode!=cull)animator.cullingMode=cull;
+            }
             if(world==null||world.session.SimulationPaused) {Velocity=Vector3.zero;Animate(0);return;}
             if(state==Activity.SitDown||state==Activity.StandUp) {UpdateTransition();return;}
             if(MotionTrial!=null)seatedPastime?.Clear();
@@ -461,7 +560,10 @@ namespace SubwayCarry.Gameplay3D
                 float forward=Vector3.Dot(delta,flight);
                 walkingDirection=delta-flight*forward+flight*Mathf.Clamp(forward,0,1.05f);
             }
-            Vector3 desired=walking&&!pendingPath&&delta.magnitude>.07f?walkingDirection.normalized*requested:Vector3.zero;
+            Vector3 queueIntent=Vector3.zero;
+            FollowingQueueContinuously=walking&&TryContinuousQueue(QueueLeader,speed,out queueIntent);
+            Vector3 desired=FollowingQueueContinuously?queueIntent:
+                walking&&!pendingPath&&delta.magnitude>.07f?walkingDirection.normalized*requested:Vector3.zero;
             DesiredVelocity=desired;
             bool steerNow=Time.time>=nextSteering;
             if(steerNow&&state==Activity.Walk&&!inTrain&&!WalkReviewCandidate&&!PortalCommitted&&!QueueActive&&Journey.ReservedGate==null&&
@@ -489,7 +591,7 @@ namespace SubwayCarry.Gameplay3D
                 SteeringCost=crowd.LastSteeringCost;StaticRejects=crowd.LastStaticRejects;
             }
             if(stairFlow||NarrowWalking||FlowYieldActive||FollowingNarrowFlow)yieldUntil=backoffUntil=0;
-            if(!walking||pendingPath||delta.magnitude<=.07f) steering=Vector3.zero;
+            if(!walking||pendingPath||!FollowingQueueContinuously&&delta.magnitude<=.07f) steering=Vector3.zero;
             if(Time.time<yieldUntil) steering=Vector3.zero;
             else if(Time.time<backoffUntil) {
                 if((transform.localPosition-backoffFrom).sqrMagnitude<.28f*.28f) steering=recoveryVelocity;

@@ -56,7 +56,7 @@ namespace SubwayCarry.Gameplay3D
         void OnDisable() {RestoreContactInputs();ClearPhone();}
         public void Initialize(Metro3DPassenger passenger)
         {
-            actor=passenger;bones.Clear();supportWeight=standingWeight=0;wasSeated=false;ResetPhone();
+            actor=passenger;ResetWaitGesture();bones.Clear();supportWeight=standingWeight=0;wasSeated=false;ResetPhone();
             skin=GetComponentInChildren<SkinnedMeshRenderer>(true);
             foreach(var t in GetComponentsInChildren<Transform>(true)) if(!bones.ContainsKey(t.name)) bones.Add(t.name,t);
             mannequin=bones.ContainsKey("DEF-hips");
@@ -106,8 +106,15 @@ namespace SubwayCarry.Gameplay3D
         }
         void LateUpdate()
         {
+            ApplyContacts();
+            actor?.RetargetPassengerVisual();
+        }
+
+        void ApplyContacts()
+        {
             Holding=Leaning=false;GripError=LeanError=-1;
-            if(!rigReady||actor==null||skin==null||(!skin.isVisible&&!ReviewWhileCulled)) {ShowPhone(false);return;}
+            var visibleSkin=actor?.ExternalPassengerSkin??skin;
+            if(!rigReady||actor==null||visibleSkin==null||(!visibleSkin.isVisible&&!ReviewWhileCulled)) {ShowPhone(false);return;}
             if(actor.world.session.SimulationPaused) {ApplyPhonePose();return;}
             var hips=Bone("Hips");if(hips==null) return;
             PoseFrame=Time.frameCount;SeatFootError=-1;
@@ -150,6 +157,7 @@ namespace SubwayCarry.Gameplay3D
                 bool settled=actor.SettledStanding;
                 standingWeight=Mathf.MoveTowards(standingWeight,settled?1:0,Time.deltaTime*(settled?4.2f:9f));
                 if(standingWeight>.001f)GroundSupportFeet(standingWeight,6f);
+                ApplyWaitGesture(settled&&!actor.QueueActive&&!actor.Journey.OnStairs&&!HasPhoneInUse);
                 ApplyPhonePose();return;
             }
             standingWeight=0;

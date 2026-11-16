@@ -283,7 +283,7 @@ namespace SubwayCarry.Gameplay3D
             if(actor.PortalCommitted) personal=.03f;
             float preferred=requested,leaderGap=float.PositiveInfinity;
             bool stairFlow=actor.Journey.StairForward.sqrMagnitude>.5f;
-            bool laneLocked=actor.PortalCommitted||actor.QueueCommitted||stairFlow||actor.NarrowWalking||actor.FollowingNarrowFlow;
+            bool laneLocked=actor.PortalCommitted||actor.QueueCommitted||actor.FollowingQueueContinuously||stairFlow||actor.NarrowWalking||actor.FollowingNarrowFlow;
             if(stairFlow||actor.NarrowWalking)personal=Mathf.Min(personal,.045f);
             LastStaticRejects=0;
             bool freeWalking=!laneLocked&&actor.CanYieldToFlow&&!actor.RecoveryActive&&!world.walkingReviewOnly;
@@ -295,6 +295,7 @@ namespace SubwayCarry.Gameplay3D
             // The queue owner, not this movement layer, grants passage rights.
             for(int neighbor=0;neighbor<neighborCount;neighbor++) {
                 var other=neighbors[neighbor];Vector3 offset=other.offset;
+                if(actor.FollowingQueueContinuously&&other.actor==actor.QueueLeader)continue;
                 float ahead=Vector3.Dot(offset,forward);
                 float lateral=(offset-forward*ahead).magnitude;
                 if(ahead<=0||ahead>3||lateral>(stairFlow?.34f:.43f)) continue;
@@ -311,7 +312,7 @@ namespace SubwayCarry.Gameplay3D
                 float cap=Mathf.Max(0,Vector3.Dot(other.velocity,forward)+(ahead-gap)/.7f);
                 if(ahead<leaderGap) {leaderGap=ahead;preferred=Mathf.Min(preferred,cap);}
             }
-            if(!actor.PortalCommitted&&actor.QueueCommitted&&actor.QueueLeader!=null) {
+            if(!actor.PortalCommitted&&actor.QueueCommitted&&!actor.FollowingQueueContinuously&&actor.QueueLeader!=null) {
                 Vector3 offset=actor.QueueLeader.transform.position-origin;offset.y=0;
                 float ahead=Vector3.Dot(offset,actor.QueueForward);
                 float cap=Mathf.Max(0,Vector3.Dot(actor.QueueLeader.Velocity,actor.QueueForward)+(ahead-actor.QueueGap)/.65f);
@@ -325,7 +326,8 @@ namespace SubwayCarry.Gameplay3D
             bool checkPlayer=player!=null&&Mathf.Abs(player.transform.position.y-origin.y)<1.5f&&
                 !(actor.inTrain&&actor.Riding!=null&&actor.Riding.Moving&&player.Riding!=actor.Riding);
             Vector3 localOrigin=worldToFrame.MultiplyPoint3x4(origin);
-            float lookahead=Mathf.Min(Mathf.Max(.25f,requested*.6f),actor.SteeringDistance+.04f);
+            float lookahead=actor.FollowingQueueContinuously?Mathf.Max(.25f,requested*.6f):
+                Mathf.Min(Mathf.Max(.25f,requested*.6f),actor.SteeringDistance+.04f);
             float speedDenominator=Mathf.Max(.2f,requested);
             foreach(float angle in anticipated!=0?AnticipationAngles:Angles) {
                 float absolute=Mathf.Abs(angle);
@@ -376,7 +378,9 @@ namespace SubwayCarry.Gameplay3D
                         // Preserve an escape from existing light contact without adding repulsion forces.
                         float body=walkingRadius+(other.seated?.10f:other.actor.WalkingRadius);
                         if(offset.sqrMagnitude<body*body&&Vector3.Dot(offset,candidate-other.velocity)<-.015f) continue;
-                        cost+=CollisionCost(offset,currentVelocity,candidate,other.velocity,body,personal);
+                        bool following=actor.FollowingQueueContinuously&&other.actor==actor.QueueLeader;
+                        cost+=CollisionCost(offset,currentVelocity,candidate,other.velocity,body,following?.025f:personal,
+                            following?QueueBrakingHorizon(candidate,other.velocity):1.5f);
                     }
                     if(checkPlayer&&cost<best)cost+=CollisionCost(playerOffset,currentVelocity,candidate,measuredPlayerVelocity,.48f,personal+.06f);
                     if(cost<best) {best=cost;selected=candidate;selectedSide=Mathf.Abs(angle)>.1f?(angle>0?1:-1):0;}
@@ -617,7 +621,9 @@ namespace SubwayCarry.Gameplay3D
                     Vector3 otherVelocity=other.Velocity;
                     float body=radius+(other.IsSeated?.10f:other.WalkingRadius),bodySquared=body*body;
                     if(offset.sqrMagnitude<bodySquared&&Vector3.Dot(offset,candidate-otherVelocity)<-.015f)continue;
-                    if(ClosestGapSquared(offset,estimate-otherVelocity,out _)<bodySquared)return RejectWalking(Metro3DStopReason.Passenger);
+                    float horizon=actor.FollowingQueueContinuously&&other==actor.QueueLeader
+                        ?QueueBrakingHorizon(candidate,otherVelocity):1.5f;
+                    if(ClosestGapSquared(offset,estimate-otherVelocity,out _,horizon)<bodySquared)return RejectWalking(Metro3DStopReason.Passenger);
                 }
                 var player=world.player;
                 if(player!=null&&Mathf.Abs(player.transform.position.y-origin.y)<1.5f&&
@@ -707,18 +713,21 @@ namespace SubwayCarry.Gameplay3D
             if(world.player!=null&&Mathf.Abs(world.player.transform.position.y-from.y)<1.2f&&SegmentDistanceSquared(world.player.transform.position,from,to)<.52f*.52f)return false;
             return true;
         }
-        static float CollisionCost(Vector3 offset,Vector3 current,Vector3 candidate,Vector3 other,float body,float margin)
+        static float QueueBrakingHorizon(Vector3 candidate,Vector3 leader)
+            =>Mathf.Clamp(.20f+(candidate-leader).magnitude/3.8f,.20f,.65f);
+
+        static float CollisionCost(Vector3 offset,Vector3 current,Vector3 candidate,Vector3 other,float body,float margin,float horizon=1.5f)
         {
             // Include the current achievable motion while the motor accelerates/brakes.
             Vector3 relative=Vector3.Lerp(current,candidate,.7f)-other;
-            float squared=ClosestGapSquared(offset,relative,out float t),comfort=body+margin;
+            float squared=ClosestGapSquared(offset,relative,out float t,horizon),comfort=body+margin;
             if(squared>=comfort*comfort)return 0;
             float distance=Mathf.Sqrt(squared);
             return distance<body?42+(body-distance)*100:(comfort-distance)*8*(1-t/2);
         }
-        static float ClosestGapSquared(Vector3 offset,Vector3 relative,out float time)
+        static float ClosestGapSquared(Vector3 offset,Vector3 relative,out float time,float horizon=1.5f)
         {
-            time=Mathf.Clamp(Vector3.Dot(offset,relative)/Mathf.Max(.001f,relative.sqrMagnitude),0,1.5f);
+            time=Mathf.Clamp(Vector3.Dot(offset,relative)/Mathf.Max(.001f,relative.sqrMagnitude),0,horizon);
             return (offset-relative*time).sqrMagnitude;
         }
 

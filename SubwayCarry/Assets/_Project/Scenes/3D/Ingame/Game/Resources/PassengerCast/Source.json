@@ -1,0 +1,415 @@
+{
+  "commit": "0943055db6ec570bcef9f2c8b41c9e5467c808f9",
+  "files": [
+    {
+      "source": "Assets/Avatars/Adults/Female_Adult_04/Export/Female_Adult_04.fbx",
+      "file": "Female_Adult_04/Female_Adult_04.fbx",
+      "sha256": "a1a0debc6851d0ffe2079b5743d3255ad115139ccd6f8c8fccfd52c49bef6dfd"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Female_Adult_04/Textures/f004_body_color.tga",
+      "file": "Female_Adult_04/f004_body_color.png",
+      "sha256": "02c1362ed7daed6cb3aac33dc85f8e635c9be29265c7d96515c8ca7230c50781"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Female_Adult_04/Textures/f004_body_normal.tga",
+      "file": "Female_Adult_04/f004_body_normal.png",
+      "sha256": "01e3802e124c854ebfef58fd36f4dc188433e1d7a989a92cfd0699adaed0a947"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Female_Adult_04/Textures/f004_head_color.tga",
+      "file": "Female_Adult_04/f004_head_color.png",
+      "sha256": "61b418a825e85514541f28c5968e9e0a0d1897506f7c7bccd27eef336e1473ef"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Female_Adult_04/Textures/f004_head_normal.tga",
+      "file": "Female_Adult_04/f004_head_normal.png",
+      "sha256": "f9e94fcc0952d60fc86eef3d737f46d53473ffc9e306984bf64570306d900823"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Female_Adult_04/Textures/f004_opacity_color.tga",
+      "file": "Female_Adult_04/f004_opacity_color.png",
+      "sha256": "cf9b868f3f2b9f48ee3d764d1b8f611df94167e393f6275c04779963b3ddd506"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Female_Adult_12/Export/Female_Adult_12.fbx",
+      "file": "Female_Adult_12/Female_Adult_12.fbx",
+      "sha256": "e7f1d9af57cfbac0be76c2c31c9c695aec2204e09e6616abda61df71bf4a7f67"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Female_Adult_12/Textures/f012_body_color.tga",
+      "file": "Female_Adult_12/f012_body_color.png",
+      "sha256": "7f517e4c12738bda2638786f8d6557920e3481a80a9b34d7af4f1c2f30e20dca"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Female_Adult_12/Textures/f012_body_normal.tga",
+      "file": "Female_Adult_12/f012_body_normal.png",
+      "sha256": "1b2fe57e964c1a8e3703105c1458cfc07937aa47d7604a927ec3ccbcedd8cf6d"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Female_Adult_12/Textures/f012_head_color.tga",
+      "file": "Female_Adult_12/f012_head_color.png",
+      "sha256": "1ae65738cd3660055236357a525c3dc8edda56e64a5275f5a083e8c7c356d941"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Female_Adult_12/Textures/f012_head_normal.tga",
+      "file": "Female_Adult_12/f012_head_normal.png",
+      "sha256": "1b0ccfdd8d3751e2906194fa630b8e440aa30b584a2126d98e42bfbb7c1c8c2e"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Female_Adult_12/Textures/f012_opacity_color.tga",
+      "file": "Female_Adult_12/f012_opacity_color.png",
+      "sha256": "6a8ef2b5554b504a298a17856de12bdee7fee5a87265726ee0b373f0752a95c7"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Male_Adult_09/Export/Male_Adult_09.fbx",
+      "file": "Male_Adult_09/Male_Adult_09.fbx",
+      "sha256": "ebb89800dbad28b4352369c7149314e010806268a28d7f5bb954a4393bba3d00"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Male_Adult_09/Textures/m017_body_color.tga",
+      "file": "Male_Adult_09/m017_body_color.png",
+      "sha256": "6959a7dca441963ac10b0f86df4b3191ad5da839c16a1fc972da8464b6807b65"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Male_Adult_09/Textures/m017_body_normal.tga",
+      "file": "Male_Adult_09/m017_body_normal.png",
+      "sha256": "f537feb3af08b044db6fcff7f64f80b1d5b0f6ca754165bb1534e6e6aa7d2f7c"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Male_Adult_09/Textures/m017_head_color.tga",
+      "file": "Male_Adult_09/m017_head_color.png",
+      "sha256": "5e4b4af1dc24660607fb96cebdafacae649f36d4a7bc8af99178634126664cb8"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Male_Adult_09/Textures/m017_head_normal.tga",
+      "file": "Male_Adult_09/m017_head_normal.png",
+      "sha256": "0198600cca68ce2fd7390593d547bb4b7c51cbbaaaca7f33599ba4750d351e53"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Male_Adult_09/Textures/m017_opacity_color.tga",
+      "file": "Male_Adult_09/m017_opacity_color.png",
+      "sha256": "510c4b20b534a1b3d488638a33319968c4108f1aac887ab50188a77980cf1bc0"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Male_Adult_14/Export/Male_Adult_14.fbx",
+      "file": "Male_Adult_14/Male_Adult_14.fbx",
+      "sha256": "9d3ecf5c94a84e22b081ddadebf57da18d79541e48e792fa598335553f2dc399"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Male_Adult_14/Textures/m012_body_color.tga",
+      "file": "Male_Adult_14/m012_body_color.png",
+      "sha256": "04b656f0f0119ca6b5a4aa00fdccc19918fd18976a446f2f192753a4e73f0147"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Male_Adult_14/Textures/m012_body_normal.tga",
+      "file": "Male_Adult_14/m012_body_normal.png",
+      "sha256": "4d65bd9f3bfeaaf381a6cb7eeb4ed4afdf0b7c96cefda55a26334cf5114cb784"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Male_Adult_14/Textures/m012_head_color.tga",
+      "file": "Male_Adult_14/m012_head_color.png",
+      "sha256": "520e067d7c117af8471f32e6e66dd80b0e87717c1218f0a3759dfd6db504a729"
+    },
+    {
+      "source": "Assets/Avatars/Adults/Male_Adult_14/Textures/m012_head_normal.tga",
+      "file": "Male_Adult_14/m012_head_normal.png",
+      "sha256": "0b6a9318003c5485de34c0de36bf3ddf1a19bb06a431f6146d9f95534d3dc820"
+    },
+    {
+      "source": "Assets/Avatars/Children/Female_Child_01/Export/Female_Child_01.fbx",
+      "file": "Female_Child_01/Female_Child_01.fbx",
+      "sha256": "d75e13afa7302117d60a2513b1f7de81f48fcb609f7a807b49434333c6ea0949"
+    },
+    {
+      "source": "Assets/Avatars/Children/Female_Child_01/Textures/cf001_body_color.tga",
+      "file": "Female_Child_01/cf001_body_color.png",
+      "sha256": "73f5ac2b47c1dd09a60f87bf52fce297ae82476965ee1dd56a24ebc0e5be9349"
+    },
+    {
+      "source": "Assets/Avatars/Children/Female_Child_01/Textures/cf001_body_normal.tga",
+      "file": "Female_Child_01/cf001_body_normal.png",
+      "sha256": "3cb7d5819d52fb773d524b02479668270fe05697370e124bb2cbe0bd0005d1fe"
+    },
+    {
+      "source": "Assets/Avatars/Children/Female_Child_01/Textures/cf001_head_color.tga",
+      "file": "Female_Child_01/cf001_head_color.png",
+      "sha256": "288227a3af5195b36e54af293787534b4f70cfb0a24589430b3376c12f93e377"
+    },
+    {
+      "source": "Assets/Avatars/Children/Female_Child_01/Textures/cf001_head_normal.tga",
+      "file": "Female_Child_01/cf001_head_normal.png",
+      "sha256": "a9ed2eb9931cb2cf14c6562c5d59e645d191654503e55f36a6e08a2212fd6a0c"
+    },
+    {
+      "source": "Assets/Avatars/Children/Male_Child_01/Export/Male_Child_01.fbx",
+      "file": "Male_Child_01/Male_Child_01.fbx",
+      "sha256": "ec3b257289dbd4ddeccc1921c25350ad31ed2489a1cb6e88f61c3ccf88d64359"
+    },
+    {
+      "source": "Assets/Avatars/Children/Male_Child_01/Textures/cm001_body_color.tga",
+      "file": "Male_Child_01/cm001_body_color.png",
+      "sha256": "30af27bae0b425b2ab06f41fffd5c8aef0beca45e94ebb5c6f0c6e73ca808041"
+    },
+    {
+      "source": "Assets/Avatars/Children/Male_Child_01/Textures/cm001_body_normal.tga",
+      "file": "Male_Child_01/cm001_body_normal.png",
+      "sha256": "ee925c71edfa9d197f8a5d90110b323e5db75334dc28d2956cb6d58d86405b28"
+    },
+    {
+      "source": "Assets/Avatars/Children/Male_Child_01/Textures/cm001_head_color.tga",
+      "file": "Male_Child_01/cm001_head_color.png",
+      "sha256": "8bba0067268dd0b6e17a46a5b2c8090fc149e06776ac29caa89a22f497180580"
+    },
+    {
+      "source": "Assets/Avatars/Children/Male_Child_01/Textures/cm001_head_normal.tga",
+      "file": "Male_Child_01/cm001_head_normal.png",
+      "sha256": "b4916e376b3a463d83864b9fc89af6fb7a6e22547c3fb7595ef8cc215d5c5b36"
+    },
+    {
+      "source": "Assets/Avatars/Professions/Business_Female_04/Export/Business_Female_04.fbx",
+      "file": "Business_Female_04/Business_Female_04.fbx",
+      "sha256": "68515701a9fd49a3e1f3632314da5def1169fe35896d34fbb10c5dcd78f2ca18"
+    },
+    {
+      "source": "Assets/Avatars/Professions/Business_Female_04/Textures/f020_body_color.tga",
+      "file": "Business_Female_04/f020_body_color.png",
+      "sha256": "5bf0a4789c1bd3f73c63062c68dacc70c09144b0be48c08095e35ddbbb6f060a"
+    },
+    {
+      "source": "Assets/Avatars/Professions/Business_Female_04/Textures/f020_body_normal.tga",
+      "file": "Business_Female_04/f020_body_normal.png",
+      "sha256": "a4b3cf6c1098f5b639b5a31b4c4be46896cc9fa1239b51d063ef221c4dad136c"
+    },
+    {
+      "source": "Assets/Avatars/Professions/Business_Female_04/Textures/f020_head_color.tga",
+      "file": "Business_Female_04/f020_head_color.png",
+      "sha256": "b2ea878de23e30d80ce5a1097b1a51b3736a4deee4c6b20dc8b3c996ac9a91a5"
+    },
+    {
+      "source": "Assets/Avatars/Professions/Business_Female_04/Textures/f020_head_normal.tga",
+      "file": "Business_Female_04/f020_head_normal.png",
+      "sha256": "2f703a3d84582605d61adc6d604a85bda6c91b0fd775614e9e98b4f823426960"
+    },
+    {
+      "source": "Assets/Avatars/Professions/Business_Female_04/Textures/f020_opacity_color.tga",
+      "file": "Business_Female_04/f020_opacity_color.png",
+      "sha256": "d6bb4ddde05c1dcddd829db99e0f0ef4416d05cdb94e1e6770779724aa3f696f"
+    },
+    {
+      "source": "Assets/Avatars/Professions/Business_Male_02/Export/Business_Male_02.fbx",
+      "file": "Business_Male_02/Business_Male_02.fbx",
+      "sha256": "8f00396b5038034bfa69d2f48b33d473ac2a99c915c9e265cb34f4e1ecea3374"
+    },
+    {
+      "source": "Assets/Avatars/Professions/Business_Male_02/Textures/m008_body_color.tga",
+      "file": "Business_Male_02/m008_body_color.png",
+      "sha256": "63155667b314dd4a3352dd6652ff47ac007010468c020fb4ae9cc7ed5b6c8065"
+    },
+    {
+      "source": "Assets/Avatars/Professions/Business_Male_02/Textures/m008_body_normal.tga",
+      "file": "Business_Male_02/m008_body_normal.png",
+      "sha256": "c0c2156e63f06a5a32c53e85fc1f78b6671f3e5a23855ffd1f76f370f9714c50"
+    },
+    {
+      "source": "Assets/Avatars/Professions/Business_Male_02/Textures/m008_head_color.tga",
+      "file": "Business_Male_02/m008_head_color.png",
+      "sha256": "4a8a1591ef002a79518913fe47f33018341886bc956096a6f63f9fdace4b478b"
+    },
+    {
+      "source": "Assets/Avatars/Professions/Business_Male_02/Textures/m008_head_normal.tga",
+      "file": "Business_Male_02/m008_head_normal.png",
+      "sha256": "b68a53588ad659a21046ef9dd687671f41efa7745d1e4ebd1d6f86e3adcef46d"
+    },
+    {
+      "source": "Assets/Avatars/Professions/Business_Male_02/Textures/m008_opacity_color.tga",
+      "file": "Business_Male_02/m008_opacity_color.png",
+      "sha256": "a17361aecc6a53a6b0cede4bebddb36f3a8cb67ed6f469814d5a511e2eef4dd2"
+    },
+    {
+      "source": "Source/Avatars/Adults/Female_Adult_04/Textures/f004_body_color.tga",
+      "file": "Female_Adult_04/f004_body_color.png",
+      "sha256": "02c1362ed7daed6cb3aac33dc85f8e635c9be29265c7d96515c8ca7230c50781"
+    },
+    {
+      "source": "Source/Avatars/Adults/Female_Adult_04/Textures/f004_body_normal.tga",
+      "file": "Female_Adult_04/f004_body_normal.png",
+      "sha256": "01e3802e124c854ebfef58fd36f4dc188433e1d7a989a92cfd0699adaed0a947"
+    },
+    {
+      "source": "Source/Avatars/Adults/Female_Adult_04/Textures/f004_head_color.tga",
+      "file": "Female_Adult_04/f004_head_color.png",
+      "sha256": "61b418a825e85514541f28c5968e9e0a0d1897506f7c7bccd27eef336e1473ef"
+    },
+    {
+      "source": "Source/Avatars/Adults/Female_Adult_04/Textures/f004_head_normal.tga",
+      "file": "Female_Adult_04/f004_head_normal.png",
+      "sha256": "f9e94fcc0952d60fc86eef3d737f46d53473ffc9e306984bf64570306d900823"
+    },
+    {
+      "source": "Source/Avatars/Adults/Female_Adult_04/Textures/f004_opacity_color.tga",
+      "file": "Female_Adult_04/f004_opacity_color.png",
+      "sha256": "cf9b868f3f2b9f48ee3d764d1b8f611df94167e393f6275c04779963b3ddd506"
+    },
+    {
+      "source": "Source/Avatars/Adults/Female_Adult_12/Textures/f012_body_color.tga",
+      "file": "Female_Adult_12/f012_body_color.png",
+      "sha256": "7f517e4c12738bda2638786f8d6557920e3481a80a9b34d7af4f1c2f30e20dca"
+    },
+    {
+      "source": "Source/Avatars/Adults/Female_Adult_12/Textures/f012_body_normal.tga",
+      "file": "Female_Adult_12/f012_body_normal.png",
+      "sha256": "1b2fe57e964c1a8e3703105c1458cfc07937aa47d7604a927ec3ccbcedd8cf6d"
+    },
+    {
+      "source": "Source/Avatars/Adults/Female_Adult_12/Textures/f012_head_color.tga",
+      "file": "Female_Adult_12/f012_head_color.png",
+      "sha256": "1ae65738cd3660055236357a525c3dc8edda56e64a5275f5a083e8c7c356d941"
+    },
+    {
+      "source": "Source/Avatars/Adults/Female_Adult_12/Textures/f012_head_normal.tga",
+      "file": "Female_Adult_12/f012_head_normal.png",
+      "sha256": "1b0ccfdd8d3751e2906194fa630b8e440aa30b584a2126d98e42bfbb7c1c8c2e"
+    },
+    {
+      "source": "Source/Avatars/Adults/Female_Adult_12/Textures/f012_opacity_color.tga",
+      "file": "Female_Adult_12/f012_opacity_color.png",
+      "sha256": "6a8ef2b5554b504a298a17856de12bdee7fee5a87265726ee0b373f0752a95c7"
+    },
+    {
+      "source": "Source/Avatars/Adults/Male_Adult_09/Textures/m017_body_color.tga",
+      "file": "Male_Adult_09/m017_body_color.png",
+      "sha256": "6959a7dca441963ac10b0f86df4b3191ad5da839c16a1fc972da8464b6807b65"
+    },
+    {
+      "source": "Source/Avatars/Adults/Male_Adult_09/Textures/m017_body_normal.tga",
+      "file": "Male_Adult_09/m017_body_normal.png",
+      "sha256": "f537feb3af08b044db6fcff7f64f80b1d5b0f6ca754165bb1534e6e6aa7d2f7c"
+    },
+    {
+      "source": "Source/Avatars/Adults/Male_Adult_09/Textures/m017_head_color.tga",
+      "file": "Male_Adult_09/m017_head_color.png",
+      "sha256": "5e4b4af1dc24660607fb96cebdafacae649f36d4a7bc8af99178634126664cb8"
+    },
+    {
+      "source": "Source/Avatars/Adults/Male_Adult_09/Textures/m017_head_normal.tga",
+      "file": "Male_Adult_09/m017_head_normal.png",
+      "sha256": "0198600cca68ce2fd7390593d547bb4b7c51cbbaaaca7f33599ba4750d351e53"
+    },
+    {
+      "source": "Source/Avatars/Adults/Male_Adult_09/Textures/m017_opacity_color.tga",
+      "file": "Male_Adult_09/m017_opacity_color.png",
+      "sha256": "510c4b20b534a1b3d488638a33319968c4108f1aac887ab50188a77980cf1bc0"
+    },
+    {
+      "source": "Source/Avatars/Adults/Male_Adult_14/Textures/m012_body_color.tga",
+      "file": "Male_Adult_14/m012_body_color.png",
+      "sha256": "04b656f0f0119ca6b5a4aa00fdccc19918fd18976a446f2f192753a4e73f0147"
+    },
+    {
+      "source": "Source/Avatars/Adults/Male_Adult_14/Textures/m012_body_normal.tga",
+      "file": "Male_Adult_14/m012_body_normal.png",
+      "sha256": "4d65bd9f3bfeaaf381a6cb7eeb4ed4afdf0b7c96cefda55a26334cf5114cb784"
+    },
+    {
+      "source": "Source/Avatars/Adults/Male_Adult_14/Textures/m012_head_color.tga",
+      "file": "Male_Adult_14/m012_head_color.png",
+      "sha256": "520e067d7c117af8471f32e6e66dd80b0e87717c1218f0a3759dfd6db504a729"
+    },
+    {
+      "source": "Source/Avatars/Adults/Male_Adult_14/Textures/m012_head_normal.tga",
+      "file": "Male_Adult_14/m012_head_normal.png",
+      "sha256": "0b6a9318003c5485de34c0de36bf3ddf1a19bb06a431f6146d9f95534d3dc820"
+    },
+    {
+      "source": "Source/Avatars/Children/Female_Child_01/Textures/cf001_body_color.tga",
+      "file": "Female_Child_01/cf001_body_color.png",
+      "sha256": "73f5ac2b47c1dd09a60f87bf52fce297ae82476965ee1dd56a24ebc0e5be9349"
+    },
+    {
+      "source": "Source/Avatars/Children/Female_Child_01/Textures/cf001_body_normal.tga",
+      "file": "Female_Child_01/cf001_body_normal.png",
+      "sha256": "3cb7d5819d52fb773d524b02479668270fe05697370e124bb2cbe0bd0005d1fe"
+    },
+    {
+      "source": "Source/Avatars/Children/Female_Child_01/Textures/cf001_head_color.tga",
+      "file": "Female_Child_01/cf001_head_color.png",
+      "sha256": "288227a3af5195b36e54af293787534b4f70cfb0a24589430b3376c12f93e377"
+    },
+    {
+      "source": "Source/Avatars/Children/Female_Child_01/Textures/cf001_head_normal.tga",
+      "file": "Female_Child_01/cf001_head_normal.png",
+      "sha256": "a9ed2eb9931cb2cf14c6562c5d59e645d191654503e55f36a6e08a2212fd6a0c"
+    },
+    {
+      "source": "Source/Avatars/Children/Male_Child_01/Textures/cm001_body_color.tga",
+      "file": "Male_Child_01/cm001_body_color.png",
+      "sha256": "30af27bae0b425b2ab06f41fffd5c8aef0beca45e94ebb5c6f0c6e73ca808041"
+    },
+    {
+      "source": "Source/Avatars/Children/Male_Child_01/Textures/cm001_body_normal.tga",
+      "file": "Male_Child_01/cm001_body_normal.png",
+      "sha256": "ee925c71edfa9d197f8a5d90110b323e5db75334dc28d2956cb6d58d86405b28"
+    },
+    {
+      "source": "Source/Avatars/Children/Male_Child_01/Textures/cm001_head_color.tga",
+      "file": "Male_Child_01/cm001_head_color.png",
+      "sha256": "8bba0067268dd0b6e17a46a5b2c8090fc149e06776ac29caa89a22f497180580"
+    },
+    {
+      "source": "Source/Avatars/Children/Male_Child_01/Textures/cm001_head_normal.tga",
+      "file": "Male_Child_01/cm001_head_normal.png",
+      "sha256": "b4916e376b3a463d83864b9fc89af6fb7a6e22547c3fb7595ef8cc215d5c5b36"
+    },
+    {
+      "source": "Source/Avatars/Professions/Business_Female_04/Textures/f020_body_color.tga",
+      "file": "Business_Female_04/f020_body_color.png",
+      "sha256": "5bf0a4789c1bd3f73c63062c68dacc70c09144b0be48c08095e35ddbbb6f060a"
+    },
+    {
+      "source": "Source/Avatars/Professions/Business_Female_04/Textures/f020_body_normal.tga",
+      "file": "Business_Female_04/f020_body_normal.png",
+      "sha256": "a4b3cf6c1098f5b639b5a31b4c4be46896cc9fa1239b51d063ef221c4dad136c"
+    },
+    {
+      "source": "Source/Avatars/Professions/Business_Female_04/Textures/f020_head_color.tga",
+      "file": "Business_Female_04/f020_head_color.png",
+      "sha256": "b2ea878de23e30d80ce5a1097b1a51b3736a4deee4c6b20dc8b3c996ac9a91a5"
+    },
+    {
+      "source": "Source/Avatars/Professions/Business_Female_04/Textures/f020_head_normal.tga",
+      "file": "Business_Female_04/f020_head_normal.png",
+      "sha256": "2f703a3d84582605d61adc6d604a85bda6c91b0fd775614e9e98b4f823426960"
+    },
+    {
+      "source": "Source/Avatars/Professions/Business_Female_04/Textures/f020_opacity_color.tga",
+      "file": "Business_Female_04/f020_opacity_color.png",
+      "sha256": "d6bb4ddde05c1dcddd829db99e0f0ef4416d05cdb94e1e6770779724aa3f696f"
+    },
+    {
+      "source": "Source/Avatars/Professions/Business_Male_02/Textures/m008_body_color.tga",
+      "file": "Business_Male_02/m008_body_color.png",
+      "sha256": "63155667b314dd4a3352dd6652ff47ac007010468c020fb4ae9cc7ed5b6c8065"
+    },
+    {
+      "source": "Source/Avatars/Professions/Business_Male_02/Textures/m008_body_normal.tga",
+      "file": "Business_Male_02/m008_body_normal.png",
+      "sha256": "c0c2156e63f06a5a32c53e85fc1f78b6671f3e5a23855ffd1f76f370f9714c50"
+    },
+    {
+      "source": "Source/Avatars/Professions/Business_Male_02/Textures/m008_head_color.tga",
+      "file": "Business_Male_02/m008_head_color.png",
+      "sha256": "4a8a1591ef002a79518913fe47f33018341886bc956096a6f63f9fdace4b478b"
+    },
+    {
+      "source": "Source/Avatars/Professions/Business_Male_02/Textures/m008_head_normal.tga",
+      "file": "Business_Male_02/m008_head_normal.png",
+      "sha256": "b68a53588ad659a21046ef9dd687671f41efa7745d1e4ebd1d6f86e3adcef46d"
+    },
+    {
+      "source": "Source/Avatars/Professions/Business_Male_02/Textures/m008_opacity_color.tga",
+      "file": "Business_Male_02/m008_opacity_color.png",
+      "sha256": "a17361aecc6a53a6b0cede4bebddb36f3a8cb67ed6f469814d5a511e2eef4dd2"
+    }
+  ]
+}

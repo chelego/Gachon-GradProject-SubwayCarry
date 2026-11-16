@@ -250,6 +250,20 @@ namespace SubwayCarry.Gameplay3D
             ApplyProp(time);
         }
 
+        internal Transform HeldPhone
+        {
+            get
+            {
+                if(phone==null||!Active||StoppedBeforePickup(library.phone.takeFrame))return null;
+                var part=sequence.poses[(int)phase];
+                var clip=phase==Phase.Enter?sequence.source.enter:phase==Phase.Hold?sequence.source.hold:sequence.source.exit;
+                float frame=Mathf.Min(part.duration,SampleTime())*clip.sampleRate;
+                bool held=phase==Phase.Hold||phase==Phase.Enter&&frame>=library.phone.takeFrame||
+                    phase==Phase.Exit&&frame<library.phone.storeFrame;
+                return held?phone.Phone.transform:null;
+            }
+        }
+
         void ApplyProp(float time)
         {
             var source = phase == Phase.Enter ? sequence.source.enter : phase == Phase.Hold ? sequence.source.hold : sequence.source.exit;

@@ -309,6 +309,9 @@ namespace SubwayCarry.Gameplay3D
             if(riders.Count==0)detachedRiders.Remove(train);
         }
 
+        readonly Metro3DRiderWardrobe wardrobe = new();
+        void OnDestroy() => wardrobe.Dispose();
+
         Metro3DPassenger Rent(int stop,bool inside,Vector3 position,bool existing,bool far,Metro3DTrain service=null,int direction=0,bool concourse=false,RiderSnapshot snapshot=null)
         {
             Metro3DPassenger actor;
@@ -323,6 +326,7 @@ namespace SubwayCarry.Gameplay3D
             actor.transform.localRotation=Quaternion.Euler(0,inside?90:world.ServiceSide==1?90:270,0);
             actor.InitialDirection=direction;
             actor.Initialize(world,snapshot!=null?snapshot.index:serial++,stop,inside,existing,far);
+            actor.SetRiderLook(wardrobe,Metro3DRiderWardrobe.LookFor(actor.index));
             if(snapshot!=null)actor.RestoreBackgroundJourney(snapshot);
             if(!inside&&existing) {
                 // The chosen destination owns the platform, not the delivery's direction.
@@ -453,7 +457,10 @@ namespace SubwayCarry.Gameplay3D
         {
             if(previous==null) return root.TransformPoint(head);
             Vector3 local=root.InverseTransformPoint(previous.transform.position);
-            float lag=Mathf.Max(0,Vector3.Dot(previous.Velocity,root.TransformDirection(axis)))*actor.QueueReactionDelay;
+            // Fare gates feed a shared staircase landing. Keep their existing
+            // headway until the downstream merge can accept the faster flow.
+            float lag=actor.ContinuousQueueAllowed?0:
+                Mathf.Max(0,Vector3.Dot(previous.Velocity,root.TransformDirection(axis)))*actor.QueueReactionDelay;
             float along=Mathf.Min(0,Vector3.Dot(local-head,axis))-QueueGap(actor)-lag;
             return root.TransformPoint(head+axis*along);
         }
