@@ -301154,7 +301154,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 11c1c0e251767de4893bda6c231c14e8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay.PackageDurability
-  speedDamagePerUnit: 12
+  speedDamagePerUnit: 6
   compressionDamageScale: 60
 --- !u!4 &703712227
 Transform:

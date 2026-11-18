@@ -58,8 +58,25 @@ namespace SubwayCarry.Gameplay3D
             float scale=Mathf.Min(Screen.width/1280f,Screen.height/720f); GUI.matrix=Matrix4x4.TRS(new Vector3((Screen.width-1280*scale)/2,(Screen.height-720*scale)/2,0),Quaternion.identity,Vector3.one*scale);
             var riding=world.player.Riding;
             int here=riding!=null?riding.CurrentStop:world.StationAt(world.player.transform.position);
-            string location=riding!=null?(riding.Moving?"이동 중 · ":"정차 · ")+world.StopLabel(here):world.StopLabel(here)+"역 · "+(world.player.transform.position.y>world.settings.departureFloor-1?"대합실":"승강장");
-            Panel(new Rect(24,24,365,82)); GUI.Label(new Rect(42,35,330,28),location,title); GUI.Label(new Rect(42,72,330,24),riding!=null?(riding.Moving?"다음 역 · "+world.StopLabel(here):"출입문 "+(riding.DoorsOpen?"열림":"닫힘")):"TAB · 배달 앱",small);
+            string station=world.StopLabel(here);
+            string stationNotice;
+            string location;
+            string serviceStatus;
+            if(riding==null) {
+                location=station+"역 · "+(world.player.transform.position.y>world.settings.departureFloor-1?"대합실":"승강장");
+                serviceStatus="TAB · 배달 앱";
+                stationNotice="현재 역 · "+station;
+                if(!string.IsNullOrEmpty(s.Notice)) stationNotice+="  |  "+s.Notice;
+            } else if(riding.LeavingRoute) {
+                location=riding.Moving?"회송 중":"운행 종료";
+                serviceStatus="출입문 닫힘";
+                stationNotice=location;
+            } else {
+                location=(riding.Moving?"이동 중 · ":"정차 · ")+station;
+                stationNotice=(riding.Moving?"다음 역 · ":"이번 역 · ")+station;
+                serviceStatus=riding.Moving?stationNotice:"출입문 "+(riding.DoorsOpen?"열림":"닫힘");
+            }
+            Panel(new Rect(24,24,365,82)); GUI.Label(new Rect(42,35,330,28),location,title); GUI.Label(new Rect(42,72,330,24),serviceStatus,small);
             Panel(new Rect(991,24,265,s.HasPackage?135:52)); GUI.Label(new Rect(1010,35,225,30),"₩ "+s.Economy.CurrentEconomyState.CurrentCash.ToString("N0"),normal);
             if(s.HasPackage) {
                 var d=world.player.package.CurrentDurability; GUI.Label(new Rect(1010,73,210,24),"케이크  "+Mathf.RoundToInt(d.CakeDurability)+"%",normal);
@@ -68,7 +85,7 @@ namespace SubwayCarry.Gameplay3D
             }
             if(!s.Blocked) {
                 Panel(new Rect(408,24,560,44));
-                GUI.Label(new Rect(424,34,528,26),s.Notice,small);
+                GUI.Label(new Rect(424,34,528,26),stationNotice,small);
                 GUI.Label(new Rect(635,351,10,20),"·",normal);
                 if((!world.player.UsesPersonalBalance||!world.player.PersonalBalance.ConsumesMovementInput)&&world.player.Using==null&&world.player.Target!=null) {
                     if(world.player.InteractionSelector!=null&&world.player.InteractionSelector.isActiveAndEnabled) DrawInteractionOptions(world.player.InteractionSelector);

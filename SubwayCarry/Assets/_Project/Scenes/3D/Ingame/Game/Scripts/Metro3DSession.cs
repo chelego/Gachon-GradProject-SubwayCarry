@@ -46,6 +46,7 @@ namespace SubwayCarry.Gameplay3D
         Metro3DFacility openGate;
         Metro3DTrain departing;
         bool gatePaid,transferNeeded,middleBalanceTriggered;
+        const string BoardingNotice="열차에 탑승하세요.";
         const string SaveKey="SubwayCarry.3D.Progress.v1";
         [Serializable] class Save { public int cash,unlocked=1,stamina,balance,agility; }
 
@@ -105,11 +106,16 @@ namespace SubwayCarry.Gameplay3D
                     if(!World.train.Moving) { World.train.SetDoors(true); step=ServiceStep.Opening; timer=World.settings.doorSeconds; }
                     break;
                 case ServiceStep.Opening:
-                    if(World.train.DoorsOpen) { step=ServiceStep.Dwell; timer=World.settings.dwellSeconds; Notice=StopIndex==0?"열차에 탑승하세요.":"이번 역 · "+StationLabel; }
+                    if(World.train.DoorsOpen) {
+                        step=ServiceStep.Dwell;
+                        timer=World.settings.dwellSeconds;
+                        Notice=StopIndex==0?BoardingNotice:string.Empty;
+                    }
                     break;
                 case ServiceStep.Dwell:
                     if(timer<=0) {
                         if(World.Traffic.HasDoorCrossing(World.train)||World.Traffic.HasAlighters(World.train)) {timer=1;break;}
+                        if(Notice==BoardingNotice) Notice=string.Empty;
                         World.train.SetDoors(false); step=ServiceStep.Closing; timer=World.settings.doorSeconds+1;
                     }
                     break;

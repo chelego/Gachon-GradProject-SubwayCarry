@@ -28,6 +28,7 @@ namespace SubwayCarry.Gameplay3D
         public int CurrentStop {get;private set;}
         public bool DoorsOpen => OpenAmount>.92f;
         public bool Moving {get;private set;}
+        internal bool LeavingRoute {get;private set;}
         public int TravelDirection {get;private set;}=1;
         public bool Autonomous {get;set;}
         public bool BoardingWindow {get;set;}
@@ -124,12 +125,14 @@ namespace SubwayCarry.Gameplay3D
         }
         public void MoveTo(int station,float seconds)
         {
+            LeavingRoute=false;
             CurrentStop=station; startZ=transform.localPosition.z; endZ=station*Metro3DWorld.StationSpacing;
             duration=Mathf.Max(1,seconds); elapsed=0; Moving=true; SetDoors(false);
         }
         public void SetDoors(bool open) { targetDoors=open?1:0; }
         public void DepartOutOfRoute(float seconds)
         {
+            LeavingRoute=true;
             startZ=transform.localPosition.z; endZ=(TravelDirection>0?world.session.Route.stops.Length+1:-2)*Metro3DWorld.StationSpacing;
             duration=seconds; elapsed=0; Moving=true; SetDoors(false);
         }
