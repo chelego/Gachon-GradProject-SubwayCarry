@@ -13,6 +13,8 @@ namespace SubwayCarry.Gameplay3D
         public Vector3 HubSpawn => new Vector3(0, settings.departureFloor, -13);
         public int ServiceSide {get;private set;}=1;
         public Metro3DSettings settings;
+        [SerializeField] bool relaxIdlePassengerWrists;
+        internal bool RelaxIdlePassengerWrists => relaxIdlePassengerWrists;
         [System.NonSerialized] public bool walkingReviewOnly;
         public Metro3DPlayer player;
         public Metro3DSession session;

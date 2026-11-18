@@ -64,6 +64,22 @@ namespace SubwayCarry.Gameplay3D
         float nextPhoneChoice, phoneClock, lookClock, readDuration, exitFrom, transitGlance;
 
         internal bool HasPhoneInUse => phonePhase!=PhonePhase.Off;
+
+        float PhoneRightWristFreedom
+        {
+            get
+            {
+                if (phonePhase == PhonePhase.Off) return 1;
+                if (phonePhase == PhonePhase.Read) return 0;
+                if (phonePhase == PhonePhase.Enter)
+                    return 1 - Mathf.SmoothStep(0, 1, phoneClock / Mathf.Max(.001f, phoneLibrary.enter.contact));
+
+                var exit = phoneLibrary.exit;
+                return Mathf.SmoothStep(0, 1, (phoneClock - exit.contact) /
+                    Mathf.Max(.001f, exit.pose.duration - exit.contact));
+            }
+        }
+
         internal bool PutPhoneAwayForSeat()
         {
             if(phonePhase==PhonePhase.Off)return false;

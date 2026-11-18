@@ -20,6 +20,7 @@ namespace SubwayCarry.Gameplay3D
         readonly Dictionary<string,Transform> bones=new Dictionary<string,Transform>();
         SkinnedMeshRenderer skin;
         float supportWeight, standingWeight;
+        Arm gripArm;
         Vector3 leftPlant,rightPlant;
         bool wasSeated;
         bool mannequin,rigReady;
@@ -53,10 +54,10 @@ namespace SubwayCarry.Gameplay3D
         // Contact is additive to this frame's Animator pose. Restore before
         // the next sampling pass so unkeyed or culled bones cannot accumulate it.
         void Update() {RestoreContactInputs();TickPhone();}
-        void OnDisable() {RestoreContactInputs();ClearPhone();}
+        void OnDisable() {RestoreContactInputs();ClearPhone();gripArm=null;actor?.RestoreIdleWrists();}
         public void Initialize(Metro3DPassenger passenger)
         {
-            actor=passenger;ResetWaitGesture();bones.Clear();supportWeight=standingWeight=0;wasSeated=false;ResetPhone();
+            actor=passenger;ResetWaitGesture();bones.Clear();supportWeight=standingWeight=0;gripArm=null;wasSeated=false;ResetPhone();
             skin=GetComponentInChildren<SkinnedMeshRenderer>(true);
             foreach(var t in GetComponentsInChildren<Transform>(true)) if(!bones.ContainsKey(t.name)) bones.Add(t.name,t);
             mannequin=bones.ContainsKey("DEF-hips");
@@ -107,7 +108,17 @@ namespace SubwayCarry.Gameplay3D
         void LateUpdate()
         {
             ApplyContacts();
-            actor?.RetargetPassengerVisual();
+            if (actor == null) return;
+
+            // Blend with the pose that moves each hand onto its contact.
+            // A change of AI state or Animator clip does not release a wrist on its own.
+            float freeWeight = actor.world.RelaxIdlePassengerWrists && actor.CanCorrectVisualWrists
+                ? 1 - actor.SittingWeight : 0;
+            float gripFreedom = Holding ? 1 - supportWeight : 1;
+            float left = freeWeight * (Holding && gripArm.left ? gripFreedom : 1);
+            float right = freeWeight * Mathf.Min(PhoneRightWristFreedom,
+                Holding && !gripArm.left ? gripFreedom : 1);
+            actor.RetargetPassengerVisual(left, right);
         }
 
         void ApplyContacts()
@@ -145,7 +156,7 @@ namespace SubwayCarry.Gameplay3D
                     Hand(arms[i],palm,seat.forward,Vector3.down,sitting,false,relaxedSeated:true);
                 }
                 actor.ApplySeatedPastimePose();
-                supportWeight=standingWeight=0;return;
+                supportWeight=standingWeight=0;gripArm=null;return;
             }
             wasSeated=false;
             if(actor.NarrowPoseWeight>.001f)ApplyNarrowPassage(hips);
@@ -153,16 +164,19 @@ namespace SubwayCarry.Gameplay3D
             bool valid=actor.IsResting&&spot!=null&&spot.frame==actor.transform.parent&&
                 (spot.frame.TransformPoint(spot.feet)-actor.transform.position).sqrMagnitude<.34f*.34f;
             supportWeight=Mathf.MoveTowards(supportWeight,valid?1:0,Time.deltaTime*2.8f);
+            if (supportWeight == 0) gripArm = null;
             if(!valid||supportWeight<=0) {
                 bool settled=actor.SettledStanding;
                 standingWeight=Mathf.MoveTowards(standingWeight,settled?1:0,Time.deltaTime*(settled?4.2f:9f));
                 if(standingWeight>.001f)GroundSupportFeet(standingWeight,6f);
                 ApplyWaitGesture(settled&&!actor.QueueActive&&!actor.Journey.OnStairs&&!HasPhoneInUse);
-                ApplyPhonePose();return;
+                ApplyPhonePose();
+                return;
             }
             standingWeight=0;
             var root=spot.frame;
             if(spot.lean) {
+                gripArm = null;
                 Vector3 normal=root.TransformDirection(spot.normal).normalized;
                 bool sideLean=spot.sideLean;
                 Vector3 facing=root.TransformDirection(spot.LeanFacing);
@@ -191,6 +205,7 @@ namespace SubwayCarry.Gameplay3D
             }
             Vector3 grip=root.TransformPoint(spot.grip);
             var holding=(arms[0].chain.upper.position-grip).sqrMagnitude<(arms[1].chain.upper.position-grip).sqrMagnitude?arms[0]:arms[1];
+            gripArm = holding;
             // Crossbar is a real .024m tube. Aim the palm centre at it and solve
             // the shoulder/elbow triangle without exceeding anatomical reach.
             var arm=holding.chain;

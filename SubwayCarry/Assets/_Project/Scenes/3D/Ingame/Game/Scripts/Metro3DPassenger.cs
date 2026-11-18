@@ -189,15 +189,16 @@ namespace SubwayCarry.Gameplay3D
             wardrobeRenderer.enabled=true;
         }
 
-        internal void RetargetPassengerVisual()
+        internal void RetargetPassengerVisual(float leftWristWeight, float rightWristWeight)
         {
             if(externalAvatar==null)return;
             float sitting=SittingWeight;
             bool alignHands=sitting>.01f||contacts!=null&&(contacts.Holding||contacts.Leaning||contacts.HasPhoneInUse)
                 ||Journey.GateAction==Metro3DPassengerJourney.GatePhase.Tag;
-            externalAvatar.Apply(sitting,alignHands);
+            externalAvatar.Apply(sitting,alignHands,leftWristWeight,rightWristWeight);
             if(seatedPastime?.HeldPhone is Transform phone)externalAvatar.MatchPhonePalm(phone);
         }
+        internal void RestoreIdleWrists() => externalAvatar?.RestoreIdleWrists();
         internal Metro3DPassenger YieldingFor {get;private set;}
         internal Vector3 YieldSpot {get;private set;}
         internal Vector3 YieldOrigin {get;private set;}
@@ -333,6 +334,10 @@ namespace SubwayCarry.Gameplay3D
         internal bool SettledStanding => motor!=null&&motor.enabled&&motor.isGrounded&&seat==null&&!DoorCrossing&&
             !NarrowWalking&&!Journey.OnStairs&&Velocity.sqrMagnitude<.055f*.055f&&
             (state==Activity.Wait||ExpectedQueueWait);
+
+        internal bool CanCorrectVisualWrists =>
+            MotionTrial == null && !WalkReviewCandidate && !WalkReviewControlled &&
+            animator != null && animator.isActiveAndEnabled;
 
         bool NoticeTransit(TransitNotice cue,Metro3DTrain train)
         {

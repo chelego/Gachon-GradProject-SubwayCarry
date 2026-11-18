@@ -53,7 +53,7 @@ namespace SubwayCarry.Gameplay3D
         public void Initialize(Metro3DWorld world)
         {
             World=world; Economy=GetComponent<EconomyService>(); if(Economy==null) Economy=gameObject.AddComponent<EconomyService>();
-            Load();activeRoute=world.settings.deliveries.orders[SelectedIndex];world.player.package.DurabilityChanged+=OnDamage;
+            activeRoute=world.settings.deliveries.orders[SelectedIndex];world.player.package.DurabilityChanged+=OnDamage;
             world.EnsureRoute(); world.SpawnPassengers(0,false);
             StartIncoming(0); SetCursor();
         }
@@ -225,14 +225,6 @@ namespace SubwayCarry.Gameplay3D
         void SaveProgress()
         {
             PlayerPrefs.SetString(SaveKey,JsonUtility.ToJson(new Save {cash=Economy.CurrentEconomyState.CurrentCash,unlocked=Unlocked,stamina=StaminaLevel,balance=BalanceLevel,agility=AgilityLevel})); PlayerPrefs.Save();
-        }
-        void Load()
-        {
-            if(!PlayerPrefs.HasKey(SaveKey)) return;
-            try { var save=JsonUtility.FromJson<Save>(PlayerPrefs.GetString(SaveKey)); if(save==null) return;
-                Economy.ApplyDelta(Mathf.Max(0,save.cash)-Economy.CurrentEconomyState.CurrentCash); Unlocked=Mathf.Clamp(save.unlocked,1,World.settings.deliveries.orders.Length);
-                StaminaLevel=Mathf.Clamp(save.stamina,0,3); BalanceLevel=Mathf.Clamp(save.balance,0,3); AgilityLevel=Mathf.Clamp(save.agility,0,3);
-            } catch(ArgumentException) { Notice="저장 데이터를 읽지 못했습니다."; }
         }
         void OnApplicationQuit() { if(Economy!=null) SaveProgress(); }
         void OnDestroy() { if(World!=null&&World.player!=null) World.player.package.DurabilityChanged-=OnDamage; }

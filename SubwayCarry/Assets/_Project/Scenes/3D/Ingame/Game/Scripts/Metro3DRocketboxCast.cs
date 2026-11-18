@@ -116,12 +116,25 @@ namespace SubwayCarry.Gameplay3D
             readonly (Transform upper,Transform lower,Transform end,Transform driverEnd,Transform toe,Transform driverToe,float floorOffset,float toeSlope)[] contacts;
             readonly Transform actor;
             readonly float standingPelvisOffset;
-            readonly Palm driverPalm, publisherPalm;
-            readonly struct Palm
+            readonly Palm driverLeftPalm, driverPalm;
+            Palm publisherLeftPalm, publisherPalm;
+            struct Palm
             {
                 readonly Transform hand,index,middle,pinky;
+                Quaternion? idleInput;
                 internal Palm(Transform hand,Transform index,Transform middle,Transform pinky)
-                {this.hand=hand;this.index=index;this.middle=middle;this.pinky=pinky;}
+                {this.hand=hand;this.index=index;this.middle=middle;this.pinky=pinky;idleInput=null;}
+                internal void AlignTo(Palm driver,float weight)
+                {
+                    if (!TryPose(out _, out var current) || !driver.TryPose(out _, out var desired)) return;
+                    idleInput = hand.localRotation;
+                    hand.rotation = Quaternion.Slerp(Quaternion.identity, desired * Quaternion.Inverse(current), weight) * hand.rotation;
+                }
+                internal void RestoreIdleInput()
+                {
+                    if(idleInput is Quaternion rotation && hand!=null) hand.localRotation=rotation;
+                    idleInput=null;
+                }
                 internal bool TryPose(out Vector3 position,out Quaternion rotation)
                 {
                     position=default;rotation=Quaternion.identity;
@@ -138,11 +151,12 @@ namespace SubwayCarry.Gameplay3D
             internal SkinnedMeshRenderer Skin {get;}
             MountedAvatar(Joint[] joints,GameObject model,Transform sourceHips,Transform targetHips,int index,
                 SkinnedMeshRenderer skin,(Transform,Transform,Transform,Transform,Transform,Transform,float,float)[] contacts,Transform actor,float pelvisOffset,
-                Palm driverPalm,Palm publisherPalm)
+                Palm driverLeftPalm,Palm publisherLeftPalm,Palm driverPalm,Palm publisherPalm)
             {
                 this.joints=joints;this.model=model;this.sourceHips=sourceHips;this.targetHips=targetHips;
                 Index=index;Skin=skin;this.contacts=contacts;
                 this.actor=actor;standingPelvisOffset=pelvisOffset;
+                this.driverLeftPalm=driverLeftPalm;this.publisherLeftPalm=publisherLeftPalm;
                 this.driverPalm=driverPalm;this.publisherPalm=publisherPalm;
             }
 
@@ -247,14 +261,17 @@ namespace SubwayCarry.Gameplay3D
                 float hipsOffset=Vector3.Dot(pelvis.position-actor.position,actor.up)-.86f*driverScale;
                 Transform Driver(string name)=>source.TryGetValue(name,out var entry)?entry.bone:null;
                 Transform Publisher(string name)=>target.TryGetValue(Key(name),out var entry)?entry:null;
-                var sourcePalm=new Palm(Driver("DEF-hand.R"),Driver("DEF-f_index.01.R"),Driver("DEF-f_middle.01.R"),Driver("DEF-f_pinky.01.R"));
-                var targetPalm=new Palm(Publisher("R Hand"),Publisher("R Finger1"),Publisher("R Finger2"),Publisher("R Finger4"));
+                Palm SourcePalm(string side)=>new Palm(Driver("DEF-hand."+side),Driver("DEF-f_index.01."+side),
+                    Driver("DEF-f_middle.01."+side),Driver("DEF-f_pinky.01."+side));
+                Palm TargetPalm(string side)=>new Palm(Publisher(side+" Hand"),Publisher(side+" Finger1"),
+                    Publisher(side+" Finger2"),Publisher(side+" Finger4"));
                 return new MountedAvatar(joints.ToArray(),rig,hips.bone,pelvis,index,skin,touches.ToArray(),actor,Mathf.Clamp(hipsOffset,-.19f,.19f),
-                    sourcePalm,targetPalm);
+                    SourcePalm("L"),TargetPalm("L"),SourcePalm("R"),TargetPalm("R"));
             }
 
-            internal void Apply(float sitting,bool alignHands)
+            internal void Apply(float sitting,bool alignHands,float leftWristWeight,float rightWristWeight)
             {
+                RestoreIdleWrists();
                 if(!Skin.isVisible&&!Skin.updateWhenOffscreen)return;
                 targetHips.position=sourceHips.position+actor.up*(standingPelvisOffset*(1-sitting));
                 foreach(var joint in joints){
@@ -289,6 +306,16 @@ namespace SubwayCarry.Gameplay3D
                         if(line.sqrMagnitude>.1f)limb.end.rotation=Quaternion.FromToRotation(limb.toe.position-limb.end.position,slope)*limb.end.rotation;
                     }
                 }
+                // The next retarget pass rewrites both wrists from the driver.
+                // Apply the idle adjustment after all normal hand and finger work.
+                if (leftWristWeight > 0) publisherLeftPalm.AlignTo(driverLeftPalm,leftWristWeight);
+                if (rightWristWeight > 0) publisherPalm.AlignTo(driverPalm,rightWristWeight);
+            }
+
+            internal void RestoreIdleWrists()
+            {
+                publisherLeftPalm.RestoreIdleInput();
+                publisherPalm.RestoreIdleInput();
             }
 
             internal void Dispose()

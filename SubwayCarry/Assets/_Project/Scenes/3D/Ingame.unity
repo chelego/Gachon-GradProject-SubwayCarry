@@ -155260,6 +155260,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay3D.Metro3DWorld
   settings: {fileID: 11400000, guid: bb33fe75ec5069d449dd2bdcb712db73, type: 2}
+  relaxIdlePassengerWrists: 1
   player: {fileID: 703712225}
   session: {fileID: 364627459}
   train: {fileID: 1313409857}
