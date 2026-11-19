@@ -44,7 +44,7 @@ namespace SubwayCarry.Gameplay3D
             {
                 balance.InputSuspended=player.world.session.Blocked;
                 // Temporary citizen support supplements the existing upgrade aid.
-                balance.Assistance=player.world.session.BalanceLevel*player.world.settings.deliveries.balancePerLevel+(player.NpcSupported?.22f:0);
+                balance.Assistance=player.world.session.BalanceAssistance+(player.NpcSupported?.22f:0);
             }
 
             if(NpcCollisionProtected) {
@@ -61,7 +61,7 @@ namespace SubwayCarry.Gameplay3D
                player.Riding==null||player.Using!=null||!player.world.session.HasPackage) return;
 
             if(balance!=null&&player.world.settings!=null&&player.world.settings.deliveries!=null)
-                balance.Assistance=player.world.session.BalanceLevel*player.world.settings.deliveries.balancePerLevel;
+                balance.Assistance=player.world.session.BalanceAssistance+(player.NpcSupported?.22f:0);
 
             CurrentTrainMotion=new TrainMotionSnapshot(++motionSequence,phase,inertiaDirection,intensity);
             TrainMotionChanged?.Invoke(CurrentTrainMotion);

@@ -178,14 +178,19 @@ namespace SubwayCarry.Gameplay3D
             var j=actor.Journey;detail.Clear();
             detail.Append("승객 ID ").Append(SelectedId.ToString("N")).Append("  [").Append(CameraMode).Append("]\n");
             detail.Append("출발 ").Append(world.StopLabel(j.OriginStop)).Append(" / 최종 ").Append(j.DestinationLabel).Append('\n');
-            detail.Append("다음 하차 ").Append(j.HasModeledDestination?j.DestinationLabel:"논리 탑승 구간 연결 대기").Append(" / 환승: 경로 연결 미구현\n");
+            detail.Append("최종 하차 ").Append(j.HasModeledDestination?j.DestinationLabel:"논리 탑승 구간 연결 대기").Append(" / 환승: ").Append(j.TransferMotion).Append('\n');
+            detail.Append("탑승 노선 ").Append(j.NextLine).Append('\n');
             var route=world.session.Route.stops;
-            detail.Append("물리 서비스 노선 ").Append(j.OriginStop<route.Length?route[j.OriginStop].line:"").Append(" / 방향 ").Append(j.TravelDirection>0?"정방향":"역방향").Append(" / 승강장 측 ").Append(j.TrainSide).Append('\n');
+            detail.Append("물리 서비스 노선 ").Append(actor.Riding!=null?actor.Riding.ServiceLine:j.NextLine).Append(" / 방향 ").Append(j.TravelDirection>0?"정방향":"역방향").Append(" / 승강장 측 ").Append(j.TrainSide).Append(" / 현재 발판 ").Append(j.SurfaceSide).Append('\n');
             var train=actor.Riding;detail.Append("열차 ").Append(train!=null?train.name:"미탑승 · 선택 확정 없음").Append(" / 현재 ").Append(actor.inTrain?"객차":world.StopLabel(actor.stationIndex)).Append('\n');
             detail.Append("여정 ").Append(j.Blackboard.CurrentStage).Append(" / 행동 ").Append(actor.ActivityLabel).Append(" / ").Append(j.GateAction).Append('\n');
             detail.Append("보행 ").Append(actor.WalkPhase).Append(" · ").Append(actor.ActiveSteeringPolicy).Append(" / 희망 ").Append(actor.DesiredVelocity.magnitude.ToString("F2")).Append(" / 회피 ").Append(actor.AvoidanceVelocity.magnitude.ToString("F2")).Append(" / 실제 ").Append(actor.Velocity.magnitude.ToString("F2")).Append(" m/s\n");
             detail.Append("속도 벡터 희망 ").Append(actor.DesiredVelocity.ToString("F2")).Append(" / 회피 ").Append(actor.AvoidanceVelocity.ToString("F2")).Append(" / 실제 ").Append(actor.Velocity.ToString("F2")).Append('\n');
             detail.Append("몸 ").Append(actor.transform.eulerAngles.y.ToString("F1")).Append("° / 회전 ").Append(actor.RotationDegreesPerSecond.ToString("F1")).Append("°/s / 누적 ").Append(actor.RotationTravel.ToString("F0")).Append("°\n");
+            if(actor.WardrobeApplied) {
+                string kind=actor.RiderLook==Metro3DRiderLook.Child?"어린이":actor.RiderLook==Metro3DRiderLook.Senior?"노인":actor.RiderLook==Metro3DRiderLook.Student?"대학생":"직장인";
+                detail.Append("승객 유형 ").Append(kind).Append(actor.HasCompanion?" · 동행 중":"").AppendLine();
+            }
             detail.Append("정지 이유 ").Append(world.session.SimulationPaused?Metro3DStopReason.SimulationPaused:actor.StopReason).Append(" / 막힘 ").Append(actor.BlockedSeconds.ToString("F1")).Append("s\n");
             detail.Append("경로 ").Append(actor.PathPointIndex).Append('/').Append(actor.PathPointCount).Append(" / 다음점 ").Append(actor.PathWaypoint.ToString("F2")).Append(" / 선행점 ").Append(actor.TravelLookahead.ToString("F2")).Append('\n');
             detail.Append("시설 ").Append(j.ReservedGate!=null?j.ReservedGate.name:actor.Seat!=null?actor.Seat.name:"없음").Append(" / 줄 ").Append(j.GateQueueSlot).Append(" / 준비 경로 ").Append(actor.ContinuationReady).Append('\n');
@@ -194,6 +199,9 @@ namespace SubwayCarry.Gameplay3D
             if(actor.SeatedPastimeLabel.Length>0)
                 detail.Append(" / ").Append(actor.SeatedPastimeLabel).Append(" · ").Append(actor.SeatedPastimeStage);
             if(actor.PhoneActivity.Length>0)detail.Append(" / ").Append(actor.PhoneActivity);
+            var contact=actor.GetComponent<Metro3DPassengerContacts>();
+            if(contact!=null&&contact.LifeActive)detail.Append(" / ").Append(contact.LifeLabel);
+            actor.AppendDecisionDetails(detail);
             actor.MotionTrial?.AppendDetails(detail);
             selectedDetails=detail.ToString();
         }
@@ -205,7 +213,7 @@ namespace SubwayCarry.Gameplay3D
             float hintY=Active?16:Screen.height-75;
             GUI.Box(new Rect(16,hintY,620,72),GUIContent.none);
             GUI.Label(new Rect(26,hintY+6,600,64),(Active?CurrentLocation()+" · AI 관찰":"AI 일시정지")+"\nF5 종료/진입 · F6 명시적 정지/계속 · WASD / Q·E / Shift\n우클릭 시선 · 클릭 선택 · Tab 시점 · Esc 해제 · M 매칭 ON/OFF",hintStyle);
-            if(Active&&SelectedId!=Guid.Empty){float width=Mathf.Min(790,Screen.width-32);GUI.Box(new Rect(16,100,width,430),GUIContent.none);GUI.Label(new Rect(26,106,width-20,420),selectedDetails,hintStyle);}
+            if(Active&&SelectedId!=Guid.Empty){float width=Mathf.Min(790,Screen.width-32);GUI.Box(new Rect(16,100,width,Mathf.Min(530,Screen.height-112)),GUIContent.none);GUI.Label(new Rect(26,106,width-20,Mathf.Min(520,Screen.height-122)),selectedDetails,hintStyle);}
             int drawn=0;
             if(Active)foreach(var item in labels) {
                 var actor=item.actor;if(actor==null||!actor.isActiveAndEnabled||actor.PersistentId!=item.identity)continue;

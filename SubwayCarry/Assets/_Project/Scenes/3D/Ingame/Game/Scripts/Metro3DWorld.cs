@@ -15,6 +15,25 @@ namespace SubwayCarry.Gameplay3D
         public Metro3DSettings settings;
         [SerializeField] bool relaxIdlePassengerWrists;
         internal bool RelaxIdlePassengerWrists => relaxIdlePassengerWrists;
+        readonly Dictionary<int,(Metro3DTrain train,Vector3 location,float ends,float next)> crowdRushByStation=new();
+
+        internal bool TryScheduleCrowdRush(int station,Metro3DTrain train,Vector3 position,float until)
+        {
+            if(crowdRushByStation.TryGetValue(station,out var previous)&&Time.time<previous.next)return false;
+            if(!train.TryClaimCrowdRush())return false;
+            crowdRushByStation[station]=(train,position,until,Time.time+35f);
+            return true;
+        }
+
+        internal bool CrowdRushNearby {
+            get {
+                if(player==null)return false;
+                Vector3 position=player.transform.position;
+                return crowdRushByStation.TryGetValue(StationAt(position),out var active)&&
+                    active.train!=null&&active.train.DoorsOpen&&!active.train.Moving&&Time.time<active.ends&&
+                    (position-active.location).sqrMagnitude<13f*13f&&Mathf.Abs(position.y-active.location.y)<2.5f;
+            }
+        }
         [System.NonSerialized] public bool walkingReviewOnly;
         public Metro3DPlayer player;
         public Metro3DSession session;
@@ -56,7 +75,9 @@ namespace SubwayCarry.Gameplay3D
             if (player == null) BuildInitial();
             Metro3DWorldSign.PrepareExisting(transform);
             RepairLegacyFarFloorContacts();
-            foreach(var station in stations) if(station!=null) ExpandPassengerSpace(station);
+            foreach(var station in stations) if(station!=null) {
+                ExpandPassengerSpace(station);MarkPlatformCars(station);
+            }
             Physics.SyncTransforms();
             Traffic=GetComponent<Metro3DStationTraffic>();
             if(Traffic==null) Traffic=gameObject.AddComponent<Metro3DStationTraffic>();

@@ -110,8 +110,8 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             }
             if(inHand){phone.transform.localPosition=handPosition;phone.transform.localRotation=handRotation;}
             float grip=SettledMode==AnimationLabPhoneMode.Landscape?1:0;
-            if(action!=null&&action.role==AnimationLabPhoneAction.LandscapeEnter)grip=Mathf.SmoothStep(0,1,Mathf.InverseLerp(.45f,.85f,clock/action.clip.length));
-            if(action!=null&&action.role==AnimationLabPhoneAction.LandscapeExit)grip=1-Mathf.SmoothStep(0,1,Mathf.InverseLerp(.15f,.55f,clock/action.clip.length));
+            if(action!=null&&action.role==AnimationLabPhoneAction.LandscapeEnter)grip=Mathf.SmoothStep(0,1,Mathf.InverseLerp(GripWindowStart(action,.45f),GripWindowEnd(action,.85f),clock/action.clip.length));
+            if(action!=null&&action.role==AnimationLabPhoneAction.LandscapeExit)grip=1-Mathf.SmoothStep(0,1,Mathf.InverseLerp(GripWindowStart(action,.15f),GripWindowEnd(action,.55f),clock/action.clip.length));
             LeftGripError=-1;
             if(grip>0&&inHand)
             {
@@ -135,6 +135,10 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
                 }
             }
         }
+        // Landscape contact windows are derived from authored wrist arrival/release on F2.
+        static bool HasGripWindow(AnimationLabPhoneMotion.ActionClip clip)=>clip.contactStart>=0&&clip.contactEnd>clip.contactStart&&clip.contactEnd<=1;
+        static float GripWindowStart(AnimationLabPhoneMotion.ActionClip clip,float fallback)=>HasGripWindow(clip)?clip.contactStart:fallback;
+        static float GripWindowEnd(AnimationLabPhoneMotion.ActionClip clip,float fallback)=>HasGripWindow(clip)?clip.contactEnd:fallback;
         void AimPhone(float dt,Vector3 target)
         {
             var local=transform.InverseTransformDirection(target-head.position);float wy=Mathf.Clamp(Mathf.Atan2(local.x,local.z)*Mathf.Rad2Deg,-45,45),wp=Mathf.Clamp(-Mathf.Atan2(local.y,new Vector2(local.x,local.z).magnitude)*Mathf.Rad2Deg,-15,22);

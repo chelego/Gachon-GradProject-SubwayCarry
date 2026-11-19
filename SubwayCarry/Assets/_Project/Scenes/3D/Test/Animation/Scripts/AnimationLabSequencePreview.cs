@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace SubwayCarry.Gameplay3D.AnimationLab
 {
@@ -19,6 +20,8 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         private Coroutine sequence;
         private string phase = "Ready";
         private bool paused;
+        private AnimationLabSeatedPhoneReview.Visual phoneVisual;
+        private AnimationLabSeatedBookReview.Visual bookVisual;
 
         public void Configure(
             AnimationClip enter,
@@ -50,12 +53,12 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.R))
+            if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
             {
                 Restart();
             }
 
-            if (Input.GetKeyDown(KeyCode.P))
+            if (Keyboard.current != null && Keyboard.current.pKey.wasPressedThisFrame)
             {
                 paused = !paused;
                 foreach (AnimationState state in animationPlayer)
@@ -64,6 +67,16 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
                 }
             }
         }
+
+        private void OnEnable()
+        {
+            if (animationPlayer != null && phoneVisual == null)
+                phoneVisual = AnimationLabSeatedPhoneReview.Create(gameObject, animationPlayer, enterClip, loopClip, exitClip);
+            if (animationPlayer != null && bookVisual == null)
+                bookVisual = AnimationLabSeatedBookReview.Create(gameObject, animationPlayer, enterClip, loopClip, exitClip);
+        }
+        private void LateUpdate() { phoneVisual?.Playback(); bookVisual?.Playback(); }
+        private void OnDisable() { phoneVisual?.Dispose(); phoneVisual = null; bookVisual?.Dispose(); bookVisual = null; }
 
         private void Restart()
         {

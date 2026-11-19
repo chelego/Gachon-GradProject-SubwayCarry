@@ -28,16 +28,56 @@ namespace SubwayCarry.Gameplay3D
         public int CurrentStop {get;private set;}
         public bool DoorsOpen => OpenAmount>.92f;
         public bool Moving {get;private set;}
-        internal bool LeavingRoute {get;private set;}
+        internal bool LeavingRoute => leavingRoute;
+        bool claimedCrowdRush;
+        internal bool TryClaimCrowdRush()
+        {
+            if(claimedCrowdRush||!CanBoard)return false;
+            claimedCrowdRush=true;
+            return true;
+        }
         public int TravelDirection {get;private set;}=1;
+        public string ServiceLine {get;private set;}
+        TextMesh serviceSign;
+        bool leavingRoute,signResolved;int lastSignStop=-1,lastSignState=-1;string lastSignLine;
+        internal string RouteDisplay {get;private set;}
+        internal void SetServiceLine(string line){ServiceLine=line;RefreshServiceSign();}
+        void RefreshServiceSign()
+        {
+            if(world==null||world.session==null||world.session.World==null)return;
+            if(!signResolved){
+                signResolved=true;
+                foreach(var label in GetComponentsInChildren<TextMesh>())
+                    if(label.text=="수인분당선  |  Suin–Bundang"){serviceSign=label;break;}
+            }
+            if(serviceSign==null)return;
+            int state=(Moving?1:0)|(targetDoors>.5f?2:0)|(DoorsOpen?4:0)|(OpenAmount>.001f?8:0)|(leavingRoute?16:0);
+            if(CurrentStop==lastSignStop&&state==lastSignState&&ServiceLine==lastSignLine)return;
+            lastSignStop=CurrentStop;lastSignState=state;lastSignLine=ServiceLine;
+            string doors=DoorsOpen?(side*TravelDirection>0?"왼쪽 문 열림":"오른쪽 문 열림"):targetDoors>.5f?"문 열리는 중":OpenAmount>.001f?"문 닫히는 중":"문 닫힘";
+            RouteDisplay=(ServiceLine??"")+" · "+(leavingRoute?"회송":(Moving?"다음 ":"")+world.StopLabel(CurrentStop))+"\n"+(leavingRoute?"승차 불가":doors);
+            serviceSign.text=RouteDisplay;serviceSign.GetComponent<Metro3DWorldSign>()?.Configure(1.4f,.25f);
+        }
         public bool Autonomous {get;set;}
         public bool BoardingWindow {get;set;}
         public bool CanBoard => DoorsOpen&&!Moving&&(Autonomous?BoardingWindow:world.session.CanPassengersBoard);
         public float MovementRemaining => Moving?Mathf.Max(0,duration-elapsed):0;
-        public void ConfigureService(int direction,int stop) {TravelDirection=direction<0?-1:1;CurrentStop=stop;}
+        public void ConfigureService(int direction,int stop) {TravelDirection=direction<0?-1:1;CurrentStop=stop;if(string.IsNullOrEmpty(ServiceLine))SetServiceLine(world.session.Route.stops[Mathf.Clamp(stop,0,world.session.Route.stops.Length-1)].line);}
         float startZ,endZ,duration,elapsed,targetDoors,appliedDoorAmount=-1;
         Vector3[] panelRest;
 
+        [System.Serializable] internal sealed class Progress
+        {
+            public int stop,direction; public bool moving,leaving; public string line;
+            public float start,end,seconds,elapsed,doors,target; public Vector3 position;
+        }
+        internal Progress CaptureProgress()=>new Progress{leaving=leavingRoute,line=ServiceLine,stop=CurrentStop,direction=TravelDirection,moving=Moving,start=startZ,end=endZ,seconds=duration,elapsed=elapsed,doors=OpenAmount,target=targetDoors,position=transform.localPosition};
+        internal void RestoreProgress(Progress p)
+        {
+            leavingRoute=p.leaving;SetServiceLine(p.line);CurrentStop=p.stop;TravelDirection=p.direction<0?-1:1;Moving=p.moving;startZ=p.start;endZ=p.end;
+            duration=Mathf.Max(1,p.seconds);elapsed=Mathf.Clamp(p.elapsed,0,duration);OpenAmount=Mathf.Clamp01(p.doors);
+            targetDoors=Mathf.Clamp01(p.target);transform.localPosition=p.position;appliedDoorAmount=-1;Autonomous=false;RefreshServiceSign();
+        }
         void Start() { Cache(); }
         bool passengerSpaceConfigured;
         internal void ConfigurePassengerSpace()
@@ -125,15 +165,14 @@ namespace SubwayCarry.Gameplay3D
         }
         public void MoveTo(int station,float seconds)
         {
-            LeavingRoute=false;
-            CurrentStop=station; startZ=transform.localPosition.z; endZ=station*Metro3DWorld.StationSpacing;
+            claimedCrowdRush=false;
+            leavingRoute=false;CurrentStop=station; startZ=transform.localPosition.z; endZ=station*Metro3DWorld.StationSpacing;
             duration=Mathf.Max(1,seconds); elapsed=0; Moving=true; SetDoors(false);
         }
         public void SetDoors(bool open) { targetDoors=open?1:0; }
         public void DepartOutOfRoute(float seconds)
         {
-            LeavingRoute=true;
-            startZ=transform.localPosition.z; endZ=(TravelDirection>0?world.session.Route.stops.Length+1:-2)*Metro3DWorld.StationSpacing;
+            leavingRoute=true;startZ=transform.localPosition.z; endZ=(TravelDirection>0?world.session.Route.stops.Length+1:-2)*Metro3DWorld.StationSpacing;
             duration=seconds; elapsed=0; Moving=true; SetDoors(false);
         }
         void Update()
@@ -147,7 +186,9 @@ namespace SubwayCarry.Gameplay3D
                 if(t>=1) Moving=false;
             }
             MotionSpeed=(transform.position.z-previous)/Mathf.Max(.001f,Time.deltaTime);
+            bool doorsWereOpen=DoorsOpen;
             OpenAmount=Mathf.MoveTowards(OpenAmount,targetDoors,Time.deltaTime/world.settings.doorSeconds);
+            if(!doorsWereOpen&&DoorsOpen)world.session.TrainCue(this,true);
             bool doorsChanged=OpenAmount!=appliedDoorAmount;
             if(doorsChanged) {
                 for(int i=0;i<panels.Count;i++) panels[i].localPosition=panelRest[i]+Vector3.forward*(i%2==0?-1:1)*DoorSlide*OpenAmount;
@@ -159,6 +200,7 @@ namespace SubwayCarry.Gameplay3D
             }
             // Keep the kinematic carriage's ground/walls current before CharacterController.Move.
             if(moved||doorsChanged)Physics.SyncTransforms();
+            RefreshServiceSign();
         }
         public bool Contains(Vector3 p)
         {

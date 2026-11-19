@@ -170,7 +170,45 @@ namespace SubwayCarry.Gameplay3D
                 child.localPosition+=Vector3.forward*PlatformExpansion;
             yield return null;
             ConfigureStationReflections(t);
-            ExpandPassengerSpace(t);
+            ExpandPassengerSpace(t);MarkPlatformCars(t);
+        }
+
+        void MarkPlatformCars(Transform station)
+        {
+            // Keep labels on the fixed PSD strip. Doors, tactile paving and
+            // collision space remain in their authored positions.
+            if(station.Find("Platform car markers")!=null)return;
+            var markers=new GameObject("Platform car markers").transform;
+            markers.SetParent(station,false);
+            foreach(int side in new[]{-1,1}) {
+                for(int car=0;car<Metro3DTrain.CarCount;car++) {
+                    float z=Metro3DTrain.DoorZ[car*Metro3DTrain.DoorsPerCar]+2.45f;
+                    float x=-side*(ScreenDoorX+.115f);
+                    float yaw=side>0?90:270;
+                    Text(markers,new Vector3(x,2.33f,z),$"{car+1}호차  ·  CAR {car+1}",Color.black,.083f,yaw,1.36f,.13f);
+                }
+                if(Mathf.Abs(station.localPosition.z)>.05f)continue;
+                // Wall-mounted panels sit outside the stair and platform
+                // clearance. Existing module materials and UVs carry through.
+                float wall=-side*(ExpandedPlatformOuterX-.18f);
+                float facing=side>0?90:270;
+                AddPlatformPoster(markers,new Vector3(wall,0,19.4f),facing,"승강장 안전 안내",
+                    "내리는 분이 먼저예요","출입문 앞에서 한 걸음 옆으로");
+                AddPlatformPoster(markers,new Vector3(wall,0,64.2f),facing,"비전타워 가는 길",
+                    "가천대학교 · 비전타워","위층 대합실  1번 출구");
+                AddPlatformPoster(markers,new Vector3(wall,0,80.5f),facing,"오늘의 광고",
+                    "급할수록 케이크는 눕히지 마세요","비전 제과  ·  포장 예약");
+            }
+        }
+
+        void AddPlatformPoster(Transform parent,Vector3 feet,float yaw,string title,string headline,string details)
+        {
+            Module("NoticeBoard",parent,feet,yaw);
+            yaw+=180;
+            var rotation=Quaternion.Euler(0,yaw,0);
+            Text(parent,feet+rotation*new Vector3(0,2,-.077f),title,Color.white,.055f,yaw,1.20f,.085f);
+            Text(parent,feet+rotation*new Vector3(0,1.65f,-.077f),headline,Color.black,.07f,yaw,1.16f,.20f);
+            Text(parent,feet+rotation*new Vector3(0,1.40f,-.077f),details,Color.black,.052f,yaw,1.10f,.16f);
         }
 
         // Existing serialized stations and newly generated stations use the same dimensions.
@@ -547,7 +585,7 @@ namespace SubwayCarry.Gameplay3D
         string DirectionDestination(int index,int side)
         {
             if(index==0) return side==1?"정자 · 인천":"왕십리 · 청량리";
-            var order=session!=null?session.Order:null;
+            var order=session!=null?session.Route:null;
             if(order==null||index>=order.stops.Length) return "타는 곳";
             if(side!=ServiceSide) return order.stops[index-1].label+" 방면";
             return index+1<order.stops.Length?order.stops[index+1].label+" 방면":"종착 / 내리는 곳";
@@ -556,7 +594,17 @@ namespace SubwayCarry.Gameplay3D
         string DirectionBoard(int index,int side)
         {
             if(index==0) return side==1?"태평 · 모란 · 정자 →\n인천 방면":"복정 · 수서 · 왕십리 →\n청량리 방면";
-            var order=session!=null?session.Order:null;
+            var order=session!=null?session.Route:null;
+            if(order!=null&&index<order.stops.Length){
+                int approachSide=ServiceSide;
+                for(int i=1;i<index;i++)if(order.stops[i].transfer)approachSide=-approachSide;
+                if(order.stops[index].transfer&&index+1<order.stops.Length){
+                    if(side==approachSide)return "내리는 곳 · 위층 연결통로 환승\n"+order.stops[index].line;
+                    return order.stops[index+1].label+" 방면 →\n"+order.stops[index+1].line;
+                }
+                return (side==approachSide?(index+1<order.stops.Length?order.stops[index+1].label+" 방면 →":"내리는 곳"):
+                    order.stops[index-1].label+" 방면 →")+"\n"+order.stops[index].line;
+            }
             string line=order!=null&&index<order.stops.Length?order.stops[index].line:"승강장";
             return DirectionDestination(index,side)+"\n"+line;
         }

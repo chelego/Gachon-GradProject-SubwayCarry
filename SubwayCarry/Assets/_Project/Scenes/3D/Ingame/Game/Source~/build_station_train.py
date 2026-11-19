@@ -427,7 +427,8 @@ for y in [-1.5,-1,-.5,0,.5,1,1.5]:
     # Upper strap loops around the rail; lower strap meets the handle's upper crossbar.
     box('Strap',(0,y,1.861),(.017,.017,.282),'Rubber',.003)
     tube('Strap rail collar',(0,y-.018,2.0),(0,y+.018,2.0),.025,'Rubber',12)
-    pts=[(-.085,y,1.72),(-.085,y,1.62),(0,y,1.54),(.085,y,1.62),(.085,y,1.72),(-.085,y,1.72)]
+    # The loop spans the bench row so a rider can grip it facing the seats.
+    pts=[(0,y-.085,1.72),(0,y-.085,1.62),(0,y,1.54),(0,y+.085,1.62),(0,y+.085,1.72),(0,y-.085,1.72)]
     for a,b in zip(pts,pts[1:]): tube('Closed hanging handle',a,b,.012,'White',12)
 end()
 begin('TrainCarBody')

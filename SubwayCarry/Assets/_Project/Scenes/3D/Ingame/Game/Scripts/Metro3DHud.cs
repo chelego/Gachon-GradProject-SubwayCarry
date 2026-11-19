@@ -51,6 +51,57 @@ namespace SubwayCarry.Gameplay3D
             float target=world.session!=null&&world.session.PhoneOpen?1:0;
             phoneOpenProgress=Mathf.MoveTowards(phoneOpenProgress,target,Time.unscaledDeltaTime*4.5f);
         }
+        string deliveryPrompt;
+        float nextDeliveryPrompt;
+        string DeliveryPrompt(Metro3DSession session,Metro3DTrain riding,int station)
+        {
+            if(!session.HasPackage||!session.EntryPaid)return session.Notice;
+            if(Time.unscaledTime<nextDeliveryPrompt)return deliveryPrompt??session.Notice;
+            nextDeliveryPrompt=Time.unscaledTime+.2f;
+            deliveryPrompt=session.Notice;
+            if(riding!=null) {
+                if(!session.IsDeliveryDirection(riding))deliveryPrompt="반대 방향 열차예요. 다음 역에서 내려 방향을 확인하세요.";
+                else if(riding.Moving) {
+                    string next=world.StopLabel(riding.CurrentStop);
+                    deliveryPrompt=session.IsRequiredStop(riding.CurrentStop)
+                        ?$"다음은 {next}역 · {DoorSide(riding)} · 출입문 가까이 이동하세요."
+                        :$"다음은 {next}역 · 손잡이나 벽 쪽에서 케이크를 보호하세요.";
+                } else if(session.IsRequiredStop(riding.CurrentStop)) {
+                    deliveryPrompt=riding.DoorsOpen?$"{world.StopLabel(riding.CurrentStop)}역 · {DoorSide(riding)} · 여기서 내리세요."
+                        :"하차할 역입니다. 출입문이 열리면 내리세요.";
+                } else if(riding.DoorsOpen&&session.Timer<=5&&riding==world.train)
+                    deliveryPrompt="잠시 후 출발합니다. 손잡이를 잡거나 통로를 비워 주세요.";
+            } else if(station==session.Route.stops.Length-1&&session.DestinationReached)
+                deliveryPrompt="승강장을 나와 배송 목적지 출구에서 케이크를 전달하세요.";
+            else if(session.TransferWalkingRequired)deliveryPrompt=session.DeliveryLine+" 환승 · 위층 연결통로를 지나 반대편 승강장으로 이동하세요.";
+            else if(world.player.transform.position.y<=world.settings.departureFloor-1) {
+                bool wrongSide=world.stations[station].InverseTransformPoint(world.player.transform.position).x*session.DeliveryPlatformSide>0;
+                deliveryPrompt=wrongSide?session.DeliveryLine+" · 반대편 승강장을 이용하세요.":$"{session.DeliveryLine} · {session.DestinationLabel} 방면 · 하차 승객 먼저";
+                var service=world.train;
+                if(service!=null&&!service.Moving&&service.DoorsOpen&&service.CurrentStop==station&&station<world.stations.Count) {
+                    Vector3 feet=world.player.transform.position;
+                    int nearest=service.NearestDoor(feet);
+                    Vector3 point=service.DoorPoint(nearest,true);
+                    if((point-feet).sqrMagnitude<8*8) {
+                        var frame=world.stations[station];var crowd=world.GetComponent<Metro3DCrowd>();
+                        float density=crowd.LocalDensity(point,frame);
+                        int chosen=nearest;
+                        for(int i=Mathf.Max(0,nearest-1);i<=Mathf.Min(Metro3DTrain.DoorZ.Length-1,nearest+1);i++) {
+                            if(i==nearest)continue;
+                            var other=service.DoorPoint(i,true);
+                            if((other-feet).sqrMagnitude>9*9)continue;
+                            float score=crowd.LocalDensity(other,frame);
+                            if(score+.22f<density){chosen=i;density=score;}
+                        }
+                        if(chosen!=nearest)deliveryPrompt=$"{Metro3DTrain.DoorNumber(chosen)}번 문 앞이 덜 붐벼요. 내리는 승객을 먼저 보내세요.";
+                    }
+                }
+            }
+            return deliveryPrompt;
+        }
+        static string DoorSide(Metro3DTrain train)=>train.side>0?"왼쪽 출입문":"오른쪽 출입문";
+        bool confirmFreshGame;
+
         void OnGUI()
         {
             if(world.Observer!=null&&world.Observer.Active)return;
@@ -66,7 +117,6 @@ namespace SubwayCarry.Gameplay3D
                 location=station+"역 · "+(world.player.transform.position.y>world.settings.departureFloor-1?"대합실":"승강장");
                 serviceStatus="TAB · 배달 앱";
                 stationNotice="현재 역 · "+station;
-                if(!string.IsNullOrEmpty(s.Notice)) stationNotice+="  |  "+s.Notice;
             } else if(riding.LeavingRoute) {
                 location=riding.Moving?"회송 중":"운행 종료";
                 serviceStatus="출입문 닫힘";
@@ -76,7 +126,22 @@ namespace SubwayCarry.Gameplay3D
                 stationNotice=(riding.Moving?"다음 역 · ":"이번 역 · ")+station;
                 serviceStatus=riding.Moving?stationNotice:"출입문 "+(riding.DoorsOpen?"열림":"닫힘");
             }
-            Panel(new Rect(24,24,365,82)); GUI.Label(new Rect(42,35,330,28),location,title); GUI.Label(new Rect(42,72,330,24),serviceStatus,small);
+            bool onPlatform=riding==null&&world.player.transform.position.y<=world.settings.departureFloor-1;
+            var visibleService=riding!=null?riding:onPlatform&&world.train!=null&&world.train.CurrentStop==here?
+                world.train:null;
+            if(visibleService!=null&&!visibleService.LeavingRoute) {
+                if(visibleService.Moving) {
+                    int seconds=Mathf.CeilToInt(visibleService.MovementRemaining);
+                    serviceStatus=riding==null?$"열차 도착까지 {seconds}초":$"{stationNotice} · {seconds}초";
+                } else if(visibleService.CanBoard) {
+                    int seconds=Mathf.CeilToInt(world.Transit.BoardingSeconds(visibleService));
+                    if(seconds>0)serviceStatus=$"승차 마감까지 {seconds}초";
+                }
+            }
+            Panel(new Rect(24,24,365,82));
+            Bar(new Rect(24,24,4,82),1,visibleService!=null&&visibleService.CanBoard?new Color(.94f,.65f,.34f):accent);
+            GUI.Label(new Rect(42,35,330,28),location,title);
+            GUI.Label(new Rect(42,72,330,24),serviceStatus,small);
             Panel(new Rect(991,24,265,s.HasPackage?135:52)); GUI.Label(new Rect(1010,35,225,30),"₩ "+s.Economy.CurrentEconomyState.CurrentCash.ToString("N0"),normal);
             if(s.HasPackage) {
                 var d=world.player.package.CurrentDurability; GUI.Label(new Rect(1010,73,210,24),"케이크  "+Mathf.RoundToInt(d.CakeDurability)+"%",normal);
@@ -85,20 +150,53 @@ namespace SubwayCarry.Gameplay3D
             }
             if(!s.Blocked) {
                 Panel(new Rect(408,24,560,44));
-                GUI.Label(new Rect(424,34,528,26),stationNotice,small);
+                string guidance=riding!=null&&riding.LeavingRoute?"":DeliveryPrompt(s,riding,here);
+                GUI.Label(new Rect(424,29,528,18),stationNotice,small);
+                if(!string.IsNullOrEmpty(guidance))GUI.Label(new Rect(424,47,528,18),guidance,small);
+                if(world.CrowdRushNearby) {
+                    Panel(new Rect(465,77,350,40));
+                    Bar(new Rect(473,86,3,22),1,new Color(.95f,.40f,.29f));
+                    GUI.Label(new Rect(489,83,306,29),"급히 탑승하는 승객 · 문 앞 혼잡",small);
+                }
                 GUI.Label(new Rect(635,351,10,20),"·",normal);
                 if((!world.player.UsesPersonalBalance||!world.player.PersonalBalance.ConsumesMovementInput)&&world.player.Using==null&&world.player.Target!=null) {
                     if(world.player.InteractionSelector!=null&&world.player.InteractionSelector.isActiveAndEnabled) DrawInteractionOptions(world.player.InteractionSelector);
                     else DrawLegacyInteractionPrompt(scale);
                 }
                 if(world.player.BalanceActive) { Panel(new Rect(562,460,156,72)); GUI.Label(new Rect(586,476,130,40),world.player.BalanceKey+"  균형",title); }
-                DrawStaminaBar(world.player.Stamina/(100+s.StaminaLevel*20));
+                DrawStaminaBar(world.player.Stamina/world.player.MaxStamina);
+                if(s.HasPackage&&(s.HasCushionPad||s.HasEnergyGel)) DrawSupplies(s);
             }
             if(UsesPersonalHud()) { if(s.PhoneOpen||phoneOpenProgress>.001f) DrawPhone(); }
             else if(s.PhoneOpen) DrawPhone();
             if(s.ResultOpen) DrawResult();
-            if(s.Paused&&!s.PhoneOpen) { Panel(new Rect(470,260,340,180)); GUI.Label(new Rect(500,285,280,35),"일시정지",title); GUI.Label(new Rect(500,340,280,30),"ESC · 계속하기",normal); }
+            if(s.Paused&&!s.PhoneOpen&&!s.ResultOpen) {
+                Panel(new Rect(440,247,400,224));
+                GUI.Label(new Rect(469,265,342,35),"일시정지",title);
+                if(confirmFreshGame) {
+                    GUI.Label(new Rect(469,319,342,30),"저장된 배송과 강화가 초기화됩니다.",small);
+                    if(GUI.Button(new Rect(469,380,155,40),"취소",button))confirmFreshGame=false;
+                    if(GUI.Button(new Rect(642,380,169,40),"새 게임 시작",button)) {
+                        confirmFreshGame=false;
+                        s.BeginFreshGame();
+                    }
+                } else {
+                    GUI.Label(new Rect(469,319,342,30),"ESC · 계속하기",normal);
+                    if(GUI.Button(new Rect(469,380,342,40),"새 게임",button))confirmFreshGame=true;
+                }
+            } else confirmFreshGame=false;
             if(s.DamageRemaining>0) DrawDamage();
+        }
+        void DrawSupplies(Metro3DSession session)
+        {
+            Matrix4x4 previousMatrix=GUI.matrix; GUI.matrix=Matrix4x4.identity;
+            var frame=StaminaFrameRect();
+            float y=frame.yMax+1;
+            if(session.HasCushionPad)
+                GUI.Label(new Rect(frame.x+2,y,94,13),"완충 패드  1",small);
+            if(session.HasEnergyGel)
+                GUI.Label(new Rect(frame.xMax-118,y,118,13),"R · 에너지 젤  1",small);
+            GUI.matrix=previousMatrix;
         }
         void DrawInteractionOptions(Metro3DInteractionSelector selector)
         {
@@ -190,12 +288,23 @@ namespace SubwayCarry.Gameplay3D
             }
             GUI.enabled=true;
             if(GUI.Button(new Rect(354,588,282,52),s.HasPackage?"배송 계속하기":"배송 수락",button)) s.Accept();
-            if(GUI.Button(new Rect(644,588,280,52),"보험 ₩"+c.insurancePrice.ToString("N0")+(s.Insurance?" ✓":""),button)) s.Purchase(3);
-            Panel(new Rect(24,440,276,240)); GUI.Label(new Rect(44,458,240,30),"학교 지원",title);
-            if(GUI.Button(new Rect(44,503,234,39),"체력 강화 · "+s.StaminaLevel,button)) s.Purchase(0);
-            if(GUI.Button(new Rect(44,548,234,39),"균형 강화 · "+s.BalanceLevel,button)) s.Purchase(1);
-            if(GUI.Button(new Rect(44,593,234,39),"이동 강화 · "+s.AgilityLevel,button)) s.Purchase(2);
+            LegacyPurchase(new Rect(644,588,280,52),"보험",3);
+            Panel(new Rect(24,334,276,346)); GUI.Label(new Rect(44,350,240,30),"강화 · 역 서비스",title);
+            LegacyPurchase(new Rect(44,392,234,37),"완충 패드",Metro3DSession.CushionPadItem);
+            LegacyPurchase(new Rect(44,436,234,37),"에너지 젤",Metro3DSession.EnergyGelItem);
+            LegacyPurchase(new Rect(44,500,234,37),"체력 Lv "+s.StaminaLevel,0);
+            LegacyPurchase(new Rect(44,544,234,37),"균형 Lv "+s.BalanceLevel,1);
+            LegacyPurchase(new Rect(44,588,234,37),"이동 Lv "+s.AgilityLevel,2);
+            LegacyPurchase(new Rect(44,632,234,37),"교통비 지원",4);
             GUI.Label(new Rect(354,646,568,26),s.Notice,small);
+        }
+        GUIStyle legacyPurchaseStyle;
+        void LegacyPurchase(Rect rect,string label,int kind)
+        {
+            legacyPurchaseStyle??=new GUIStyle(button){fontSize=13,wordWrap=false,alignment=TextAnchor.MiddleCenter,padding=new RectOffset(2,2,0,0)};
+            var offer=world.session.GetPurchaseOffer(kind);bool previous=GUI.enabled;GUI.enabled=previous&&offer.Available;
+            if(GUI.Button(rect,label+" · ₩"+offer.Price.ToString("N0")+"\n"+offer.Reason,legacyPurchaseStyle))world.session.Purchase(kind);
+            GUI.enabled=previous;
         }
         void DrawHandheldPhone()
         {
@@ -218,7 +327,7 @@ namespace SubwayCarry.Gameplay3D
             Fill(PhoneRect(phone,phoneScale,-4,128,4,68),new Color(.08f,.09f,.09f,.98f));
             Fill(PhoneRect(phone,phoneScale,480,154,4,42),new Color(.08f,.09f,.09f,.98f));
 
-            Rect screen=PhoneRect(phone,phoneScale,21,32,438,632);
+            Rect screen=PhoneRect(phone,phoneScale,21,32,438,652);
             Fill(screen,new Color(.045f,.057f,.057f,.995f));
             Fill(PhoneRect(phone,phoneScale,193,14,94,5),new Color(.16f,.18f,.18f,.98f));
             Fill(PhoneRect(phone,phoneScale,297,13,7,7),new Color(.11f,.19f,.18f,.98f));
@@ -259,15 +368,23 @@ namespace SubwayCarry.Gameplay3D
             Rect acceptRect=PhoneRect(phone,phoneScale,30,531,205,39);
             Rect insuranceRect=PhoneRect(phone,phoneScale,244,531,206,39);
             if(PhoneButton(acceptRect,s.HasPackage?"배송 계속하기":"배송 수락",true,true)) s.Accept();
-            if(PhoneButton(insuranceRect,"보험 ₩"+c.insurancePrice.ToString("N0")+(s.Insurance?" · 적용":""),true,false)) s.Purchase(3);
+            DrawPurchase(insuranceRect,3,"보험");
 
-            GUI.Label(PhoneRect(phone,phoneScale,31,578,418,18),"학교 지원",phoneSection);
-            if(PhoneButton(PhoneRect(phone,phoneScale,30,600,134,31),"체력 · "+s.StaminaLevel,true,false)) s.Purchase(0);
-            if(PhoneButton(PhoneRect(phone,phoneScale,173,600,134,31),"균형 · "+s.BalanceLevel,true,false)) s.Purchase(1);
-            if(PhoneButton(PhoneRect(phone,phoneScale,316,600,134,31),"이동 · "+s.AgilityLevel,true,false)) s.Purchase(2);
-            GUI.Label(PhoneRect(phone,phoneScale,31,635,418,22),s.Notice,phoneNotice);
-            Fill(PhoneRect(phone,phoneScale,186,677,108,4),new Color(.64f,.68f,.66f,.82f));
+            DrawPurchase(PhoneRect(phone,phoneScale,30,575,420,22),4,"교통비 1회 지원");
+            DrawPurchase(PhoneRect(phone,phoneScale,30,638,205,24),Metro3DSession.CushionPadItem,"완충 패드");
+            DrawPurchase(PhoneRect(phone,phoneScale,244,638,206,24),Metro3DSession.EnergyGelItem,"에너지 젤");
+            DrawPurchase(PhoneRect(phone,phoneScale,30,600,134,31),0,"체력 "+s.StaminaLevel);
+            DrawPurchase(PhoneRect(phone,phoneScale,173,600,134,31),1,"균형 "+s.BalanceLevel);
+            DrawPurchase(PhoneRect(phone,phoneScale,316,600,134,31),2,"이동 "+s.AgilityLevel);
+            GUI.Label(PhoneRect(phone,phoneScale,31,666,418,19),s.Notice,phoneNotice);
+            Fill(PhoneRect(phone,phoneScale,186,689,108,3),new Color(.64f,.68f,.66f,.82f));
             GUI.matrix=previousMatrix;
+        }
+        void DrawPurchase(Rect rect,int kind,string name)
+        {
+            var offer=world.session.GetPurchaseOffer(kind);
+            string detail=offer.Available?"₩"+offer.Price.ToString("N0"):offer.Reason;
+            if(PhoneButton(rect,name+" · "+detail,offer.Available,false))world.session.Purchase(kind);
         }
         static Rect PhoneRect(Rect phone,float scale,float x,float y,float width,float height)
         {
@@ -300,10 +417,11 @@ namespace SubwayCarry.Gameplay3D
         void DrawResult()
         {
             var s=world.session; Panel(new Rect(390,190,500,350)); GUI.Label(new Rect(426,220,430,40),s.Notice,title);
+            GUI.Label(new Rect(426,258,430,24),s.ResultReason??"",small);
             GUI.Label(new Rect(426,285,430,34),"배송 수입  ₩"+s.Settlement.Fee.ToString("N0"),normal);
             GUI.Label(new Rect(426,325,430,34),"배상금  ₩"+s.Settlement.Compensation.ToString("N0"),normal);
             GUI.Label(new Rect(426,365,430,34),"최종 손익  ₩"+s.Settlement.NetIncome.ToString("N0"),title);
-            if(GUI.Button(new Rect(426,448,430,54),"가천대역으로 복귀",button)) s.ReturnToHub();
+            if(GUI.Button(new Rect(426,448,430,54),s.Bankrupt?"파산 · 새 게임 시작":"가천대역으로 복귀",button)) s.ReturnToHub();
         }
         void DrawDamage()
         {

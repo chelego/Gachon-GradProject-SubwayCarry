@@ -14,3 +14,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay3D.Metro3DWaitGestures
   weightShift: {fileID: 11400000, guid: 2a3d52c509797d2449defac120cf5c43, type: 2}
   lookAlongPlatform: {fileID: 11400000, guid: 8e8307584ec7fae4fbd9868842ba78b6, type: 2}
+  standingLoad: {fileID: 11400000, guid: b7decccd1d72e1d47910be7810f410a5, type: 2}
+  platformMotions:
+  - {fileID: 11400000, guid: f0c81ae116dc73f4ca58e68b195777d5, type: 2}
+  - {fileID: 11400000, guid: c4cbab40175108d4493021c202587263, type: 2}
+  - {fileID: 11400000, guid: 46270923c85970947a34ce9f5a8b7fff, type: 2}
+  - {fileID: 11400000, guid: c157e84ad196b284bb3610f2bea0134c, type: 2}
+  - {fileID: 11400000, guid: c639af98b0025ee43a7a8b9b23b3d071, type: 2}
+  - {fileID: 11400000, guid: 3c3fc2fa2cbd5284a8344686532bf773, type: 2}
+  - {fileID: 11400000, guid: d207a06f18e061546949009bf587379e, type: 2}
+  gateMotions:
+  - {fileID: 11400000, guid: 0615e234347dd444e82e03e1801cbcd5, type: 2}
+  - {fileID: 11400000, guid: cf83b45c5de12484798b32d9c2d15938, type: 2}
+  - {fileID: 11400000, guid: 55b18ff994a95d841b3937f3f5958f70, type: 2}
+  - {fileID: 11400000, guid: 3a374a470fbb67447b9cfc81818c45d2, type: 2}
+  - {fileID: 11400000, guid: 44a6927954dd02d4ea00617e3808814f, type: 2}

@@ -126,7 +126,28 @@ namespace SubwayCarry.Gameplay3D
         };
         internal string Stage => phase switch { Phase.Enter => "시작", Phase.Hold => "유지", Phase.Exit => "풀기", _ => "" };
         internal bool Active => phase != Phase.None;
+        internal bool Dozing => phase==Phase.Hold&&sequence.source.action==Metro3DSeatedAction.Doze;
         internal bool NeedsLegRoom => Active && phase != Phase.Exit && sequence.source.action == Metro3DSeatedAction.CrossLegs;
+        internal float PortraitWeight
+        {
+            get
+            {
+                if(!Active||sequence.source.action!=Metro3DSeatedAction.Phone)return 0;
+                if(phase==Phase.Hold)return 1;
+                float progress=clock/sequence.poses[(int)phase].duration;
+                return phase==Phase.Enter
+                    ?Mathf.SmoothStep(0,1,Mathf.InverseLerp(.68f,1,progress))
+                    :1-Mathf.SmoothStep(0,1,Mathf.InverseLerp(0,.35f,progress));
+            }
+        }
+
+        internal static bool HasLegRoom(Metro3DPassenger actor, Metro3DCrowd crowd)
+        {
+            var seat=actor.Seat;
+            if(seat==null||actor.world.Traffic.OccupiedSeatNeighbors(seat)>0)return false;
+            var front=seat.anchor.position+seat.anchor.forward*(.53f*actor.HeightRatio);
+            return crowd.SpaceFree(front,actor,actor.BodyRadius+.26f);
+        }
 
         internal Metro3DSeatedPastime(Metro3DPassenger actor, Metro3DSeatedActionLibrary library)
         {
@@ -148,7 +169,7 @@ namespace SubwayCarry.Gameplay3D
             if (bones == null || available < MinimumHold || Time.time < chooseAt) return;
             var personality = actor.Journey.Personality;
             float density = crowd.LocalDensity(actor.transform.position, actor.transform.parent);
-            bool canCrossLegs = density < .55f && crowd.SpaceFree(actor.Seat.anchor.position, actor, .57f);
+            bool canCrossLegs = density < .55f && HasLegRoom(actor,crowd);
 
             // Reserve a neutral option. A rider may choose to leave their hands free.
             float total = .54f;
@@ -247,7 +268,11 @@ namespace SubwayCarry.Gameplay3D
                 Quaternion pose = Quaternion.Slerp(from, sample.Rotation(bone, time), blend);
                 bones[bone].localRotation = Quaternion.Slerp(neutral, pose, release);
             }
-            ApplyProp(time);
+        }
+
+        internal void ApplyCurrentProp()
+        {
+            if(Active)ApplyProp(SampleTime());
         }
 
         internal Transform HeldPhone

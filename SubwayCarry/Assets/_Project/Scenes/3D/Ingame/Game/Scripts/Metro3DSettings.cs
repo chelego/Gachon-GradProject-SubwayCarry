@@ -26,12 +26,20 @@ namespace SubwayCarry.Gameplay3D
         [Range(1, 30)] public int passengersPerCar = 18;
         [Min(.5f)] public float passengerArrivalSeconds = 2;
         public bool helpfulCitizensEnabled = false;
+        public bool ambientEventsEnabled = true;
+        public int ambientEventSeed = 20261109;
         [Min(35)] public float ambientTrainHeadway = 60;
         [Range(1, 4)] public int ambientTrainsPerDirection = 2;
         [Min(1)] public float approachSeconds = 8, dwellSeconds = 22, travelSeconds = 30;
         [Min(.2f)] public float doorSeconds = 1.25f;
         public float departureFloor = 3.6f;
         public float npcSpeed = 1.25f;
+        [Header("Delivery supplies and upgrades")]
+        [Min(1)] public int cushionPadPrice = 550, energyGelPrice = 450;
+        [Range(0, 1)] public float cushionDamageReduction = .50f, gelStaminaRecovery = .35f;
+        [Range(0, 1)] public float gelUseThreshold = .75f;
+        [Min(0)] public float staminaRecoveryPerLevel = 2f, sprintSavingPerAgilityLevel = .5f;
+        [Range(0, 1)] public float extraBalancePerLevel = .04f;
         public string ModuleName(string name) => name;
     }
 }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
@@ -16,20 +17,22 @@ namespace SubwayCarry.AI.HelpNPC
         Metro3DCrowd crowd;
         Renderer[] renderers;
         MaterialPropertyBlock tint;
+        readonly List<(Renderer renderer,int slot,MaterialPropertyBlock previous)> paintedSlots=new();
         static ModelAsset model;
         static bool modelChecked;
         float nextDecision,committedUntil,helpStarted,cooldownUntil;
         HelperAction current;
         Vector3 right,forward,safePoint;
         HelperSituation snapshot;
-        bool painted,wasHelping;
+        bool wasHelping;
         public HelperAction CurrentAction=>current;
         public int InferenceCount {get;private set;}
-        public bool IsHelping=>painted&&wasHelping;
+        public bool IsHelping=>wasHelping;
         public HelperSituation LastSituation=>snapshot;
         public static void Configure(Metro3DPassenger actor)
         {
             var old=actor.GetComponent<Metro3DHelperAgent>();
+            if(!actor.world.settings.helpfulCitizensEnabled){if(old!=null){old.Paint(false);old.enabled=false;}return;}
             if(!modelChecked){model=Resources.Load<ModelAsset>("HelpfulCitizen");modelChecked=true;}
             bool selected=actor.index%12==0&&model!=null;
             if(!selected){if(old!=null){old.Paint(false);old.enabled=false;}return;}
@@ -40,20 +43,24 @@ namespace SubwayCarry.AI.HelpNPC
                 bp.Model=model;bp.BehaviorType=BehaviorType.InferenceOnly;bp.InferenceDevice=InferenceDevice.Burst;bp.DeterministicInference=true;
                 old=actor.gameObject.AddComponent<Metro3DHelperAgent>();
             }
+            old.Paint(false);
             old.passenger=actor;old.crowd=actor.world.GetComponent<Metro3DCrowd>();
-            old.renderers=actor.GetComponentsInChildren<Renderer>();old.current=HelperAction.ContinueJourney;old.painted=false;
+            var appearance=actor.ExternalPassengerSkin;
+            old.renderers=appearance!=null?new Renderer[]{appearance}:actor.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            old.current=HelperAction.ContinueJourney;
             old.nextDecision=Time.time+(actor.index%7)*.035f;old.committedUntil=old.helpStarted=old.cooldownUntil=0;old.enabled=true;old.Paint(false);
         }
         bool Available(out Metro3DPlayer player)
         {
             player=passenger!=null&&passenger.world!=null?passenger.world.player:null;
-            return player!=null&&!passenger.world.session.SimulationPaused&&passenger.CanAssist
+            return player!=null&&passenger.world.settings.helpfulCitizensEnabled&&!passenger.world.session.SimulationPaused&&!passenger.CrowdRushActive&&passenger.CanAssist
                 &&(passenger.inTrain?player.Riding==passenger.Riding:player.Riding==null)
                 &&Mathf.Abs(player.transform.position.y-transform.position.y)<.7f
                 &&(player.transform.position-transform.position).sqrMagnitude<30.25f;
         }
         void Update()
         {
+            if(passenger==null||!passenger.world.settings.helpfulCitizensEnabled){current=HelperAction.ContinueJourney;Paint(false);return;}
             if(!Available(out var player)){current=HelperAction.ContinueJourney;Paint(false);return;}
             if(current!=HelperAction.ContinueJourney&&Time.time-helpStarted>6){current=HelperAction.ContinueJourney;cooldownUntil=Time.time+8;Paint(false);}
             if(Time.time<cooldownUntil)return;
@@ -110,11 +117,38 @@ namespace SubwayCarry.AI.HelpNPC
         }
         void Paint(bool helping)
         {
-            if(renderers==null||(painted&&wasHelping==helping))return;painted=true;wasHelping=helping;if(tint==null)tint=new MaterialPropertyBlock();
-            Color color=helping?new Color(.12f,.76f,.30f):new Color(.90f,.42f,.12f);
-            tint.SetColor("_BaseColor",color);tint.SetColor("_Color",color);
-            foreach(var r in renderers)if(r!=null)for(int i=0;i<r.sharedMaterials.Length;i++)if(r.sharedMaterials[i]!=null&&!r.sharedMaterials[i].name.Contains("Joint"))r.SetPropertyBlock(tint,i);
+            if(wasHelping==helping)return;
+            wasHelping=helping;
+            if(!helping) {
+                foreach(var slot in paintedSlots)
+                    if(slot.renderer!=null)
+                        slot.renderer.SetPropertyBlock(slot.previous.isEmpty?null:slot.previous,slot.slot);
+                paintedSlots.Clear();
+                return;
+            }
+            if(renderers==null)return;
+            tint??=new MaterialPropertyBlock();
+            Color color=new Color(.12f,.76f,.30f);
+            foreach(var renderer in renderers) {
+                if(renderer==null)continue;
+                var materials=renderer.sharedMaterials;
+                for(int i=0;i<materials.Length;i++) {
+                    if(materials[i]==null||materials[i].name.Contains("Joint"))continue;
+                    var original=new MaterialPropertyBlock();
+                    renderer.GetPropertyBlock(original,i);
+                    paintedSlots.Add((renderer,i,original));
+                    renderer.GetPropertyBlock(tint,i);
+                    tint.SetColor("_BaseColor",color);tint.SetColor("_Color",color);
+                    renderer.SetPropertyBlock(tint,i);
+                }
+            }
         }
+        protected override void OnDisable()
+        {
+            Paint(false);
+            base.OnDisable();
+        }
+
         public override void Heuristic(in ActionBuffers actionsOut){var actions=actionsOut.DiscreteActions;actions[0]=0;}
     }
 }

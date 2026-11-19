@@ -15,8 +15,10 @@ namespace SubwayCarry.Gameplay3D
             "Male_Child_01","Female_Child_01","Male_Adult_09","Female_Adult_12"
         };
         static readonly string[] Prefixes={"m008","f020","m012","f004","cm001","cf001","m017","f012"};
-        readonly Variant[] variants=new Variant[Names.Length];
-        readonly bool[] lookedUp=new bool[Names.Length];
+        static readonly string[] LocalScans={"Eric","Claudia","Carla"};
+        const string LocalScanFolder="PassengerCastLocal/";
+        readonly Variant[] variants=new Variant[Names.Length+LocalScans.Length*3];
+        readonly bool[] lookedUp=new bool[Names.Length+LocalScans.Length*3];
         sealed class Variant
         {
             internal GameObject model;
@@ -27,16 +29,56 @@ namespace SubwayCarry.Gameplay3D
             Metro3DRiderLook look,int seed,ref MountedAvatar current)
         {
             int index=2*(int)look+(seed&1);
-            var data=Load(index);
-            if(data==null)return false;
-            if(current!=null&&current.Index==index)return true;
             float driverScale=look==Metro3DRiderLook.Child?.73f:look==Metro3DRiderLook.Senior?.94f:1f;
-            var created=MountedAvatar.TryCreate(actor.transform,driver,sourceMesh,driverBones,data.model,data.materials,index,
-                look==Metro3DRiderLook.Child?1.33f:look==Metro3DRiderLook.Senior?1.67f:1.76f,driverScale);
+            float height=look==Metro3DRiderLook.Child?1.33f:look==Metro3DRiderLook.Senior?1.67f:1.76f;
+            MountedAvatar created=null;
+            uint appearance=unchecked((uint)seed*2654435761u);
+            if((look==Metro3DRiderLook.Office||look==Metro3DRiderLook.Student)&&appearance%5<2) {
+                int variant=Names.Length+(int)((appearance>>8)%9);
+                if(current!=null&&current.Index==variant)return true;
+                var scan=LoadLocalScan(variant);
+                if(scan!=null)
+                    created=MountedAvatar.TryCreate(actor.transform,driver,sourceMesh,driverBones,scan.model,scan.materials,
+                        variant,height,driverScale,localScan:true);
+            }
+            if(created==null) {
+                var data=Load(index);
+                if(data==null)return false;
+                if(current!=null&&current.Index==index)return true;
+                created=MountedAvatar.TryCreate(actor.transform,driver,sourceMesh,driverBones,data.model,data.materials,index,height,driverScale);
+            }
             if(created==null)return false;
             current?.Dispose();
             current=created;
             return true;
+        }
+
+        Variant LoadLocalScan(int index)
+        {
+            if(lookedUp[index])return variants[index];
+            lookedUp[index]=true;
+            int variant=index-Names.Length;
+            string name=LocalScans[variant/3];
+            int shade=variant%3;
+            string folder=LocalScanFolder+name+"/";
+            var model=Resources.Load<GameObject>(folder+name);
+            if(model==null)return null;
+            var skin=model.GetComponentInChildren<SkinnedMeshRenderer>(true);
+            var shader=Shader.Find("Universal Render Pipeline/Lit");
+            var texture=Resources.Load<Texture2D>(folder+name+(shade==0?"":shade.ToString()));
+            if(skin==null||skin.sharedMesh==null||shader==null||texture==null)return null;
+            var material=new Material(shader){name="Passenger "+name+" "+shade};
+            material.SetTexture("_BaseMap",texture);
+            material.SetFloat("_Smoothness",.18f);
+            var normal=Resources.Load<Texture2D>(folder+name+"_nor_gl");
+            if(normal!=null) {
+                material.SetTexture("_BumpMap",normal);
+                material.SetFloat("_BumpScale",.55f);
+                material.EnableKeyword("_NORMALMAP");
+            }
+            var slots=new Material[skin.sharedMesh.subMeshCount];
+            Array.Fill(slots,material);
+            return variants[index]=new Variant{model=model,materials=slots};
         }
 
         Variant Load(int index)
@@ -98,7 +140,10 @@ namespace SubwayCarry.Gameplay3D
         internal void Dispose()
         {
             foreach(var data in variants)
-                if(data!=null)foreach(var material in data.materials)Object.Destroy(material);
+                if(data!=null) {
+                    var unique=new HashSet<Material>(data.materials);
+                    foreach(var material in unique)Object.Destroy(material);
+                }
         }
 
         internal sealed class MountedAvatar
@@ -113,11 +158,12 @@ namespace SubwayCarry.Gameplay3D
             readonly Joint[] joints;
             readonly GameObject model;
             readonly Transform sourceHips,targetHips;
-            readonly (Transform upper,Transform lower,Transform end,Transform driverEnd,Transform toe,Transform driverToe,float floorOffset,float toeSlope)[] contacts;
+            readonly (Transform upper,Transform lower,Transform end,Transform driverEnd,Transform toe,Transform driverToe,Transform middle,float floorOffset,float toeSlope)[] contacts;
             readonly Transform actor;
             readonly float standingPelvisOffset;
-            readonly Palm driverLeftPalm, driverPalm;
-            Palm publisherLeftPalm, publisherPalm;
+            readonly Palm driverPalm, driverLeftPalm;
+            Palm publisherPalm, publisherLeftPalm;
+            readonly Transform publisherThumb;
             struct Palm
             {
                 readonly Transform hand,index,middle,pinky;
@@ -135,6 +181,10 @@ namespace SubwayCarry.Gameplay3D
                     if(idleInput is Quaternion rotation && hand!=null) hand.localRotation=rotation;
                     idleInput=null;
                 }
+                internal Transform Hand=>hand;
+                internal Quaternion RelaxedRotation(Transform elbow,Transform frame)
+                    =>Metro3DPassengerContacts.RelaxedWristRotation(elbow,hand,middle,index,pinky,frame.forward,frame.up);
+
                 internal bool TryPose(out Vector3 position,out Quaternion rotation)
                 {
                     position=default;rotation=Quaternion.identity;
@@ -148,16 +198,16 @@ namespace SubwayCarry.Gameplay3D
                 }
             }
             internal readonly int Index;
+            internal bool IsLocalScan => Index>=Names.Length;
             internal SkinnedMeshRenderer Skin {get;}
             MountedAvatar(Joint[] joints,GameObject model,Transform sourceHips,Transform targetHips,int index,
-                SkinnedMeshRenderer skin,(Transform,Transform,Transform,Transform,Transform,Transform,float,float)[] contacts,Transform actor,float pelvisOffset,
-                Palm driverLeftPalm,Palm publisherLeftPalm,Palm driverPalm,Palm publisherPalm)
+                SkinnedMeshRenderer skin,(Transform,Transform,Transform,Transform,Transform,Transform,Transform,float,float)[] contacts,Transform actor,float pelvisOffset,
+                Palm driverPalm,Palm publisherPalm,Palm driverLeftPalm,Palm publisherLeftPalm,Transform publisherThumb)
             {
                 this.joints=joints;this.model=model;this.sourceHips=sourceHips;this.targetHips=targetHips;
                 Index=index;Skin=skin;this.contacts=contacts;
                 this.actor=actor;standingPelvisOffset=pelvisOffset;
-                this.driverLeftPalm=driverLeftPalm;this.publisherLeftPalm=publisherLeftPalm;
-                this.driverPalm=driverPalm;this.publisherPalm=publisherPalm;
+                this.driverPalm=driverPalm;this.driverLeftPalm=driverLeftPalm;this.publisherPalm=publisherPalm;this.publisherLeftPalm=publisherLeftPalm;this.publisherThumb=publisherThumb;
             }
 
             static Dictionary<string,Transform> ByName(Transform root)
@@ -167,15 +217,41 @@ namespace SubwayCarry.Gameplay3D
                 return result;
             }
 
+            static void AliasScanRig(Dictionary<string,Transform> bones)
+            {
+                void Alias(string key,string source) {
+                    if(bones.TryGetValue(source,out var bone))bones["Scan "+key]=bone;
+                }
+                Alias("Pelvis","hip");Alias("Spine","spine_01");Alias("Spine1","spine_02");
+                Alias("Spine2","spine_03");Alias("Neck","neck");Alias("Head","head");
+                foreach(string side in new[]{"L","R"}) {
+                    string suffix="_"+side.ToLowerInvariant();
+                    Alias(side+" Clavicle","shoulder"+suffix);
+                    Alias(side+" UpperArm","upperarm"+suffix);
+                    Alias(side+" Forearm","lowerarm"+suffix);
+                    Alias(side+" Hand","hand"+suffix);
+                    Alias(side+" Thigh","upperleg"+suffix);
+                    Alias(side+" Calf","lowerleg"+suffix);
+                    Alias(side+" Foot","foot"+suffix);
+                    Alias(side+" Toe0","ball"+suffix);
+                    string[] digits={"thumb","index","middle","ring","pinky"};
+                    for(int digit=0;digit<digits.Length;digit++)
+                        for(int segment=0;segment<3;segment++)
+                            Alias(side+" Finger"+digit+(segment==0?"":segment.ToString()),
+                                digits[digit]+"_0"+(segment+1)+suffix);
+                }
+            }
+
             internal static MountedAvatar TryCreate(Transform actor,SkinnedMeshRenderer driver,Mesh sourceMesh,Transform[] driverBones,
-                GameObject prefab,Material[] materials,int index,float height,float driverScale)
+                GameObject prefab,Material[] materials,int index,float height,float driverScale,bool localScan=false)
             {
                 if(sourceMesh==null||driverBones==null)return null;
                 var rig=Object.Instantiate(prefab,actor,false);
-                rig.name="Rocketbox "+prefab.name;
+                rig.name=(localScan?"Local commuter ":"Rocketbox ")+prefab.name;
                 var skin=rig.GetComponentInChildren<SkinnedMeshRenderer>(true);
                 var target=ByName(rig.transform);
-                string prefix=target.ContainsKey("Bip01 Pelvis")?"Bip01":"Bip02";
+                if(localScan)AliasScanRig(target);
+                string prefix=localScan?"Scan":target.ContainsKey("Bip01 Pelvis")?"Bip01":"Bip02";
                 var source=new Dictionary<string,(Transform bone, Matrix4x4 rest)>();
                 var bind=sourceMesh.bindposes;
                 Matrix4x4 modelFrame=driver.transform.localToWorldMatrix;
@@ -187,6 +263,11 @@ namespace SubwayCarry.Gameplay3D
                     Object.Destroy(rig);return null;
                 }
 
+                if(localScan) {
+                    foreach(string required in new[]{"Head","L Thigh","R Thigh","L Foot","R Foot","L Toe0","R Toe0",
+                        "L UpperArm","R UpperArm","L Forearm","R Forearm","L Hand","R Hand","L Calf","R Calf","L Finger2","R Finger2"})
+                        if(!target.ContainsKey(Key(required))) {Object.Destroy(rig);return null;}
+                }
                 Vector3 across=target[Key("R Thigh")].position-target[Key("L Thigh")].position;
                 Vector3 forward=Vector3.Cross(Vector3.ProjectOnPlane(across,actor.up),actor.up);
                 if(forward.sqrMagnitude>.0001f)
@@ -221,7 +302,7 @@ namespace SubwayCarry.Gameplay3D
                 Add("DEF-spine.003","Spine2");
                 Add("DEF-neck","Neck");
                 Add("DEF-head","Head");
-                var touches=new List<(Transform,Transform,Transform,Transform,Transform,Transform,float,float)>();
+                var touches=new List<(Transform,Transform,Transform,Transform,Transform,Transform,Transform,float,float)>();
                 foreach(string side in new[]{"L","R"}){
                     string s="."+side,p=side+" ";
                     Add("DEF-shoulder"+s,p+"Clavicle");
@@ -241,11 +322,12 @@ namespace SubwayCarry.Gameplay3D
                         Transform toe=target[Key(p+"Toe0")];
                         float slope=Vector3.Dot((toe.position-ankle.position).normalized,actor.up);
                         source.TryGetValue("DEF-toe"+s,out var driverToe);
-                        touches.Add((target[Key(p+"Thigh")],target[Key(p+"Calf")],ankle,foot.bone,toe,driverToe.bone,
+                        touches.Add((target[Key(p+"Thigh")],target[Key(p+"Calf")],ankle,foot.bone,toe,driverToe.bone,null,
                             heightToAnkle-.1005f*driverScale,Mathf.Clamp(slope,-.65f,.2f)));
                     }
                     if(source.TryGetValue("DEF-hand"+s,out var hand))
-                        touches.Add((target[Key(p+"UpperArm")],target[Key(p+"Forearm")],target[Key(p+"Hand")],hand.bone,null,null,0,0));
+                        touches.Add((target[Key(p+"UpperArm")],target[Key(p+"Forearm")],target[Key(p+"Hand")],hand.bone,null,null,
+                            target[Key(p+"Finger2")],0,0));
                 }
                 if(joints.Count<25){
                     Debug.LogWarning($"Passenger cast: only {joints.Count} mapped joints for {prefab.name}");
@@ -266,13 +348,14 @@ namespace SubwayCarry.Gameplay3D
                 Palm TargetPalm(string side)=>new Palm(Publisher(side+" Hand"),Publisher(side+" Finger1"),
                     Publisher(side+" Finger2"),Publisher(side+" Finger4"));
                 return new MountedAvatar(joints.ToArray(),rig,hips.bone,pelvis,index,skin,touches.ToArray(),actor,Mathf.Clamp(hipsOffset,-.19f,.19f),
-                    SourcePalm("L"),TargetPalm("L"),SourcePalm("R"),TargetPalm("R"));
+                    SourcePalm("R"),TargetPalm("R"),SourcePalm("L"),
+                    new Palm(Publisher("L Hand"),Publisher("L Finger1"),Publisher("L Finger2"),Publisher("L Finger4")),Publisher("R Finger02"));
             }
 
-            internal void Apply(float sitting,bool alignHands,float leftWristWeight,float rightWristWeight)
+            internal void Apply(float sitting,bool alignHands,bool holdingPhone,float relaxedLeft,float relaxedRight,float leftWristWeight,float rightWristWeight,bool initialPose=false)
             {
                 RestoreIdleWrists();
-                if(!Skin.isVisible&&!Skin.updateWhenOffscreen)return;
+                if(!initialPose&&!Skin.isVisible&&!Skin.updateWhenOffscreen)return;
                 targetHips.position=sourceHips.position+actor.up*(standingPelvisOffset*(1-sitting));
                 foreach(var joint in joints){
                     var desired=joint.source.rotation*joint.rotationOffset;
@@ -282,7 +365,19 @@ namespace SubwayCarry.Gameplay3D
                 }
                 foreach(var limb in contacts){
                     bool foot=limb.toe!=null;
-                    if(!foot&&!alignHands)continue;
+                    if(!foot) {
+                        bool left=limb.end==publisherLeftPalm.Hand;
+                        float relaxed=left?relaxedLeft:relaxedRight;
+                        if(relaxed>.001f||!alignHands) {
+                            Quaternion rotation=Metro3DPassengerContacts.LimitWristRotation(limb.lower,limb.end,limb.middle,31);
+                            if(relaxed>.001f) {
+                                var palm=left?publisherLeftPalm:publisherPalm;
+                                rotation=Quaternion.Slerp(rotation,palm.RelaxedRotation(limb.lower,actor),relaxed);
+                            }
+                            limb.end.rotation=rotation;
+                            continue;
+                        }
+                    }
                     Vector3 root=limb.upper.position,end=limb.end.position;
                     Vector3 wanted=limb.driverEnd.position+actor.up*limb.floorOffset;
                     float error=(wanted-end).sqrMagnitude;
@@ -305,11 +400,13 @@ namespace SubwayCarry.Gameplay3D
                         Vector3 slope=line+actor.up*(limb.toeSlope/Mathf.Sqrt(1-limb.toeSlope*limb.toeSlope));
                         if(line.sqrMagnitude>.1f)limb.end.rotation=Quaternion.FromToRotation(limb.toe.position-limb.end.position,slope)*limb.end.rotation;
                     }
+                    if(!foot)
+                        limb.end.rotation=Metro3DPassengerContacts.LimitWristRotation(limb.lower,limb.end,limb.middle,holdingPhone?32:42);
                 }
                 // The next retarget pass rewrites both wrists from the driver.
                 // Apply the idle adjustment after all normal hand and finger work.
-                if (leftWristWeight > 0) publisherLeftPalm.AlignTo(driverLeftPalm,leftWristWeight);
-                if (rightWristWeight > 0) publisherPalm.AlignTo(driverPalm,rightWristWeight);
+                if (leftWristWeight > 0) publisherLeftPalm.AlignTo(driverLeftPalm,leftWristWeight*(1-relaxedLeft));
+                if (rightWristWeight > 0) publisherPalm.AlignTo(driverPalm,rightWristWeight*(1-relaxedRight));
             }
 
             internal void RestoreIdleWrists()
@@ -329,12 +426,20 @@ namespace SubwayCarry.Gameplay3D
             {
                 if(!Skin.isVisible&&!Skin.updateWhenOffscreen||
                     !driverPalm.TryPose(out var source,out var from)||!publisherPalm.TryPose(out var destination,out var to))return;
-                var match=to*Quaternion.Inverse(from);
-                // Move the rendered prop to the visible grip, retaining the
-                // authored orientation and avoiding a new contact solver.
+                Quaternion match=to*Quaternion.Inverse(from);
+                Quaternion rotation=match*phone.rotation;
                 Vector3 position=destination+match*(phone.position-source);
-                phone.SetPositionAndRotation(Vector3.MoveTowards(phone.position,position,.105f),
-                    Quaternion.RotateTowards(phone.rotation,match*phone.rotation,38f));
+                if(publisherThumb!=null) {
+                    // Keep the authored grip orientation. Fit the handset body to
+                    // the visible thumb when the two rigs have different reach.
+                    Vector3 offset=Quaternion.Inverse(rotation)*(publisherThumb.position-position);
+                    Vector3 scale=phone.lossyScale;
+                    Vector3 edge=new Vector3(Mathf.Clamp(offset.x,-.0365f*scale.x,.0365f*scale.x),
+                        Mathf.Clamp(offset.y,-.0725f*scale.y,.0725f*scale.y),
+                        Mathf.Clamp(offset.z,-.005f*scale.z,.005f*scale.z));
+                    position+=rotation*Vector3.ClampMagnitude(offset-edge,.027f);
+                }
+                phone.SetPositionAndRotation(position,rotation);
             }
         }
     }

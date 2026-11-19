@@ -4,8 +4,11 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
     // The Motor owns the one CC move. Animation time commits only accepted root displacement.
     public sealed class AnimationLabReactionBody : MonoBehaviour
     {
+        #if UNITY_EDITOR
+        public static System.Action<AnimationLabReactionBody,bool> Diagnostic;
+#endif
         AnimationLabPhoneCase owner;AnimationLabPhoneMotor motor;AnimationLabPhoneMotion data;GameObject sampler;Transform[] live,sample;Quaternion[] baseline,entryRot;Vector3 baselineHips,entryHips;bool corrected,releasing;
-        readonly Transform[] thighs=new Transform[2],knees=new Transform[2],feet=new Transform[2],toes=new Transform[2];readonly Vector3[] anchors=new Vector3[2],toeOffsets=new Vector3[2];readonly Vector3[] releaseOffset=new Vector3[2],lastFoot=new Vector3[2];readonly byte[] contacts=new byte[2];readonly float[] floor=new float[2];readonly RaycastHit[] hits=new RaycastHit[24];
+        readonly Transform[] thighs=new Transform[2],knees=new Transform[2],feet=new Transform[2],toes=new Transform[2];readonly Vector3[] anchors=new Vector3[2],toeOffsets=new Vector3[2];readonly Vector3[] releaseOffset=new Vector3[2],lastFoot=new Vector3[2],lastToe=new Vector3[2];readonly byte[] contacts=new byte[2];readonly bool[] transferWasSwing=new bool[2];readonly float[] floor=new float[2],toeFloor=new float[2],incomingFootLift=new float[2],incomingToeLift=new float[2];readonly RaycastHit[] hits=new RaycastHit[24];
         Quaternion basis;float clock,rate,weight,pendingTime;Vector3 pendingDelta;
         public AnimationLabPhoneMotion.ReactionClip Entry {get;private set;}
         public bool Active {get;private set;}
@@ -21,6 +24,9 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
             foreach(var r in sampler.GetComponentsInChildren<Renderer>())r.enabled=false;foreach(var c in sampler.GetComponentsInChildren<Collider>())c.enabled=false;foreach(var a in sampler.GetComponentsInChildren<Animator>())a.enabled=false;
             live=new Transform[m.paths.Length];sample=new Transform[live.Length];baseline=new Quaternion[live.Length];entryRot=new Quaternion[live.Length];for(int i=0;i<live.Length;i++){live[i]=m.paths[i].Length==0?transform:transform.Find(m.paths[i]);sample[i]=m.paths[i].Length==0?sampler.transform:sampler.transform.Find(m.paths[i]);}
             for(int i=0;i<2;i++){Transform B(HumanBodyBones l,HumanBodyBones r)=>transform.Find(m.humanPaths[(int)(i==0?l:r)]);thighs[i]=B(HumanBodyBones.LeftUpperLeg,HumanBodyBones.RightUpperLeg);knees[i]=B(HumanBodyBones.LeftLowerLeg,HumanBodyBones.RightLowerLeg);feet[i]=B(HumanBodyBones.LeftFoot,HumanBodyBones.RightFoot);toes[i]=B(HumanBodyBones.LeftToes,HumanBodyBones.RightToes);toeOffsets[i]=feet[i].InverseTransformPoint(toes[i].position);floor[i]=data.rig.transform.Find(m.humanPaths[(int)(i==0?HumanBodyBones.LeftFoot:HumanBodyBones.RightFoot)]).position.y-data.rig.transform.position.y;}
+            // Calibrate the incoming Generic gait against this same rig's idle foot/toe heights.
+            data.idle.SampleAnimation(sampler.transform.Find(data.animatorPath).gameObject,0);
+            for(int i=0;i<2;i++){floor[i]=sample[System.Array.IndexOf(m.paths,m.humanPaths[(int)(i==0?HumanBodyBones.LeftFoot:HumanBodyBones.RightFoot)])].position.y-sampler.transform.position.y;toeFloor[i]=sample[System.Array.IndexOf(m.paths,m.humanPaths[(int)(i==0?HumanBodyBones.LeftToes:HumanBodyBones.RightToes)])].position.y-sampler.transform.position.y;}
         }
         public AnimationLabPhoneMotion.ReactionClip Choose(AnimationLabReactionKind kind)=>Choose(kind,out _);
         public AnimationLabPhoneMotion.ReactionClip Choose(AnimationLabReactionKind kind,out float matchCost)
@@ -30,7 +36,7 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         }
         public void Begin(AnimationLabPhoneMotion.ReactionClip clip)
         {
-            RestoreBase();Entry=clip;clock=0;weight=1;releasing=false;Active=true;basis=Quaternion.LookRotation(motor.ActualVelocity.sqrMagnitude>.05f?motor.ActualVelocity.normalized:transform.forward);rate=Mathf.Clamp(motor.ActualVelocity.magnitude/Mathf.Max(.1f,clip.referenceSpeed),.7f,1.2f);MaxSupportError=0;BlockedSweeps=0;for(int i=1;i<live.Length;i++)entryRot[i]=live[i].localRotation;entryHips=live[clip.authored.hipsIndex].localPosition;for(int i=0;i<2;i++){contacts[i]=feet[i].position.y<Mathf.Min(feet[0].position.y,feet[1].position.y)+.018f?(byte)1:(byte)0;anchors[i]=lastFoot[i]=feet[i].position;releaseOffset[i]=Vector3.zero;}
+            RestoreBase();Entry=clip;clock=0;weight=1;releasing=false;Active=true;transferWasSwing[0]=transferWasSwing[1]=false;basis=Quaternion.LookRotation(motor.ActualVelocity.sqrMagnitude>.05f?motor.ActualVelocity.normalized:transform.forward);rate=Mathf.Clamp(motor.ActualVelocity.magnitude/Mathf.Max(.1f,clip.referenceSpeed),.7f,1.2f);MaxSupportError=0;BlockedSweeps=0;for(int i=1;i<live.Length;i++)entryRot[i]=live[i].localRotation;entryHips=live[clip.authored.hipsIndex].localPosition;for(int i=0;i<2;i++){contacts[i]=feet[i].position.y<Mathf.Min(feet[0].position.y,feet[1].position.y)+.018f?(byte)1:(byte)0;anchors[i]=lastFoot[i]=feet[i].position;lastToe[i]=toes[i].position;releaseOffset[i]=Vector3.zero;}
         }
         public Vector3 Constrain(Vector3 desired,float dt,out Vector3 facing)
         {
@@ -48,10 +54,28 @@ namespace SubwayCarry.Gameplay3D.AnimationLab
         public void Cancel(){RestoreBase();Active=false;contacts[0]=contacts[1]=0;MaxSupportError=0;BlockedSweeps=0;}
         public void Apply(float dt)
         {
-            if(!Active||Entry==null)return;if(releasing)weight=Mathf.Max(0,weight-dt*7);Entry.clip.SampleAnimation(sampler,Mathf.Min(clock,Entry.clip.length));int hips=Entry.authored.hipsIndex;for(int i=1;i<live.Length;i++)baseline[i]=live[i].localRotation;baselineHips=live[hips].localPosition;corrected=true;float join=Mathf.SmoothStep(0,1,Mathf.Clamp01(clock/.09f));
+            if(!Active||Entry==null)return;if(releasing)weight=Mathf.Max(0,weight-dt*7);if(releasing)for(int i=0;i<2;i++){incomingFootLift[i]=feet[i].position.y-transform.position.y-floor[i];incomingToeLift[i]=toes[i].position.y-transform.position.y-toeFloor[i];if(incomingFootLift[i]>.024f)transferWasSwing[i]=true;}Entry.clip.SampleAnimation(sampler,Mathf.Min(clock,Entry.clip.length));int hips=Entry.authored.hipsIndex;for(int i=1;i<live.Length;i++)baseline[i]=live[i].localRotation;baselineHips=live[hips].localPosition;corrected=true;float join=Mathf.SmoothStep(0,1,Mathf.Clamp01(clock/.09f));
             for(int i=1;i<live.Length;i++)live[i].localRotation=Quaternion.Slerp(live[i].localRotation,Quaternion.Slerp(entryRot[i],sample[i].localRotation,join),weight);live[hips].localPosition=Vector3.Lerp(live[hips].localPosition,Vector3.Lerp(entryHips,sample[hips].localPosition,join),weight);
-            int f=Mathf.Clamp(Mathf.RoundToInt(clock*Entry.authored.sampleRate),0,Entry.root.Length-1);for(int i=0;i<2;i++){byte mode=releasing?contacts[i]:i==0?Entry.leftContact[f]:Entry.rightContact[f];if(releasing&&feet[i].position.y>transform.position.y+floor[i]+.024f)mode=0;if(mode!=0&&mode!=contacts[i])anchors[i]=mode==2?toes[i].position:feet[i].position;if(mode==0){if(contacts[i]!=0)releaseOffset[i]=lastFoot[i]-feet[i].position;contacts[i]=0;releaseOffset[i]=Vector3.MoveTowards(releaseOffset[i],Vector3.zero,dt*.9f);if(releaseOffset[i].sqrMagnitude>.000001f){var bend0=knees[i].position-(thighs[i].position+feet[i].position)*.5f;AnimationLabContacts.Solve(thighs[i],knees[i],feet[i],feet[i].position+releaseOffset[i],bend0,1);}lastFoot[i]=feet[i].position;continue;}contacts[i]=mode;releaseOffset[i]=Vector3.zero;var target=mode==2?anchors[i]-feet[i].rotation*toeOffsets[i]:anchors[i];var bend=knees[i].position-(thighs[i].position+feet[i].position)*.5f;AnimationLabContacts.Solve(thighs[i],knees[i],feet[i],target,bend,1);MaxSupportError=Mathf.Max(MaxSupportError,Vector3.Distance(feet[i].position,target));lastFoot[i]=feet[i].position;}
-            if(releasing&&weight<=0){contacts[0]=contacts[1]=0;Active=false;}
+#if UNITY_EDITOR
+            Diagnostic?.Invoke(this,false);
+#endif
+            int f=Mathf.Clamp(Mathf.RoundToInt(clock*Entry.authored.sampleRate),0,Entry.root.Length-1);for(int i=0;i<2;i++){byte mode=releasing?contacts[i]:i==0?Entry.leftContact[f]:Entry.rightContact[f];if(releasing)mode=ReleaseContact(i,mode);if(mode!=0&&mode!=contacts[i])anchors[i]=releasing&&mode==2&&contacts[i]==1?lastToe[i]:mode==2?toes[i].position:feet[i].position;if(mode==0){if(contacts[i]!=0)releaseOffset[i]=lastFoot[i]-feet[i].position;contacts[i]=0;releaseOffset[i]=Vector3.MoveTowards(releaseOffset[i],Vector3.zero,dt*.9f);if(releaseOffset[i].sqrMagnitude>.000001f){var bend0=knees[i].position-(thighs[i].position+feet[i].position)*.5f;AnimationLabContacts.Solve(thighs[i],knees[i],feet[i],feet[i].position+releaseOffset[i],bend0,1);}lastFoot[i]=feet[i].position;lastToe[i]=toes[i].position;continue;}contacts[i]=mode;releaseOffset[i]=Vector3.zero;var target=mode==2?anchors[i]-feet[i].rotation*toeOffsets[i]:anchors[i];var bend=knees[i].position-(thighs[i].position+feet[i].position)*.5f;AnimationLabContacts.Solve(thighs[i],knees[i],feet[i],target,bend,1);MaxSupportError=Mathf.Max(MaxSupportError,Vector3.Distance(feet[i].position,target));lastFoot[i]=feet[i].position;lastToe[i]=toes[i].position;}
+#if UNITY_EDITOR
+            Diagnostic?.Invoke(this,true);
+#endif
+            if(releasing&&weight<=0&&contacts[0]==0&&contacts[1]==0){contacts[0]=contacts[1]=0;Active=false;}
+        }
+        // Transfer only the outgoing support. The incoming swing leg is never planted here.
+        byte ReleaseContact(int leg,byte mode)
+        {
+            if(mode==0)return 0;
+            int other=1-leg;
+            bool acceptedHeel=transferWasSwing[other]&&incomingFootLift[other]<.006f&&feet[other].position.y-transform.position.y-floor[other]<.012f;
+            if(mode==2&&acceptedHeel)return 0;
+            if(mode==1&&incomingFootLift[leg]-incomingToeLift[leg]>.004f&&incomingToeLift[leg]<.006f)mode=2;
+            if(mode==2&&incomingToeLift[leg]>.012f)return 0;
+            if(mode==1&&incomingFootLift[leg]>.012f&&incomingToeLift[leg]>.012f)return 0;
+            return mode;
         }
         void OnDestroy(){if(sampler!=null)Destroy(sampler);}
     }

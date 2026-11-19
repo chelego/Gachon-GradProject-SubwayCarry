@@ -64,7 +64,7 @@ namespace SubwayCarry.Gameplay3D
         float nextPhoneChoice, phoneClock, lookClock, readDuration, exitFrom, transitGlance;
 
         internal bool HasPhoneInUse => phonePhase!=PhonePhase.Off;
-
+        internal Transform VisiblePhone => phoneProp!=null&&phoneProp.activeSelf?phoneProp.transform:null;
         float PhoneRightWristFreedom
         {
             get
@@ -128,6 +128,7 @@ namespace SubwayCarry.Gameplay3D
         {
             if (actor == null || actor.world == null || actor.world.session == null ||
                 actor.world.session.SimulationPaused || phoneBindingFailed) return;
+            if(LifeActive&&phonePhase==PhonePhase.Off)return;
             float now = Time.time;
             if (phonePhase == PhonePhase.Off && now < nextPhoneChoice) return;
             var support=actor.world.Traffic.SupportFor(actor);
@@ -236,6 +237,13 @@ namespace SubwayCarry.Gameplay3D
             }
             ShowPhone(inHand);
             if (!inHand) return;
+            var activeGrip=phoneLibrary.binding;
+            phoneProp.transform.SetLocalPositionAndRotation(activeGrip.phoneLocalPosition,activeGrip.phoneLocalRotation);
+            if(rigReady) {
+                Remember(phoneHand);
+                phoneHand.rotation=Quaternion.Slerp(phoneHand.rotation,
+                    LimitWristRotation(arms[1].chain.lower,phoneHand,arms[1].middle,29),weight);
+            }
             float gaze = phonePhase == PhonePhase.Enter ? Mathf.SmoothStep(0, 1, (time - sample.contact) / .7f) :
                 phonePhase == PhonePhase.Exit ? 1 - Mathf.SmoothStep(0, 1, time / .45f) : 1;
             if (phoneWalking)

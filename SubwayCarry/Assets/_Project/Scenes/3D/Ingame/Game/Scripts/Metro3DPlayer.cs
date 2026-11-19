@@ -19,13 +19,15 @@ namespace SubwayCarry.Gameplay3D
         public bool UsesPersonalBalance => PersonalBalance!=null&&PersonalBalance.isActiveAndEnabled;
         public CarryPosture Posture {get;private set;}=CarryPosture.Standing;
         public float Stamina {get;private set;}=100;
+        public float MaxStamina => 100 + world.session.StaminaLevel * 20;
+        internal void RestoreStamina(float amount) => Stamina = Mathf.Min(MaxStamina, Stamina + amount);
         public Vector3 Velocity {get;private set;}
         public Metro3DTrain Riding {get;private set;}
         public bool BalanceActive => balanceTimer>0;
         float npcSupportUntil;
         public bool NpcSupported => Time.time<npcSupportUntil;
         public void ReceiveNpcSupport(float seconds){npcSupportUntil=Mathf.Max(npcSupportUntil,Time.time+Mathf.Clamp(seconds,0,.5f));}
-        public void ReceiveNpcGuidance(float seconds){Stamina=Mathf.Min(100+world.session.StaminaLevel*20,Stamina+Mathf.Clamp(seconds,0,.5f)*4);}
+        public void ReceiveNpcGuidance(float seconds) => RestoreStamina(Mathf.Clamp(seconds,0,.5f)*4);
         public string BalanceKey => balanceSide<0?"A":"D";
         CharacterController motor;
         float pitch,verticalSpeed,bobPhase,impactCooldown,balanceTimer;
@@ -54,10 +56,25 @@ namespace SubwayCarry.Gameplay3D
             motor.enabled=false; transform.position=p; transform.rotation=Quaternion.identity; motor.enabled=true;
             pitch=0; verticalSpeed=0; hasPackagePosition=false;
         }
+        internal float SavedViewPitch=>pitch;
+        internal void RestoreProgress(Metro3DTrain train,Vector3 position,Quaternion rotation,float stamina,float lookPitch,int facility,Vector3 anchor)
+        {
+            if(motor==null)motor=GetComponent<CharacterController>();
+            CancelFacility();Riding=train;
+            Transform frame=train!=null?train.transform:world.transform;
+            motor.enabled=false;transform.SetParent(frame,false);transform.localPosition=position;transform.localRotation=rotation;motor.enabled=true;
+            pitch=Mathf.Clamp(lookPitch,-78,78);view.transform.localRotation=Quaternion.Euler(pitch,0,0);
+            Stamina=Mathf.Clamp(stamina,0,MaxStamina);Velocity=Vector3.zero;verticalSpeed=0;hasPackagePosition=false;
+            if(facility>=0)foreach(var f in world.facilities){
+                if(f==null||f.anchor==null||(int)f.kind!=facility||f.trainFacility!=(train!=null)||
+                    (frame.InverseTransformPoint(f.anchor.position)-anchor).sqrMagnitude>.01f||!f.Claim(this))continue;
+                Using=f;Posture=f.kind==Metro3DFacilityKind.Seat?CarryPosture.Sitting:f.kind==Metro3DFacilityKind.Lean?CarryPosture.Leaning:CarryPosture.HoldingSupport;break;
+            }
+        }
         public void TriggerBalance(bool braking)
         {
             if(Riding==null||Using!=null||!world.session.HasPackage) return;
-            balanceSide=braking?-1:1; balanceTimer=1.8f+world.session.BalanceLevel*.25f;
+            balanceSide=braking?-1:1; balanceTimer=1.8f+world.session.BalanceLevel*.25f+world.session.BalanceAssistance*.3f;
         }
         public void TriggerBalanceMotion(TrainMotionPhase phase,Vector2 inertiaDirection,float intensity)
         {
@@ -83,6 +100,8 @@ namespace SubwayCarry.Gameplay3D
                 (k.wKey.isPressed||k.upArrowKey.isPressed?1:0)-(k.sKey.isPressed||k.downArrowKey.isPressed?1:0));
             input=Vector2.ClampMagnitude(input,1);
             bool personalBalanceBusy=UsesPersonalBalance&&PersonalBalance.ConsumesMovementInput;
+            if(!personalBalanceBusy&&!BalanceActive&&k.rKey.wasPressedThisFrame)
+                world.session.UseEnergyGel();
             if(personalBalanceBusy) input=Vector2.zero;
             bool interact=!personalBalanceBusy&&(k.eKey.wasPressedThisFrame||k.fKey.wasPressedThisFrame);
             if(Using!=null) { if(input.sqrMagnitude>0||interact) CancelFacility(); else { UpdateView(0); return; } }
@@ -104,7 +123,10 @@ namespace SubwayCarry.Gameplay3D
             verticalSpeed=motor.isGrounded?-1.5f:verticalSpeed-20*Time.deltaTime;
             motor.Move((horizontal+Vector3.up*verticalSpeed+recoil)*Time.deltaTime); Velocity=horizontal;
             recoil=Vector3.MoveTowards(recoil,Vector3.zero,Time.deltaTime*5);
-            Stamina=Mathf.Clamp(Stamina+(overhead?-12:running?-8:15)*Time.deltaTime,0,100+world.session.StaminaLevel*20);
+            float recovery=15+world.session.StaminaLevel*world.settings.staminaRecoveryPerLevel;
+            float sprintCost=Mathf.Max(1,8-world.session.AgilityLevel*world.settings.sprintSavingPerAgilityLevel);
+            float staminaRate=overhead?-12:running?-sprintCost:recovery;
+            Stamina=Mathf.Clamp(Stamina+staminaRate*Time.deltaTime,0,MaxStamina);
             UpdateRiding(); UpdateView(horizontal.magnitude); CheckPackageContact(); UpdateBalance(k);
             if(transform.position.y<-3) TeleportForReturn(world.HubSpawn);
         }
@@ -115,8 +137,17 @@ namespace SubwayCarry.Gameplay3D
             foreach(var service in world.Trains)if(service!=null&&service.Contains(transform.position)){next=service;break;}
             if(next==Riding) return;
             if(Riding!=null&&!Riding.DoorsOpen) return;
+            if(next!=null&&(next.Moving||!next.DoorsOpen))return;
+            var previous=Riding;
             Riding=next; transform.SetParent(Riding!=null?Riding.transform:world.transform,true);
             hasPackagePosition=false;
+            if(Riding!=null)world.session.PlayerBoarded(Riding);
+            else if(previous!=null)world.session.PlayerAlighted(previous);
+        }
+        internal void RefreshCargo()
+        {
+            if(cargo!=null&&cargo.gameObject.activeSelf!=world.session.HasPackage)
+                cargo.gameObject.SetActive(world.session.HasPackage);
         }
         void UpdateView(float speed)
         {
@@ -124,7 +155,7 @@ namespace SubwayCarry.Gameplay3D
             bobPhase+=Time.deltaTime*speed*4; float bob=Mathf.Sin(bobPhase)*world.settings.headBob*Mathf.Min(speed,1);
             view.transform.localPosition=Vector3.Lerp(view.transform.localPosition,new Vector3(0,height+bob,0),Time.deltaTime*12);
             if(cargo!=null) {
-                cargo.gameObject.SetActive(world.session.HasPackage);
+                RefreshCargo();
                 Vector3 target=Posture==CarryPosture.OverheadCarry?new Vector3(0,.16f,.3f):new Vector3(0,-.47f,.62f);
                 cargo.localPosition=Vector3.Lerp(cargo.localPosition,target,Time.deltaTime*7);
             }
@@ -190,15 +221,21 @@ namespace SubwayCarry.Gameplay3D
             for(int i=0;i<count;i++) {
                 var c=contacts[i]; if(c.transform.IsChildOf(transform)) continue;
                 if(UsesPersonalBalance&&PersonalBalance.NpcCollisionProtected&&c.GetComponentInParent<Metro3DPassenger>()!=null) continue;
-                ApplyImpact(c.gameObject,speed,c.ClosestPoint(p)); recoil=-transform.forward*.8f; break;
+                ApplyImpact(c.gameObject,speed,c.ClosestPoint(p),true); recoil=-transform.forward*.8f; break;
             }
         }
-        public void ApplyImpact(GameObject source,float speed,Vector3 point)
+        public void ApplyImpact(GameObject source,float speed,Vector3 point) => ApplyImpact(source,speed,point,false);
+        void ApplyImpact(GameObject source,float speed,Vector3 point,bool cargoContact)
         {
             if(impactCooldown>0||!world.session.HasPackage) return;
             impactCooldown=.9f;
-            var data=new PackageImpactData(source,new Vector2(point.x,point.z),Mathf.Max(0,speed-.65f)*.38f*(NpcSupported?.55f:1),0);
+            float impactSpeed=Mathf.Max(0,speed-.65f)*.38f*(NpcSupported?.55f:1);
+            bool padUsed=cargoContact&&impactSpeed>0&&!package.CurrentDurability.DeliveryFailed&&world.session.TryConsumeCushionPad();
+            if(padUsed) impactSpeed*=1-world.settings.cushionDamageReduction;
+
+            var data=new PackageImpactData(source,new Vector2(point.x,point.z),impactSpeed,0);
             package.ApplyImpact(in data);
+            if(padUsed) world.session.SaveProgress();
         }
         void UpdateBalance(Keyboard k)
         {
