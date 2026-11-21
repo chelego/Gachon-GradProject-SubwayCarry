@@ -94,7 +94,8 @@ namespace SubwayCarry.Gameplay3D
         bool playerSampled;
         bool hashDirty=true;
         readonly List<List<Metro3DPassenger>> buckets=new List<List<Metro3DPassenger>>();
-        readonly Queue<Metro3DPassenger> paths=new Queue<Metro3DPassenger>();
+        readonly Queue<(Metro3DPassenger actor,System.Guid rider)> paths=new();
+        readonly Queue<(Metro3DPassenger actor,System.Guid rider)> gateContinuations=new();
         readonly HashSet<Metro3DPassenger> queued=new HashSet<Metro3DPassenger>();
         readonly List<Metro3DPassenger> nearby=new List<Metro3DPassenger>(64);
         readonly Dictionary<(Metro3DTrain,int),(bool leaving,float pressure,float leftRoom,float rightRoom,bool incoming)> alightersByDoor=new(32);
@@ -117,16 +118,30 @@ namespace SubwayCarry.Gameplay3D
         Vector3Int Cell(Vector3 p)=>new Vector3Int(Mathf.FloorToInt(p.x/1.6f),Mathf.FloorToInt(p.y/2),Mathf.FloorToInt(p.z/1.6f));
         public void Register(Metro3DPassenger p) { if(!agents.Contains(p)) {agents.Add(p);InvalidateSpatial(); if(buckets.Count<agents.Count) buckets.Add(new List<Metro3DPassenger>(8));} if(p.PersistentId!=System.Guid.Empty)representations[p.PersistentId]=p; }
         public void Unregister(Metro3DPassenger p) {agents.Remove(p);InvalidateSpatial(); queued.Remove(p);standSpaces.Remove(p);if(representations.TryGetValue(p.PersistentId,out var bound)&&bound==p)representations.Remove(p.PersistentId);}
-        public void Request(Metro3DPassenger p) { if(queued.Add(p)) {paths.Enqueue(p);PathRequests++;} }
+        public void Request(Metro3DPassenger p,bool gateContinuation=false)
+        {
+            if (!queued.Add(p)) return;
+            (gateContinuation ? gateContinuations : paths).Enqueue((p,p.PersistentId));
+            PathRequests++;
+        }
         void Update()
         {
             if(world==null||world.session==null||world.session.SimulationPaused)return;
             SamplePlayerMotion();TickLife();
             if(navigation==null) navigation=new Metro3DNavigation();
             if(hashDirty||Time.time>=nextHash) RebuildHash();
-            for(int i=0;i<2&&paths.Count>0;i++) {
-                var p=paths.Dequeue();queued.Remove(p);
-                if(p!=null) {long started=System.Diagnostics.Stopwatch.GetTimestamp();p.SolvePath(navigation);PathTicks+=System.Diagnostics.Stopwatch.GetTimestamp()-started;PathSolves++;}
+            for (int i = 0; i < 2; i++) {
+                // Clear an occupied gate without taking both slots from the
+                // regular queue when it has work waiting.
+                var queue = gateContinuations.Count > 0 && (i == 0 || paths.Count == 0)
+                    ? gateContinuations : paths;
+                if (queue.Count == 0) break;
+                var (p,rider)=queue.Dequeue();
+                if (p == null || p.PersistentId != rider || !queued.Remove(p)) continue;
+                long started=System.Diagnostics.Stopwatch.GetTimestamp();
+                p.SolvePath(navigation);
+                PathTicks+=System.Diagnostics.Stopwatch.GetTimestamp()-started;
+                PathSolves++;
             }
         }
         void RebuildHash()
@@ -1055,7 +1070,7 @@ namespace SubwayCarry.Gameplay3D
         }
         public bool CanFollowWalkingSegment(Metro3DPassenger actor,Vector3 target)
             =>CanFollowWalkingSegment(actor,target,false);
-        bool CanFollowWalkingSegment(Metro3DPassenger actor,Vector3 target,bool leavingDoorSpace)
+        internal bool CanFollowWalkingSegment(Metro3DPassenger actor,Vector3 target,bool leavingDoorSpace)
         {
             if(!CanApproachDirect(actor,target))return false;
             var frame=actor.transform.parent;Vector3 start=actor.transform.position;

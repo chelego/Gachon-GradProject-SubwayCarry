@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using SubwayCarry.Prototype.ArtMapSlice;
 using UnityEngine;
 
@@ -29,6 +28,7 @@ namespace SubwayCarry.Gameplay3D
             public Vector3 openGatePosition;
             public bool success,usedInsurance,usedFare;
             public int fee,compensation,returnFare;
+            public bool legacyStationLayouts;
             public Metro3DWorld.StationLayoutChoice[] stationLayouts;
         }
         Save pendingProgress;
@@ -124,7 +124,7 @@ namespace SubwayCarry.Gameplay3D
         void Start(){RestoreProgress();}
         internal void SaveProgress()
         {
-            if(startFreshOnLaunch||restoringProgress||World==null||World.player==null||Economy==null)return;
+            if(!CanPersistProgress||restoringProgress||World==null||World.player==null||Economy==null)return;
             var player=World.player;
             bool aboard=player.Riding!=null;
             Transform frame=aboard?player.Riding.transform:World.transform;
@@ -147,17 +147,17 @@ namespace SubwayCarry.Gameplay3D
                 facilityAnchor=player.Using!=null?frame.InverseTransformPoint(player.Using.anchor.position):Vector3.zero,
                 resultReason=ResultReason,success=Settlement.Success,usedInsurance=Settlement.UsedInsurance,usedFare=Settlement.UsedFareSupport,
                 fee=Settlement.Fee,compensation=Settlement.Compensation,returnFare=Settlement.ReturnFare,
+                legacyStationLayouts=World.KeepingLegacyStationLayouts,
                 stationLayouts=World.CaptureStationLayouts()};
             PlayerPrefs.SetString(SaveKey,JsonUtility.ToJson(save));PlayerPrefs.Save();
             nextProgressSave=Time.unscaledTime+15;
         }
         void Load()
         {
-            if(startFreshOnLaunch)return;
-            string key=PlayerPrefs.HasKey(SaveKey) ? SaveKey : StandardSaveKey;
-            if(!PlayerPrefs.HasKey(key))return;
+            if(!CanPersistProgress)return;
+            if(!PlayerPrefs.HasKey(SaveKey))return;
             try{
-                var save=JsonUtility.FromJson<Save>(PlayerPrefs.GetString(key));if(save==null)return;
+                var save=JsonUtility.FromJson<Save>(PlayerPrefs.GetString(SaveKey));if(save==null)return;
                 Economy.ApplyDelta(Mathf.Max(0,save.cash)-Economy.CurrentEconomyState.CurrentCash);
                 Unlocked=Mathf.Clamp(save.unlocked,1,World.settings.deliveries.orders.Length);
                 int cap=World.settings.deliveries.maximumUpgradeLevel;
@@ -168,9 +168,11 @@ namespace SubwayCarry.Gameplay3D
                 int order=Array.FindIndex(World.settings.deliveries.orders,o=>o.id==save.orderId);
                 if(order<0){Notice="저장된 배송이 현재 목록에 없습니다. 보유 현금과 서비스는 유지됩니다.";return;}
                 SelectedIndex=order;activeRoute=World.settings.deliveries.orders[order];
-                // Legacy progress can contain a player or an open gate away from the hub.
+                // A saved position or open gate can depend on the old station geometry.
+                bool keepLegacyLayouts = save.version >= 3 ? save.legacyStationLayouts :
+                    save.accepted || save.playerStation > 0 || save.openGateStation > 0 && save.openGateRemaining > 0;
                 World.RestoreStationLayouts(save.version >= 3 ? save.stationLayouts : null,
-                    save.accepted || save.playerStation > 0 ? activeRoute.stops.Select(stop => stop.id) : Array.Empty<string>());
+                    keepLegacyLayouts);
                 HasPackage=save.accepted;Order=HasPackage?activeRoute:null;
                 pendingProgress=save;
             }catch(ArgumentException){Notice="저장 데이터를 읽지 못했습니다.";}

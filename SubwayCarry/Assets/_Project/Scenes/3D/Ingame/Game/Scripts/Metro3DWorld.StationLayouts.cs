@@ -26,10 +26,11 @@ namespace SubwayCarry.Gameplay3D
         readonly System.Random stationLayoutRandom = new();
 
         internal bool UsesStationLayouts => stationLayouts.Length > 0;
+        internal bool KeepingLegacyStationLayouts { get; private set; }
 
         Metro3DStationLayout SelectStationPrefab(string stationId)
         {
-            if (!UsesStationLayouts || stationId == "gachon") return null;
+            if (!UsesStationLayouts || KeepingLegacyStationLayouts || stationId == "gachon") return null;
 
             foreach (var rule in fixedStationLayouts)
                 if (rule.stationId == stationId)
@@ -61,25 +62,21 @@ namespace SubwayCarry.Gameplay3D
             return choices;
         }
 
-        internal void RestoreStationLayouts(StationLayoutChoice[] choices, IEnumerable<string> legacyRoute)
+        internal void RestoreStationLayouts(StationLayoutChoice[] choices, bool keepLegacyLayouts)
         {
             if (!UsesStationLayouts) return;
+            KeepingLegacyStationLayouts = keepLegacyLayouts;
             stationLayoutChoices.Clear();
-            if (choices != null)
-            {
-                foreach (var choice in choices)
-                    if (choice != null && !string.IsNullOrEmpty(choice.stationId))
-                        stationLayoutChoices[choice.stationId] = choice.layoutId;
-                return;
-            }
-
-            foreach (string stationId in legacyRoute)
-                stationLayoutChoices[stationId] = stationLayouts[0].layoutId;
+            if (choices == null) return;
+            foreach (var choice in choices)
+                if (choice != null && !string.IsNullOrEmpty(choice.stationId))
+                    stationLayoutChoices[choice.stationId] = choice.layoutId;
         }
 
         internal void ResetStationLayouts()
         {
             if (!UsesStationLayouts) return;
+            KeepingLegacyStationLayouts = false;
             stationLayoutChoices.Clear();
             routeIdentity = string.Empty;
         }

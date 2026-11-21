@@ -54,7 +54,9 @@ namespace SubwayCarry.Gameplay3D
             PersonalBalance?.CancelCurrentChallenge();
             CancelFacility(); InteractionSelector?.ClearSelection(); Target=null; Riding=null; transform.SetParent(world.transform,true);
             motor.enabled=false; transform.position=p; transform.rotation=Quaternion.identity; motor.enabled=true;
-            pitch=0; verticalSpeed=0; hasPackagePosition=false;
+            pitch=0;
+            if (view != null) view.transform.localRotation = Quaternion.identity;
+            verticalSpeed=0; hasPackagePosition=false;
         }
         internal float SavedViewPitch=>pitch;
         internal void RestoreProgress(Metro3DTrain train,Vector3 position,Quaternion rotation,float stamina,float lookPitch,int facility,Vector3 anchor)

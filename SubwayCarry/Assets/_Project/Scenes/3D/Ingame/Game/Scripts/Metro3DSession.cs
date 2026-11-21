@@ -10,6 +10,8 @@ namespace SubwayCarry.Gameplay3D
     public sealed partial class Metro3DSession : MonoBehaviour
     {
         [SerializeField] bool startFreshOnLaunch;
+        // Editor Play starts at the scene's starting point and never writes player progress.
+        bool CanPersistProgress => !startFreshOnLaunch && !Application.isEditor;
         public Metro3DWorld World {get;private set;}
         internal void ConfigureWalkingReview(Metro3DWorld owner){World=owner;enabled=false;}
         public EconomyService Economy {get;private set;}
@@ -106,8 +108,7 @@ namespace SubwayCarry.Gameplay3D
         }
         bool gatePaid,transferNeeded,middleBalanceTriggered;
         const string BoardingNotice="열차에 탑승하세요.";
-        const string StandardSaveKey="SubwayCarry.3D.Progress.v1";
-        string SaveKey => World.UsesStationLayouts ? "SubwayCarry.3D.StationLayoutTest.Progress" : StandardSaveKey;
+        const string SaveKey="SubwayCarry.3D.Progress.v1";
 
 
         public void Initialize(Metro3DWorld world)
@@ -126,6 +127,9 @@ namespace SubwayCarry.Gameplay3D
         {
             if(ResultOpen)return;
             if(HasPackage) { PhoneOpen=false; SetCursor(); return; }
+            if (World.KeepingLegacyStationLayouts && World.player.Riding == null &&
+                World.StationAt(World.player.transform.position) == 0)
+                World.ResetStationLayouts();
             int revision=World.RouteRevision;
             Order=World.settings.deliveries.orders[SelectedIndex];activeRoute=Order;HasPackage=true;legStart=0;transferConcourseVisited=destinationReached=false;gatePaid=false;outboundPaid=0;middleBalanceTriggered=false;ResultReason=null;
             World.player.package.ResetToFull(); previousBox=previousCake=100; World.EnsureRoute();
@@ -161,7 +165,7 @@ namespace SubwayCarry.Gameplay3D
             if(!observing&&key!=null&&key.tabKey.wasPressedThisFrame&&!ResultOpen) TogglePhone();
             if(!observing&&key!=null&&key.escapeKey.wasPressedThisFrame) { if(PhoneOpen) PhoneOpen=false; else Paused=!Paused; SetCursor(); }
             // Opening the player's phone or a damage overlay does not stop the city.
-            if(!startFreshOnLaunch&&Time.unscaledTime>=nextProgressSave)SaveProgress();
+            if(CanPersistProgress&&Time.unscaledTime>=nextProgressSave)SaveProgress();
             if(SimulationPaused||ResultOpen) return;
             ObserveTransferProgress();
             timer-=Time.deltaTime;
@@ -297,7 +301,8 @@ namespace SubwayCarry.Gameplay3D
 
         public void ReturnToHub()
         {
-            if(Bankrupt){SelectedIndex=0;activeRoute=World.settings.deliveries.orders[0];World.ResetStationLayouts();}
+            if(Bankrupt){SelectedIndex=0;activeRoute=World.settings.deliveries.orders[0];}
+            if(Bankrupt||World.KeepingLegacyStationLayouts)World.ResetStationLayouts();
             World.player.TeleportForReturn(World.HubSpawn);
             World.Traffic.RecycleAll();
             var oldTrains=GetComponentsInChildren<Metro3DTrain>(); foreach(var t in oldTrains) Destroy(t.gameObject);

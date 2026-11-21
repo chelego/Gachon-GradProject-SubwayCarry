@@ -49,6 +49,7 @@ namespace SubwayCarry.Gameplay3D
         // Diagnostic compatibility; orientation data is owned by the passenger executor.
         public Vector3 GateFacing => gate!=null?actor.BodyFacingIntent:Vector3.zero;
         public bool CrossingGate => crossing;
+        internal bool ClearingGateOutlet => exitLease && GateAction == GatePhase.ExitClear;
         public bool OnStairs => stairCommitted;
         internal Vector3 StairForward {get;private set;}
         internal Vector3 StairOutward {get;private set;}
@@ -112,6 +113,8 @@ namespace SubwayCarry.Gameplay3D
             Move(point,!actor.CanWalkDirect(worldPoint));
         }
         bool far,crossing,stairCommitted,aligning,tagging,exitLease;
+        const float GateOutletClearance = .65f;
+        const float PaidHallCrossingDistance = 3.25f;
         float tagUntil;
         float gateProgressAt;
         Vector3 gateProgressPosition;
@@ -199,6 +202,11 @@ namespace SubwayCarry.Gameplay3D
         }
         public bool Tick()
         {
+            if (ClearingGateOutlet)
+            {
+                FinishGatePassage();
+                return true;
+            }
             if(transferMotionStage>0){TickTransfer();return true;}
             var stage=Blackboard.CurrentStage;
             switch(stage) {
@@ -257,6 +265,8 @@ namespace SubwayCarry.Gameplay3D
                 gateProgressAt=Time.time;gateProgressPosition=actor.transform.position;gateOutgoing=outgoing;GateAction=GatePhase.Approach;
             }
             if(gate==null) {Planner.ReportRecoverableFailure("No cached fare-gate bank for station");return;}
+            var layout = Layout;
+            bool localMovement = layout && layout.useLocalFareGateMovement;
             float direction=(far?-1:1)*(outgoing?-1:1);
             Vector3 p=gate.transform.localPosition; p.y=actor.world.settings.departureFloor;
             Vector3 axis=actor.transform.parent.TransformDirection(Vector3.forward*direction);
@@ -282,9 +292,20 @@ namespace SubwayCarry.Gameplay3D
                             return;
                         }
                         if(slot!=0||!Reached(approach,.14f)||Mathf.Abs(feet.x-approach.x)>.09f) {
-                            var target=actor.transform.parent.TransformPoint(approach);
-                            if(outgoing&&slot<0)actor.ApproachExitGate(target);
-                            else actor.FollowQueueGoal(target,preferDirect:true);
+                            var approachFrame = actor.transform.parent;
+                            if (outgoing && slot < 0)
+                            {
+                                bool movingAway = false;
+                                if (localMovement)
+                                    approach = AcrossPaidHall(approach, direction, out movingAway);
+                                actor.ApproachExitGate(approachFrame.TransformPoint(approach), movingAway);
+                            }
+                            else
+                            {
+                                Vector3 target = approachFrame.TransformPoint(approach);
+                                if (slot < 0 && localMovement) actor.ApproachEntryGate(target);
+                                else actor.FollowQueueGoal(target, preferDirect:true);
+                            }
                             if(slot<0&&!traffic.GateAtCapacity(gate)&&Time.time-gateProgressAt>8) {
                                 CancelGate();Planner.ReportRecoverableFailure("Gate approach blocked; release selection and retry");
                             }
@@ -298,7 +319,11 @@ namespace SubwayCarry.Gameplay3D
                     CardMixup=actor.world.settings.ambientEventsEnabled&&(!outgoing&&actor.RiderLook==Metro3DRiderLook.Office&&actor.index%23==7&&!traffic.GateHasFollower(gate));
                     tagUntil=tagStarted+.25f+actor.QueueReactionDelay+(CardMixup?.48f:0);
                     GateAction=GatePhase.Tag;
-                    actor.PrepareJourneyContinuation(actor.transform.parent.TransformPoint(p+Vector3.forward*direction*(actor.GateClearanceDistance(gate.gateDoor.passageHalfLength)+.08f)),actor.transform.parent.TransformPoint(AfterGate(outgoing)));
+                    float routeStart = actor.GateClearanceDistance(gate.gateDoor.passageHalfLength) + .08f;
+                    if (localMovement) routeStart += GateOutletClearance;
+                    var frame = actor.transform.parent;
+                    actor.PrepareJourneyContinuation(frame.TransformPoint(p + Vector3.forward * direction * routeStart),
+                        frame.TransformPoint(AfterGate(outgoing)), prioritizeGate:localMovement);
                 }
                 actor.FaceJourney(axis);actor.HoldJourney();
                 if(Time.time<tagUntil) {GateAction=GatePhase.Tag;return;}
@@ -313,6 +338,27 @@ namespace SubwayCarry.Gameplay3D
             actor.FaceJourney(axis);
             FinishGatePassage();
         }
+        Vector3 AcrossPaidHall(Vector3 approach,float direction,out bool movingAway)
+        {
+            Vector3 reader = gate.transform.localPosition;
+            Vector3 feet = actor.transform.localPosition;
+            movingAway = false;
+            if (Mathf.Abs(feet.x - reader.x) <= .42f) return approach;
+
+            // Change lanes behind the paid-side outlets, then approach the
+            // exit reader along its own lane.
+            float crossingZ = reader.z - direction * PaidHallCrossingDistance;
+            if ((feet.z - crossingZ) * direction > .3f)
+            {
+                approach.x = feet.x;
+                approach.z = crossingZ;
+                movingAway = true;
+            }
+            else if ((approach.z - crossingZ) * direction > 0)
+                approach.z = crossingZ;
+            return approach;
+        }
+
         Vector3 ExitDestination()
         {
             var layout = Layout;
@@ -336,28 +382,58 @@ namespace SubwayCarry.Gameplay3D
         // Called after the single motor step as well as the low-frequency action tick.
         public void FinishGatePassage()
         {
-            if(exitLease&&gate!=null) {
-                Vector3 local=actor.transform.localPosition-gate.transform.localPosition;
-                float flow=(far?-1:1)*(gateOutgoing?-1:1);
-                gate.gateDoor.HoldForPassenger();
-                if(Mathf.Abs(local.x)>.65f||local.z*flow>actor.GateClearanceDistance(gate.gateDoor.passageHalfLength)+.65f) {
-                    actor.world.Traffic.ReleaseGate(actor);gate=null;gateSlot=-1;exitLease=false;
+            if (!exitLease && (!crossing || !gate)) return;
+            float direction=(far?-1:1)*(gateOutgoing?-1:1);
+            if (exitLease)
+            {
+                bool clearing = ClearingGateOutlet;
+                if (gate && gate.gateDoor && (!clearing || gate.isActiveAndEnabled && gate.gateDoor.isActiveAndEnabled))
+                {
+                    Vector3 local = actor.transform.localPosition - gate.transform.localPosition;
+                    gate.gateDoor.HoldForPassenger();
+                    float clearDistance = actor.GateClearanceDistance(gate.gateDoor.passageHalfLength) + GateOutletClearance;
+                    if (Mathf.Abs(local.x) <= GateOutletClearance && local.z * direction <= clearDistance)
+                        return;
                 }
+                else if (!clearing) return;
+
+                actor.world.Traffic.ReleaseGate(actor);
+                gate = null;
+                gateSlot = -1;
+                exitLease = false;
+                if (clearing) ContinueAfterGate(direction, prioritizeGate:true);
                 return;
             }
-            if(!crossing||gate==null)return;
-            float direction=(far?-1:1)*(gateOutgoing?-1:1);
             Vector3 feet=actor.transform.localPosition,p=gate.transform.localPosition;
             float progress=(feet.z-p.z)*direction;
-            if(progress<actor.GateClearanceDistance(gate.gateDoor.passageHalfLength)||Mathf.Abs(feet.x-p.x)>.12f)return;
+            float crossingDistance = actor.GateClearanceDistance(gate.gateDoor.passageHalfLength);
+            if(progress<crossingDistance||Mathf.Abs(feet.x-p.x)>.12f)return;
+            actor.ClearQueueContext();
+            exitLease = true;
+            crossing = false;
+
+            var layout = Layout;
+            if (layout && layout.useLocalFareGateMovement)
+            {
+                // Keep the queue head reserved, but use ordinary avoidance at
+                // the outlet so the rider in front can keep moving away.
+                GateAction = GatePhase.ExitClear;
+                p.y = actor.world.settings.departureFloor;
+                Move(p + Vector3.forward * direction * (crossingDistance + GateOutletClearance + .35f), false);
+                actor.FaceJourney(actor.transform.parent.TransformDirection(Vector3.forward * direction));
+                return;
+            }
+            ContinueAfterGate(direction);
+        }
+
+        void ContinueAfterGate(float direction,bool prioritizeGate=false)
+        {
             Vector3 next=actor.transform.parent.TransformPoint(AfterGate(gateOutgoing));
-            // Keep the FIFO head until the turning body clears the outlet.
-            // Its motor is free to follow the prepared next path meanwhile.
-            actor.ClearQueueContext();exitLease=true;crossing=false;GateAction=GatePhase.Exit;
+            GateAction=GatePhase.Exit;
             Complete(Blackboard.CurrentStage);
             hasCommand=true;commanded=next;
             Vector3 forward=actor.transform.parent.TransformDirection(Vector3.forward*direction);
-            if(!actor.ContinueJourney(next,forward))ContinuationMisses++;
+            if(!actor.ContinueJourney(next,forward,prioritizeGate))ContinuationMisses++;
         }
         public void CancelGate()
         {
@@ -456,7 +532,14 @@ namespace SubwayCarry.Gameplay3D
                     PlanStairLanding(exit,clearLanding,axis,stairSide);
                     gate=actor.world.Traffic.SelectGate(actor,far,true);
                     stairNextAvailable=gate!=null;
-                    if(stairNextAvailable)stairNext=actor.world.Traffic.OutgoingGateApproach(actor,gate,far);
+                    if (stairNextAvailable)
+                    {
+                        stairNext = actor.world.Traffic.OutgoingGateApproach(actor, gate, far);
+                        var layout = Layout;
+                        if (layout && layout.useLocalFareGateMovement)
+                            stairNext = frame.TransformPoint(AcrossPaidHall(frame.InverseTransformPoint(stairNext),
+                                far ? 1f : -1f, out _));
+                    }
                 } else {
                     stairNext=actor.world.Traffic.PlatformWaitingPoint(actor);
                     stairNextAvailable=(stairNext-actor.transform.position).sqrMagnitude>.04f;

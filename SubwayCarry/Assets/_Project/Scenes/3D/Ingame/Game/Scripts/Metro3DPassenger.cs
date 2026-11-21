@@ -366,8 +366,31 @@ namespace SubwayCarry.Gameplay3D
         public void FollowQueueGoal(Vector3 point,bool preferDirect=false)
             =>FollowQueueGoal(point,preferDirect,false);
 
-        internal void ApproachExitGate(Vector3 point)
+        internal void ApproachEntryGate(Vector3 point)
         {
+            if (FlatDistance(transform.position, point) <= 2.5f)
+            {
+                FollowQueueGoal(point, preferDirect:true);
+                return;
+            }
+
+            // The tail follows a moving passenger. Keep the current approach
+            // through small shifts, then use the live tail near the queue.
+            if (state == Activity.Walk &&
+                ((point - target).sqrMagnitude < .55f * .55f || Time.time < nextQueuePath))
+                return;
+
+            nextQueuePath = Time.time + .65f;
+            WalkJourney(point, !CanWalkDirect(point));
+        }
+
+        internal void ApproachExitGate(Vector3 point,bool movingAwayFromOutlet=false)
+        {
+            if (movingAwayFromOutlet && crowd.CanFollowWalkingSegment(this, point, leavingDoorSpace:true))
+            {
+                WalkJourney(point, false);
+                return;
+            }
             // A route to the far side of the hall can be pending for several
             // decision ticks. Take a clear stretch toward the gate in the meantime.
             // Keep a usable full route, and let the gate own its FIFO near the reader.
@@ -1130,7 +1153,7 @@ namespace SubwayCarry.Gameplay3D
             } else blockedFor+=Time.fixedDeltaTime;
             // These handoffs already have a local exit goal. Generic backoff
             // would put the passenger back in the way of the following flow.
-            if(cabinEntryDoor>=0||exitQueueActive||Journey.ClearingStairLanding) {
+            if(cabinEntryDoor>=0||exitQueueActive||Journey.ClearingStairLanding||Journey.ClearingGateOutlet) {
                 yieldUntil=backoffUntil=blockedFor=0;recoveryStage=0;
             }
             bool holdingDoorQueue=waypoint==0&&QueueActive&&
@@ -1912,14 +1935,14 @@ namespace SubwayCarry.Gameplay3D
             Initialize(owner,id,0,false,false,false);WalkReviewControlled=true;
             GetComponent<Metro3DPassengerContacts>().enabled=false;
         }
-        public void PrepareJourneyContinuation(Vector3 from,Vector3 goal)
+        public void PrepareJourneyContinuation(Vector3 from,Vector3 goal,bool prioritizeGate=false)
         {
             if(continuationPending||continuationReady)return;
             if(continuationPath==null||continuationPath.Length==0)continuationPath=new Vector3[path.Length];
-            continuationFrom=from;continuationGoal=goal;continuationPending=true;crowd.Request(this);
+            continuationFrom=from;continuationGoal=goal;continuationPending=true;crowd.Request(this,prioritizeGate);
         }
         public void CancelJourneyContinuation() {continuationPending=continuationReady=false;continuationCount=0;}
-        public bool ContinueJourney(Vector3 goal,Vector3 gateForward=default)
+        public bool ContinueJourney(Vector3 goal,Vector3 gateForward=default,bool prioritizeGate=false)
         {
             bool ready=continuationReady&&continuationCount>0&&(goal-continuationGoal).sqrMagnitude<.01f;
             FaceTravel();
@@ -1942,7 +1965,7 @@ namespace SubwayCarry.Gameplay3D
                 }
             }
             if(ready) {pathCount=continuationCount;System.Array.Copy(continuationPath,path,pathCount);}
-            else RequestPath();
+            else RequestPath(prioritizeGate);
             CancelJourneyContinuation();return ready;
         }
         void RetryBlockedAlightingDoor(Metro3DTrain train)
@@ -2078,10 +2101,10 @@ namespace SubwayCarry.Gameplay3D
             }
             FaceTravel();target=p;targetLocal=local;pathCount=pathIndex=0;pendingPath=false;nextReviewLook=0;if(navigate) RequestPath();
         }
-        void RequestPath() {
+        void RequestPath(bool prioritizeGate=false) {
             if(crowd==null)return;
             if(Journey!=null&&Journey.OnStairs) {pendingPath=false;pathCount=pathIndex=0;return;}
-            pendingPath=true;crowd.Request(this);
+            pendingPath=true;crowd.Request(this,prioritizeGate);
         }
         public void SolvePath(Metro3DNavigation navigation)
         {

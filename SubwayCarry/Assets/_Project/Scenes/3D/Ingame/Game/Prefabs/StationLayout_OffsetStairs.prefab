@@ -94197,6 +94197,7 @@ MonoBehaviour:
     height: 19.2
   entryWaitingLimit: 8
   preferDirectEntranceWalk: 1
+  useLocalFareGateMovement: 1
   hallBounds:
     serializedVersion: 2
     x: -12.9

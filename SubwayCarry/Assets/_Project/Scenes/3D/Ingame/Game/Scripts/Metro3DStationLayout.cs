@@ -11,6 +11,7 @@ namespace SubwayCarry.Gameplay3D
         public Rect entryWaitingBounds;
         [Min(0)] public int entryWaitingLimit;
         public bool preferDirectEntranceWalk;
+        public bool useLocalFareGateMovement;
         public Rect hallBounds, platformBounds;
         public float tunnelStart, tunnelEnd;
         public GameObject[] previewTunnelEnds;
