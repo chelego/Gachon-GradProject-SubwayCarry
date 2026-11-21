@@ -124,7 +124,7 @@ namespace SubwayCarry.Gameplay3D
         void Start(){RestoreProgress();}
         internal void SaveProgress()
         {
-            if(restoringProgress||World==null||World.player==null||Economy==null)return;
+            if(startFreshOnLaunch||restoringProgress||World==null||World.player==null||Economy==null)return;
             var player=World.player;
             bool aboard=player.Riding!=null;
             Transform frame=aboard?player.Riding.transform:World.transform;
@@ -153,6 +153,7 @@ namespace SubwayCarry.Gameplay3D
         }
         void Load()
         {
+            if(startFreshOnLaunch)return;
             string key=PlayerPrefs.HasKey(SaveKey) ? SaveKey : StandardSaveKey;
             if(!PlayerPrefs.HasKey(key))return;
             try{

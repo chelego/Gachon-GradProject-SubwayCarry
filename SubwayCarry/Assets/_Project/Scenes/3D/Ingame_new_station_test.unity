@@ -155234,6 +155234,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 40cb98745179229429803998716f9933, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay3D.Metro3DSession
+  startFreshOnLaunch: 1
 --- !u!114 &364627460
 MonoBehaviour:
   m_ObjectHideFlags: 0

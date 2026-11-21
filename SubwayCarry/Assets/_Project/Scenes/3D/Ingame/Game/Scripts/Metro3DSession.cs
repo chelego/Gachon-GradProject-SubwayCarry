@@ -9,6 +9,7 @@ namespace SubwayCarry.Gameplay3D
 {
     public sealed partial class Metro3DSession : MonoBehaviour
     {
+        [SerializeField] bool startFreshOnLaunch;
         public Metro3DWorld World {get;private set;}
         internal void ConfigureWalkingReview(Metro3DWorld owner){World=owner;enabled=false;}
         public EconomyService Economy {get;private set;}
@@ -160,7 +161,7 @@ namespace SubwayCarry.Gameplay3D
             if(!observing&&key!=null&&key.tabKey.wasPressedThisFrame&&!ResultOpen) TogglePhone();
             if(!observing&&key!=null&&key.escapeKey.wasPressedThisFrame) { if(PhoneOpen) PhoneOpen=false; else Paused=!Paused; SetCursor(); }
             // Opening the player's phone or a damage overlay does not stop the city.
-            if(Time.unscaledTime>=nextProgressSave)SaveProgress();
+            if(!startFreshOnLaunch&&Time.unscaledTime>=nextProgressSave)SaveProgress();
             if(SimulationPaused||ResultOpen) return;
             ObserveTransferProgress();
             timer-=Time.deltaTime;
