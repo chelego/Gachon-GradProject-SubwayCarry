@@ -171,18 +171,24 @@ namespace SubwayCarry.Gameplay3D
             for(int stop=0;stop<world.stations.Count;stop++) {
                 Transform root=world.stations[stop];
                 if(CountAt(root)>=world.settings.passengerCount) continue;
+                var layout=world.LayoutAt(stop);
                 int group=arrivals.Next(2,5);
+                bool limited=layout && layout.entryWaitingLimit>0;
+                if(limited) {
+                    int pending=world.GetComponent<Metro3DCrowd>().CountPendingEntries(layout);
+                    group=Mathf.Min(group,layout.entryWaitingLimit-pending);
+                }
                 for(int person=0;person<group&&CountAt(root)<world.settings.passengerCount;person++) {
                     int entry=entranceSerial++%3;bool far=entry!=0;
                     Vector3 p=entry==2?new Vector3(14.6f,world.settings.departureFloor,55+Metro3DWorld.PlatformExpansion):Entrance(far,world.settings.departureFloor);
-                    var layout=world.LayoutAt(stop);
                     if(layout) { p=layout.Local(layout.entrance); far=false; entry=0; }
                     p.x+=((float)arrivals.NextDouble()-.5f)*1.1f;
                     p.z+=((float)arrivals.NextDouble()-.5f)*.8f;
                     if(!SpawnClear(root,p)) continue;
                     var adult=Rent(stop,false,p,false,far,null,0,entry==2);EntranceArrivals++;
                     if(adult.RiderLook==Metro3DRiderLook.Student||EntranceArrivals%9!=3||CountAt(root)>=world.settings.passengerCount)continue;
-                    Vector3 childPoint=p+new Vector3(p.x>0?-.66f:.66f,0,.42f);
+                    if(limited&&person+1>=group)continue;
+                    Vector3 childPoint=layout&&layout.exit?p+Vector3.back*.66f:p+new Vector3(p.x>0?-.66f:.66f,0,.42f);
                     if(!SpawnClear(root,childPoint))continue;
                     var child=Rent(stop,false,childPoint,false,far,null,0,entry==2,look:Metro3DRiderLook.Child);
                     child.Journey.ShareDestination(adult.Journey);
@@ -212,18 +218,25 @@ namespace SubwayCarry.Gameplay3D
             if(!seeded.Add(root)) return;
             Physics.SyncTransforms();
             int count=world.settings.passengerCount;
+            var layout=world.LayoutAt(stop);
+            int seededEntries=0;
             for(int i=0;i<count;i++) {
                 bool concourse=i>=count/2,far=(i&1)!=0;
+                if(concourse&&layout&&layout.entryWaitingLimit>0&&seededEntries>=layout.entryWaitingLimit)break;
                 int direction=0;
                 // Preview the same deterministic lifetime choice before testing its actual platform floor.
                 // Do not test a point on the track then mirror it to an unchecked platform afterwards.
                 if(!concourse)ChoosePassengerDestination(stop,false,0,new System.Random(unchecked(serial*7919+stop*104729+17)),out _,out _,out _,out direction);
                 Vector3 p=concourse?new Vector3(-4+(i%4)*2.5f,world.settings.departureFloor,far?117+(i/4%3)*2.1f:-14+(i/4%3)*2.2f)
                     :new Vector3(-world.ServiceSide*direction*(4.6f+(i%2)*.78f),0,Metro3DTrain.DoorZ[i%Metro3DTrain.DoorZ.Length]+(i%2==0?-.95f:.95f));
-                var layout=world.LayoutAt(stop);
-                if(concourse&&layout) {p=layout.Local(layout.unpaidHall)+new Vector3(-4+(i%4)*2.5f,0,i/4%3*1.4f);far=false;}
+                if(concourse&&layout) {
+                    float x=layout.exit?-5+(i%4)*1.25f:-4+(i%4)*2.5f;
+                    p=layout.Local(layout.unpaidHall)+new Vector3(x,0,i/4%3*1.4f);
+                    far=false;
+                }
                 if(!SpawnClear(root,p))continue;
                 Rent(stop,false,p,!concourse,concourse?far:p.z>Metro3DWorld.PlatformLength*.5f,null,0,concourse);
+                if(concourse)seededEntries++;
             }
         }
         public void SeedTrain(Metro3DTrain train,int stop,bool incomingHub=false)

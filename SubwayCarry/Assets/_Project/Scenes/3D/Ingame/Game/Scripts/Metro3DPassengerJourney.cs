@@ -16,6 +16,9 @@ namespace SubwayCarry.Gameplay3D
         public PassengerAiV2JourneyBlackboard Blackboard {get;private set;}
         public PassengerAiV2FullJourneyPlanner Planner {get;private set;}
         public bool Waiting => Blackboard.CurrentStage==PassengerAiV2FullJourneyStage.WaitForOriginTrain||TransferWaiting;
+        internal bool IsEnteringStation =>
+            Blackboard.CurrentStage==PassengerAiV2FullJourneyStage.EnterOriginStation ||
+            Blackboard.CurrentStage==PassengerAiV2FullJourneyStage.PassOriginEntryGate;
         public bool TransferWaiting {get;private set;}
         public int TravelDirection {get;private set;}=1;
         public int TrainSide => actor.world.Transit.PlatformSideAt(actor.stationIndex,TravelDirection);
@@ -200,11 +203,34 @@ namespace SubwayCarry.Gameplay3D
             var stage=Blackboard.CurrentStage;
             switch(stage) {
                 case PassengerAiV2FullJourneyStage.EnterOriginStation:
+                    var layout = Layout;
+                    if (layout && layout.preferDirectEntranceWalk)
+                    {
+                        Vector3 entranceGoal = layout.Local(layout.unpaidHall);
+                        entranceGoal.x += Mathf.Clamp(actor.transform.localPosition.x, -1.3f, 1.3f);
+                        // This is a hall boundary. Riders can choose their gate
+                        // once they have reached it, even after stepping sideways.
+                        if (Reached(entranceGoal, 1f))
+                        {
+                            Complete(stage);
+                            return true;
+                        }
+                        // Keep one goal for the entrance leg. Steering around another
+                        // rider must not replace an in-flight request or its result.
+                        if (!hasCommand)
+                        {
+                            bool direct = actor.CanWalkDirect(actor.transform.parent.TransformPoint(entranceGoal));
+                            // The walking motor's existing blocked recovery requests
+                            // a path to this same goal if local avoidance stalls.
+                            Move(entranceGoal, !direct);
+                        }
+                        return true;
+                    }
                     // Leave the entrance throat before committing to a particular gate lane.
                     // Retain the entrance branch rather than funnel everybody through one centre point.
                     var enter=actor.transform.localPosition;
                     enter.x=Mathf.Clamp(enter.x,-1.3f,1.3f);enter.y=actor.world.settings.departureFloor;enter.z=far?118.8f:-18.7f;
-                    if(Layout) enter=Layout.Local(Layout.unpaidHall)+Vector3.right*enter.x;
+                    if(layout) enter=layout.Local(layout.unpaidHall)+Vector3.right*enter.x;
                     Move(enter,true); if(Reached(enter)) Complete(stage);return true;
                 case PassengerAiV2FullJourneyStage.PassOriginEntryGate:
                 case PassengerAiV2FullJourneyStage.PassDestinationExitGate:
@@ -289,11 +315,13 @@ namespace SubwayCarry.Gameplay3D
         }
         Vector3 ExitDestination()
         {
-            Vector3 exit=Layout?Layout.Local(Layout.entrance):Metro3DStationTraffic.Entrance(far,actor.world.settings.departureFloor);
-            // A stable personal target spreads walkers across the same physical opening.
-            // Keep clearance from the walls for the capsule and let local avoidance handle people.
+            var layout = Layout;
+            Vector3 exit = layout ? layout.Local(layout.exit ? layout.exit : layout.entrance)
+                : Metro3DStationTraffic.Entrance(far,actor.world.settings.departureFloor);
+            // Spread targets without spilling back into the opposing lane or stair wall.
+            float spread = layout && layout.exit ? .22f : 1.55f;
             uint choice=unchecked((uint)actor.index*2654435761u+(uint)actor.stationIndex*2246822519u);
-            exit.x+=Mathf.Lerp(-1.55f,1.55f,(choice>>16)/65535f);
+            exit.x+=Mathf.Lerp(-spread,spread,(choice>>16)/65535f);
             return exit;
         }
         Vector3 AfterGate(bool outgoing)

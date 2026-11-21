@@ -94166,6 +94166,7 @@ Transform:
   - {fileID: 5554611598764928052}
   - {fileID: 5055079193316171091}
   - {fileID: 3281542033818633582}
+  - {fileID: 4918306563544570127}
   - {fileID: 783503702260865783}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -94187,6 +94188,15 @@ MonoBehaviour:
   westBottom: {fileID: 5613619620567900790}
   eastTop: {fileID: 2174736833636772269}
   eastBottom: {fileID: 9126646627719724921}
+  exit: {fileID: 4918306563544570127}
+  entryWaitingBounds:
+    serializedVersion: 2
+    x: -13.2
+    y: 10.8
+    width: 25.6
+    height: 19.2
+  entryWaitingLimit: 8
+  preferDirectEntranceWalk: 1
   hallBounds:
     serializedVersion: 2
     x: -12.9
@@ -187601,7 +187611,38 @@ Transform:
   m_GameObject: {fileID: 4920285577526134341}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 3.6, z: 14}
+  m_LocalPosition: {x: -1.1, y: 3.6, z: 13.6}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2486417815838004866}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &3551196531197427917
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4918306563544570127}
+  m_Layer: 0
+  m_Name: Public exit beyond turn
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4918306563544570127
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3551196531197427917}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2.72, y: 3.6, z: 12.85}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

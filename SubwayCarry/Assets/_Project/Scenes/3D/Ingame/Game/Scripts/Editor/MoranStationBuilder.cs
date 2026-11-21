@@ -193,8 +193,12 @@ namespace SubwayCarry.Gameplay3D.Editor
         static void BindPassengerLayout(Transform root)
         {
             var layout = root.gameObject.AddComponent<Metro3DStationLayout>();
-            layout.entrance = Group(root, "Public entrance arrival", new Vector3(0, HallFloor, 14));
+            layout.entrance = Group(root, "Public entrance arrival", new Vector3(-1.10f, HallFloor, 13.6f));
+            layout.exit = Group(root, "Public exit beyond turn", new Vector3(2.72f, HallFloor, 12.85f));
             layout.unpaidHall = Group(root, "Ticket hall arrival", new Vector3(0, HallFloor, 21.5f));
+            layout.entryWaitingBounds = Rect.MinMaxRect(WestWall, 10.8f, EastWall, 30);
+            layout.entryWaitingLimit = 8;
+            layout.preferDirectEntranceWalk = true;
             layout.hallBounds = Rect.MinMaxRect(WestWall + .3f, 10.95f, EastWall - .3f, 71.7f);
             layout.platformBounds = Rect.MinMaxRect(WestWall + .3f, PlatformFirst + .3f, EastWall - .3f, PlatformLast - .3f);
             layout.tunnelStart = PlatformFirst - 10;

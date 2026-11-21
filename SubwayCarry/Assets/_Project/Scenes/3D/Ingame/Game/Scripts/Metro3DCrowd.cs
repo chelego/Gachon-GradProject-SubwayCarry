@@ -278,6 +278,26 @@ namespace SubwayCarry.Gameplay3D
             foreach(var p in nearby)if(p!=null&&p.transform.parent==root&&(p.transform.position-point).sqrMagnitude<4)count++;
             return Mathf.Clamp01(count/8f);
         }
+        internal int CountPendingEntries(Metro3DStationLayout layout)
+        {
+            if(hashDirty||Time.time>=nextHash)RebuildHash();
+            var bounds=layout.entryWaitingBounds;
+            float floor=layout.Local(layout.entrance).y;
+            var min=Cell(new Vector3(bounds.xMin,floor-.45f,bounds.yMin));
+            var max=Cell(new Vector3(bounds.xMax,floor+.45f,bounds.yMax));
+            int count=0;
+            for(int y=min.y;y<=max.y;y++)
+                for(int z=min.z;z<=max.z;z++)
+                    for(int x=min.x;x<=max.x;x++) {
+                        if(!cells.TryGetValue((layout.transform,new Vector3Int(x,y,z)),out var bucket))continue;
+                        foreach(var rider in bucket) {
+                            var point=rider.transform.localPosition;
+                            if(Mathf.Abs(point.y-floor)<.45f&&bounds.Contains(new Vector2(point.x,point.z))&&
+                                rider.Journey.IsEnteringStation)count++;
+                        }
+                    }
+            return count;
+        }
         internal bool HasPassingPassenger(Metro3DPassenger actor)
         {
             Vector3 center=actor.transform.position;
