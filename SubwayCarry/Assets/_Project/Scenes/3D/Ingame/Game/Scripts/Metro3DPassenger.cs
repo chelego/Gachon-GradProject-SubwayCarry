@@ -22,6 +22,11 @@ namespace SubwayCarry.Gameplay3D
         public Vector3 CommandVelocity=>velocity;
         public bool FinalWalkTarget {get;private set;}
         internal bool CanWalkDirect(Vector3 point)=>crowd.CanShortenWalkingPath(this,point);
+        internal bool CanClearLanding(Vector3 start,Vector3 end,bool pastStair=false)
+            =>crowd.CanShortenWalkingPath(this,start,end,pastStair);
+        internal bool HasAscendingAtStair(Vector3 top,Vector3 bottom,Vector3 descent)
+            =>crowd.HasAscendingAtStair(transform.parent,top,bottom,descent);
+        internal bool CanWaitOffStair(Vector3 point)=>crowd.CanWaitOffStair(this,point);
         Vector3 reviewLookLocal;
         float nextReviewLook;
         internal float MotionYawRate=>curvedTurnRate;
@@ -212,7 +217,8 @@ namespace SubwayCarry.Gameplay3D
             Transform phone=seatedPastime?.HeldPhone??contacts?.VisiblePhone;
             float relaxedHands=contacts?.RelaxedHandsWeight??0;
             float relaxedRight=contacts?.HasPhoneInUse==true?0:relaxedHands;
-            externalAvatar.Apply(sitting,alignHands,phone!=null,relaxedHands,relaxedRight,leftWristWeight,rightWristWeight);
+            float lapWeight=CanCorrectVisualWrists&&seat!=null?sitting*(seatedPastime?.LapWeight??1):0;
+            externalAvatar.Apply(sitting,alignHands,phone!=null,relaxedHands,relaxedRight,leftWristWeight,rightWristWeight,lapWeight:lapWeight);
             if(phone!=null)externalAvatar.MatchPhonePalm(phone);
         }
         internal void SetRiderLook(Metro3DRiderWardrobe wardrobe,Metro3DRiderLook look)
@@ -359,6 +365,21 @@ namespace SubwayCarry.Gameplay3D
         public void CommitPassingSide(int side) {PassingSide=side;PassingUntil=Time.time+.85f;}
         public void FollowQueueGoal(Vector3 point,bool preferDirect=false)
             =>FollowQueueGoal(point,preferDirect,false);
+
+        internal void ApproachExitGate(Vector3 point)
+        {
+            // A route to the far side of the hall can be pending for several
+            // decision ticks. Take a clear stretch toward the gate in the meantime.
+            // Keep a usable full route, and let the gate own its FIFO near the reader.
+            if(pathIndex>=pathCount&&FlatDistance(transform.position,point)>2.2f) {
+                Vector3 step=Vector3.MoveTowards(transform.position,point,1.7f);
+                if(crowd.CanShortenWalkingPath(this,step)) {
+                    WalkJourney(step,false);
+                    return;
+                }
+            }
+            FollowQueueGoal(point,preferDirect:true);
+        }
 
         void FollowQueueGoal(Vector3 point,bool preferDirect,bool allowLocalAdvance)
         {
@@ -1107,9 +1128,11 @@ namespace SubwayCarry.Gameplay3D
                 ExpectedQueueWait||!walking||pendingPath||arrived||progressing) {
                 blockedFor=0;recoveryStage=0;
             } else blockedFor+=Time.fixedDeltaTime;
-            // Both door handoffs have their own local space checks. A
-            // generic yield/backoff here interrupts the active exit movement.
-            if(cabinEntryDoor>=0||exitQueueActive) {yieldUntil=backoffUntil=blockedFor=0;recoveryStage=0;}
+            // These handoffs already have a local exit goal. Generic backoff
+            // would put the passenger back in the way of the following flow.
+            if(cabinEntryDoor>=0||exitQueueActive||Journey.ClearingStairLanding) {
+                yieldUntil=backoffUntil=blockedFor=0;recoveryStage=0;
+            }
             bool holdingDoorQueue=waypoint==0&&QueueActive&&
                 (IsAlighting&&QueueLeader!=null||state==Activity.Board&&boardingTrain!=null&&
                     (QueueLeader!=null||StagedBoarding||FlatDistance(transform.position,target)<1.15f));

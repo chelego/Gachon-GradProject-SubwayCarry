@@ -126,6 +126,11 @@ namespace SubwayCarry.Gameplay3D
         };
         internal string Stage => phase switch { Phase.Enter => "시작", Phase.Hold => "유지", Phase.Exit => "풀기", _ => "" };
         internal bool Active => phase != Phase.None;
+        internal float LapWeight => !Active ? 1 : phase switch {
+            Phase.Enter => 1-Mathf.SmoothStep(0,1,clock/BlendTime),
+            Phase.Exit => 1-Mathf.SmoothStep(0,1,(sequence.poses[(int)phase].duration-clock)/BlendTime),
+            _ => 0
+        };
         internal bool Dozing => phase==Phase.Hold&&sequence.source.action==Metro3DSeatedAction.Doze;
         internal bool NeedsLegRoom => Active && phase != Phase.Exit && sequence.source.action == Metro3DSeatedAction.CrossLegs;
         internal float PortraitWeight

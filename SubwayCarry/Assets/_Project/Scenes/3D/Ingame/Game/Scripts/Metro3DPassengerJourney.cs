@@ -50,7 +50,13 @@ namespace SubwayCarry.Gameplay3D
         internal Vector3 StairForward {get;private set;}
         internal Vector3 StairOutward {get;private set;}
         bool stairNextPrepared,stairNextAvailable;
-        Vector3 stairNext;
+        Vector3 stairNext,stairLanding;
+        Vector3? descendingWaitPoint;
+        internal Vector3? DescendingWaitPoint=>descendingWaitPoint;
+        float landingExtension;
+        float landingProgressAt;
+        float landingRemaining;
+        internal bool ClearingStairLanding {get;private set;}
         const float StairLaneOffset=.30f;
         public bool StairApproaching {get;private set;}
         public bool ReviewStairActive {get;private set;}
@@ -123,7 +129,9 @@ namespace SubwayCarry.Gameplay3D
         {
             transferMotionStage=transferFromSide=arrivalSide=0;
             ReviewStairActive=StairApproaching=reviewStairFinished=false;
-            StairForward=StairOutward=Vector3.zero;stairNextPrepared=false;
+            StairForward=StairOutward=stairLanding=Vector3.zero;
+            stairNextPrepared=ClearingStairLanding=false;
+            descendingWaitPoint=null;
             actor=passenger; OriginStop=origin; far=farEntrance&&!Layout;
             var route=actor.world.session.Route.stops;
             var random=new System.Random(unchecked(actor.index*7919+origin*104729+17));
@@ -248,7 +256,9 @@ namespace SubwayCarry.Gameplay3D
                             return;
                         }
                         if(slot!=0||!Reached(approach,.14f)||Mathf.Abs(feet.x-approach.x)>.09f) {
-                            actor.FollowQueueGoal(actor.transform.parent.TransformPoint(approach),preferDirect:true);
+                            var target=actor.transform.parent.TransformPoint(approach);
+                            if(outgoing&&slot<0)actor.ApproachExitGate(target);
+                            else actor.FollowQueueGoal(target,preferDirect:true);
                             if(slot<0&&!traffic.GateAtCapacity(gate)&&Time.time-gateProgressAt>8) {
                                 CancelGate();Planner.ReportRecoverableFailure("Gate approach blocked; release selection and retry");
                             }
@@ -350,7 +360,37 @@ namespace SubwayCarry.Gameplay3D
             float along=Vector3.Dot(feet-entry,axis);
             var frame=actor.transform.parent;
             Vector3 forward=frame.TransformDirection(axis);
+            if(ClearingStairLanding) {
+                Vector3 remaining=stairLanding-feet;remaining.y=0;
+                float distance=remaining.magnitude;
+                if(distance<=.24f&&Mathf.Abs(stairLanding.y-feet.y)<.18f)FinishStairLanding();
+                else if(distance<landingRemaining) {
+                    landingRemaining=distance-.15f;
+                    landingProgressAt=Time.time;
+                } else if(Time.time-landingProgressAt>2.5f) {
+                    // A checked route can still fill after the rider commits.
+                    // Try a nearby outlet before waiting for a planar path.
+                    if(TryFindStairOutlet(exit,axis)) {
+                        landingRemaining=float.PositiveInfinity;
+                        Move(stairLanding,false);
+                    }
+                    Vector3 goal=frame.TransformPoint(stairLanding);
+                    if(actor.CanWalkDirect(goal))actor.TryWalkStairApproach(goal);
+                    else {
+                        hasCommand=false;
+                        Move(stairLanding,true);
+                    }
+                    landingProgressAt=Time.time;
+                }
+                return;
+            }
             StairOutward=frame.TransformDirection(Vector3.right*Mathf.Sign(lane));
+            // Commitment starts on the flat, before the first tread. A rider
+            // still on that flat may leave the entry lane to let climbers out.
+            if(!ascending&&Mathf.Abs(feet.y-entry.y)<.16f&&along>=-4.1f&&along<=.40f&&
+                Mathf.Abs(feet.x-entry.x)<3.4f&&actor.HasAscendingAtStair(top-Vector3.right*lane,bottom-Vector3.right*lane,axis)&&
+                YieldAtStairLanding(entry,axis,stairSide))return;
+            descendingWaitPoint=null;
             if(!stairCommitted) {
                 float lateral=Mathf.Abs(feet.x-entry.x);
                 bool onLanding=Mathf.Abs(feet.y-entry.y)<.4f;
@@ -375,29 +415,138 @@ namespace SubwayCarry.Gameplay3D
                     return;
                 }
                 // Once inside, keep the flight destination through crowd contact.
-                stairCommitted=true;hasCommand=false;StairApproaching=false;
+                stairCommitted=true;hasCommand=false;StairApproaching=false;landingExtension=0;
                 StairForward=forward;
             }
             // The authored entrance/exit markers sit .8 m out on the landing.
             // Start the next leg once the capsule clears the actual end of the
             // flight. The current straight aim remains beyond that plane.
             Vector3 clearLanding=exit+axis*(actor.WalkingRadius+.14f-.8f);
-            Move(clearLanding+axis*.38f,false);
-            if(!ascending&&!stairNextPrepared&&Mathf.Abs(feet.y-clearLanding.y)<.65f&&
+            if((!ascending||!transfer)&&!stairNextPrepared&&Mathf.Abs(feet.y-clearLanding.y)<(ascending?.8f:.65f)&&
                 Vector3.Dot(clearLanding-feet,axis)<2.2f) {
-                stairNext=actor.world.Traffic.PlatformWaitingPoint(actor);
-                stairNextAvailable=(stairNext-actor.transform.position).sqrMagnitude>.04f;
-                if(stairNextAvailable)actor.PrepareJourneyContinuation(frame.TransformPoint(clearLanding),stairNext);
+                if(ascending) {
+                    PlanStairLanding(exit,clearLanding,axis,stairSide);
+                    gate=actor.world.Traffic.SelectGate(actor,far,true);
+                    stairNextAvailable=gate!=null;
+                    if(stairNextAvailable)stairNext=actor.world.Traffic.OutgoingGateApproach(actor,gate,far);
+                } else {
+                    stairNext=actor.world.Traffic.PlatformWaitingPoint(actor);
+                    stairNextAvailable=(stairNext-actor.transform.position).sqrMagnitude>.04f;
+                }
+                if(stairNextAvailable) {
+                    Vector3 start=stairLanding!=Vector3.zero?stairLanding:clearLanding+axis*landingExtension;
+                    actor.PrepareJourneyContinuation(frame.TransformPoint(start),stairNext);
+                }
                 stairNextPrepared=true;
             }
-            if(Vector3.Dot(feet-clearLanding,axis)<0||Mathf.Abs(feet.y-exit.y)>.18f)return;
+            clearLanding+=axis*landingExtension;
+            Move(clearLanding+axis*.38f,false);
+            if(Mathf.Abs(feet.y-exit.y)>.18f)return;
+            if(Vector3.Dot(feet-clearLanding,axis)<0) {
+                // Once both feet are on the landing, don't insist on walking
+                // straight into a blocked turn point. Check the real footprint
+                // from here, including the railing edge and continuous floor.
+                if(!ascending||transfer||stairLanding==Vector3.zero||
+                    Vector3.Dot(feet-exit,axis)<-.70f||!TryFindStairOutlet(exit,axis))return;
+            }
             stairCommitted=false;StairForward=StairOutward=Vector3.zero;
             if(transfer){FinishTransferStair(ascending);return;}
+            if(ascending) {
+                if(stairLanding!=Vector3.zero) {
+                    ClearingStairLanding=true;
+                    landingProgressAt=Time.time;landingRemaining=float.PositiveInfinity;
+                    Move(stairLanding,false);
+                } else FinishStairLanding();
+                return;
+            }
             Complete(Blackboard.CurrentStage);
-            if(ascending)Gate(true);
-            else if(stairNextPrepared&&stairNextAvailable)actor.ContinueToPlatformWait(stairNext,forward);
+            if(stairNextPrepared&&stairNextAvailable)actor.ContinueToPlatformWait(stairNext,forward);
             else actor.SetWaitingPoint();
             stairNextPrepared=false;
+        }
+
+        bool TryFindStairOutlet(Vector3 top,Vector3 axis)
+        {
+            for(int i=0;i<5;i++) {
+                float shift=i==0?0:(i%2==0?1:-1)*(i<=2?.65f:1.2f);
+                Vector3 point=stairLanding+axis*shift;
+                float beyond=Vector3.Dot(point-top,axis);
+                if(beyond<-.35f||beyond>2.8f||!actor.CanWaitOffStair(point))continue;
+                if(i!=0) {
+                    stairLanding=point;
+                    actor.CancelJourneyContinuation();
+                    if(stairNextAvailable)actor.PrepareJourneyContinuation(actor.transform.parent.TransformPoint(point),stairNext);
+                }
+                return true;
+            }
+            return false;
+        }
+
+        bool YieldAtStairLanding(Vector3 entry,Vector3 descent,int side)
+        {
+            if(descendingWaitPoint==null) {
+                var feet=actor.transform.localPosition;
+                Vector3 inward=Vector3.right*side;
+                Vector3 center=entry-Vector3.right*StairLaneOffset;
+                float lateral=Vector3.Dot(feet-center,inward);
+                float beyond=Vector3.Dot(center-feet,descent);
+                if((lateral>2.45f||lateral<-.62f)&&beyond>1.5f) {
+                    descendingWaitPoint=feet;
+                } else {
+                    // Use distinct spots beyond the exit corridor. On layouts
+                    // with a wall at the outer rail, fall back deeper into the hall.
+                    for(int i=0;i<8;i++) {
+                        bool outside=i<4;
+                        float depth=outside?1.65f+i*.36f:.25f+(i-4)*.50f;
+                        float across=outside?-.65f:2.50f;
+                        Vector3 hold=center-descent*depth+inward*across;
+                        if(actor.CanWaitOffStair(hold)) {descendingWaitPoint=hold;break;}
+                    }
+                    if(descendingWaitPoint==null) {
+                        if(beyond<=2.6f&&(beyond<=1.1f||lateral>=-.3f))return false;
+                        descendingWaitPoint=feet;
+                    }
+                }
+                hasCommand=false;
+            }
+            StairApproaching=stairCommitted=false;
+            StairForward=StairOutward=Vector3.zero;
+            Move(descendingWaitPoint.Value,false);
+            return true;
+        }
+
+        void PlanStairLanding(Vector3 marker,Vector3 stepsEnd,Vector3 axis,int side)
+        {
+            var frame=actor.transform.parent;
+            Vector3 start=frame.TransformPoint(stepsEnd);
+            // The marker is already beyond the top tread. Check the straight
+            // segment and the diagonal separately while the rider is still climbing.
+            Vector3 towardHall=Vector3.right*side;
+            for(float extra=.35f;extra<=1.55f;extra+=.4f) {
+                Vector3 turn=marker+axis*extra;
+                if(!actor.CanClearLanding(start,frame.TransformPoint(turn+axis*.38f)))continue;
+                Vector3 exit=turn+towardHall*1.65f+axis*.55f;
+                if(!actor.CanClearLanding(frame.TransformPoint(turn),frame.TransformPoint(exit),pastStair:true))continue;
+                stairLanding=exit;landingExtension=Vector3.Dot(turn-stepsEnd,axis);
+                return;
+            }
+            // Some landings only offer space in front of the stairs.
+            Vector3 exitStraight=marker+axis*1.4f;
+            if(actor.CanClearLanding(start,frame.TransformPoint(exitStraight+axis*.38f)))
+                landingExtension=Vector3.Dot(exitStraight-stepsEnd,axis);
+        }
+
+        void FinishStairLanding()
+        {
+            ClearingStairLanding=false;
+            Complete(Blackboard.CurrentStage);
+            if(gate!=null&&stairNextPrepared&&stairNextAvailable) {
+                gateOutgoing=true;gateSlot=-1;gateProgressAt=Time.time;gateProgressPosition=actor.transform.position;
+                GateAction=GatePhase.Approach;
+                Vector3 towardGate=Vector3.ProjectOnPlane(stairNext-actor.transform.position,Vector3.up).normalized;
+                if(!actor.ContinueJourney(stairNext,towardGate))ContinuationMisses++;
+            } else Gate(true);
+            stairLanding=Vector3.zero;stairNextPrepared=false;
         }
         void FinishTransferStair(bool ascending)
         {
@@ -442,6 +591,8 @@ namespace SubwayCarry.Gameplay3D
         public void OnAlight(int stop,int fromSide=0,string fromLine=null)
         {
             arrivalSide=fromSide;
+            stairLanding=Vector3.zero;ClearingStairLanding=stairNextPrepared=false;
+            descendingWaitPoint=null;
             if(!AtDestination(stop)) {
                 TransferWaiting=true;
                 if(fromSide!=0&&fromLine!=null&&fromLine!=NextLine&&actor.world.session.Route.stops[stop].transfer){

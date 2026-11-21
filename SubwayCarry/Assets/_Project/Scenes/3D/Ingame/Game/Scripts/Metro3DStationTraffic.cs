@@ -454,6 +454,13 @@ namespace SubwayCarry.Gameplay3D
         }
         public bool GateAtCapacity(Metro3DFacility gate)=>GateQueue(gate).Count>=GateQueueCapacity;
         internal bool GateHasFollower(Metro3DFacility gate)=>GateQueue(gate).Count>1;
+        internal Vector3 OutgoingGateApproach(Metro3DPassenger actor,Metro3DFacility gate,bool far)
+        {
+            var axis=far?Vector3.forward:Vector3.back;
+            var head=gate.transform.localPosition-axis*1.05f;
+            head.y=world.settings.departureFloor;
+            return GateTail(actor,GateQueue(gate),gate.transform.parent,head,axis);
+        }
         public bool GateSurfaceAllowed(Metro3DPassenger actor,Vector3 current,Vector3 candidate)
         {
             if(actor.inTrain||current.y<2||!gates.TryGetValue(actor.transform.parent,out var bank))return true;

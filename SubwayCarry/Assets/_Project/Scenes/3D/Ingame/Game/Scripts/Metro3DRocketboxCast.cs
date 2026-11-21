@@ -163,6 +163,22 @@ namespace SubwayCarry.Gameplay3D
             readonly float standingPelvisOffset;
             readonly Palm driverPalm, driverLeftPalm;
             Palm publisherPalm, publisherLeftPalm;
+            struct LapSide
+            {
+                internal Transform thigh,knee,upper,elbow;
+                internal Palm palm;
+                internal Transform[] fingers;
+                internal Vector3 ThighPoint=>Vector3.Lerp(thigh.position,knee.position,.53f);
+                internal float Length=>Vector3.Distance(thigh.position,knee.position);
+            }
+            readonly struct LapFit
+            {
+                internal readonly float height,pitch,roll;
+                internal LapFit(float height,float pitch=0,float roll=0)
+                {this.height=height;this.pitch=pitch;this.roll=roll;}
+            }
+            LapSide[] lap;
+            static readonly Dictionary<Mesh,LapFit[]> lapFits=new();
             readonly Transform publisherThumb;
             struct Palm
             {
@@ -347,12 +363,20 @@ namespace SubwayCarry.Gameplay3D
                     Driver("DEF-f_middle.01."+side),Driver("DEF-f_pinky.01."+side));
                 Palm TargetPalm(string side)=>new Palm(Publisher(side+" Hand"),Publisher(side+" Finger1"),
                     Publisher(side+" Finger2"),Publisher(side+" Finger4"));
+                LapSide Lap(string side)
+                {
+                    var fingers=new Transform[15];
+                    for(int digit=0;digit<5;digit++)for(int joint=0;joint<3;joint++)
+                        fingers[digit*3+joint]=Publisher(side+" Finger"+digit+(joint==0?"":joint.ToString()));
+                    return new LapSide {thigh=Publisher(side+" Thigh"),knee=Publisher(side+" Calf"),
+                        upper=Publisher(side+" UpperArm"),elbow=Publisher(side+" Forearm"),palm=TargetPalm(side),fingers=fingers};
+                }
                 return new MountedAvatar(joints.ToArray(),rig,hips.bone,pelvis,index,skin,touches.ToArray(),actor,Mathf.Clamp(hipsOffset,-.19f,.19f),
                     SourcePalm("R"),TargetPalm("R"),SourcePalm("L"),
-                    new Palm(Publisher("L Hand"),Publisher("L Finger1"),Publisher("L Finger2"),Publisher("L Finger4")),Publisher("R Finger02"));
+                    TargetPalm("L"),Publisher("R Finger02")) {lap=new[]{Lap("L"),Lap("R")}};
             }
 
-            internal void Apply(float sitting,bool alignHands,bool holdingPhone,float relaxedLeft,float relaxedRight,float leftWristWeight,float rightWristWeight,bool initialPose=false)
+            internal void Apply(float sitting,bool alignHands,bool holdingPhone,float relaxedLeft,float relaxedRight,float leftWristWeight,float rightWristWeight,bool initialPose=false,float lapWeight=0)
             {
                 RestoreIdleWrists();
                 if(!initialPose&&!Skin.isVisible&&!Skin.updateWhenOffscreen)return;
@@ -382,18 +406,7 @@ namespace SubwayCarry.Gameplay3D
                     Vector3 wanted=limb.driverEnd.position+actor.up*limb.floorOffset;
                     float error=(wanted-end).sqrMagnitude;
                     if(error>.00015f&&(foot||error<.24f*.24f)) {
-                        Vector3 delta=wanted-root,v=delta.normalized;
-                        float a=Vector3.Distance(root,limb.lower.position),b=Vector3.Distance(limb.lower.position,end);
-                        float distance=Mathf.Clamp(delta.magnitude,Mathf.Abs(a-b)+.004f,a+b-.006f);
-                        Vector3 bend=Vector3.ProjectOnPlane(foot?actor.forward:limb.lower.position-root,v).normalized;
-                        if(bend.sqrMagnitude>.1f) {
-                            float along=(a*a-b*b+distance*distance)/(2*distance);
-                            Vector3 knee=root+v*along+bend*Mathf.Sqrt(Mathf.Max(0,a*a-along*along));
-                            Quaternion endRotation=limb.end.rotation;
-                            limb.upper.rotation=Quaternion.FromToRotation(limb.lower.position-root,knee-root)*limb.upper.rotation;
-                            limb.lower.rotation=Quaternion.FromToRotation(limb.end.position-limb.lower.position,root+v*distance-limb.lower.position)*limb.lower.rotation;
-                            limb.end.rotation=endRotation;
-                        }
+                        Reach(limb.upper,limb.lower,limb.end,wanted,foot?actor.forward:limb.lower.position-root);
                     }
                     if(foot&&limb.driverToe!=null&&Vector3.Dot(limb.driverEnd.position-actor.position,actor.up)<.115f){
                         Vector3 line=Vector3.ProjectOnPlane(limb.driverToe.position-limb.driverEnd.position,actor.up).normalized;
@@ -407,6 +420,167 @@ namespace SubwayCarry.Gameplay3D
                 // Apply the idle adjustment after all normal hand and finger work.
                 if (leftWristWeight > 0) publisherLeftPalm.AlignTo(driverLeftPalm,leftWristWeight*(1-relaxedLeft));
                 if (rightWristWeight > 0) publisherPalm.AlignTo(driverPalm,rightWristWeight*(1-relaxedRight));
+                if(lapWeight>.001f)RestPalmsOnLap(sitting,lapWeight);
+            }
+
+            static void Reach(Transform upper,Transform lower,Transform end,Vector3 target,Vector3 bendHint)
+            {
+                Vector3 root=upper.position,delta=target-root,v=delta.normalized;
+                Vector3 bend=Vector3.ProjectOnPlane(bendHint,v).normalized;
+                if(bend.sqrMagnitude<=.1f)return;
+                float a=Vector3.Distance(root,lower.position),b=Vector3.Distance(lower.position,end.position);
+                float distance=Mathf.Clamp(delta.magnitude,Mathf.Abs(a-b)+.004f,a+b-.006f);
+                float along=(a*a-b*b+distance*distance)/(2*distance);
+                Vector3 joint=root+v*along+bend*Mathf.Sqrt(Mathf.Max(0,a*a-along*along));
+                Quaternion rotation=end.rotation;
+                upper.rotation=Quaternion.FromToRotation(lower.position-root,joint-root)*upper.rotation;
+                lower.rotation=Quaternion.FromToRotation(end.position-lower.position,root+v*distance-lower.position)*lower.rotation;
+                end.rotation=rotation;
+            }
+
+            void RestPalmsOnLap(float sitting,float weight)
+            {
+                var mesh=Skin.sharedMesh;
+                lapFits.TryGetValue(mesh,out var fit);
+                for(int i=0;i<lap.Length;i++) {
+                    var side=lap[i];
+                    if(!side.palm.TryPose(out _,out var basis))continue;
+                    var hand=side.palm.Hand;
+                    Vector3 along=(side.knee.position-side.thigh.position).normalized;
+                    Vector3 normal=Vector3.ProjectOnPlane(actor.up,along).normalized;
+                    Vector3 palmUp=Vector3.Dot(basis*Vector3.up,normal)<0?-normal:normal;
+                    var flat=Quaternion.LookRotation(along,palmUp)*Quaternion.Inverse(basis);
+                    hand.rotation=Quaternion.Slerp(Quaternion.identity,flat,weight)*hand.rotation;
+                    for(int j=0;j<side.fingers.Length;j++) {
+                        var bone=side.fingers[j];
+                        if(!bone||bone.childCount==0)continue;
+                        Vector3 segment=bone.GetChild(0).position-bone.position;
+                        if(Vector3.Dot(segment,normal)>=0)continue;
+                        var tangent=Vector3.ProjectOnPlane(segment,normal);
+                        if(tangent.sqrMagnitude<.000001f)continue;
+                        var straighten=Quaternion.FromToRotation(segment,tangent);
+                        bone.rotation=Quaternion.Slerp(Quaternion.identity,straighten,weight)*bone.rotation;
+                    }
+                    PlaceLapHand(side,fit==null?new LapFit(.26f):fit[i],weight);
+                }
+                if(fit==null&&sitting>.99f&&weight>.99f) {
+                    fit=MeasureLap();
+                    lapFits.Add(mesh,fit);
+                    for(int i=0;i<lap.Length;i++)PlaceLapHand(lap[i],fit[i],1);
+                }
+            }
+
+            void PlaceLapHand(LapSide side,LapFit fit,float weight)
+            {
+                var hand=side.palm.Hand;
+                Vector3 forward=(side.knee.position-side.thigh.position).normalized;
+                hand.rotation=LapTilt(forward,actor.up,fit.pitch*weight,fit.roll*weight)*hand.rotation;
+                if(!side.palm.TryPose(out Vector3 palm,out _))return;
+                Vector3 contact=side.ThighPoint+actor.up*(side.Length*fit.height);
+                Reach(side.upper,side.elbow,hand,hand.position+(contact-palm)*weight,side.elbow.position-side.upper.position);
+            }
+
+            static Quaternion LapTilt(Vector3 forward,Vector3 up,float pitch,float roll)
+                =>Quaternion.AngleAxis(pitch,Vector3.Cross(up,forward).normalized)*Quaternion.AngleAxis(roll,forward);
+
+            LapFit[] MeasureLap()
+            {
+                // Isolate hand and thigh geometry even on imports with mesh readback disabled.
+                var left=lap[0].palm.Hand;var right=lap[1].palm.Hand;
+                var l=left.localPosition;var r=right.localPosition;
+                var baked=new Mesh();
+                try {
+                    Skin.BakeMesh(baked);
+                    var posed=baked.vertices;var faces=baked.triangles;
+                    left.position-=actor.right*.5f;right.position+=actor.right*.5f;
+                    Skin.BakeMesh(baked);
+                    var bare=baked.vertices;
+                    left.localPosition=l;right.localPosition=r;
+                    var leftThigh=lap[0].thigh;var rightThigh=lap[1].thigh;
+                    var leftRest=leftThigh.localPosition;var rightRest=rightThigh.localPosition;
+                    Vector3[] legs;
+                    try {
+                        leftThigh.position-=actor.right*.5f;rightThigh.position+=actor.right*.5f;
+                        Skin.BakeMesh(baked);legs=baked.vertices;
+                    } finally {leftThigh.localPosition=leftRest;rightThigh.localPosition=rightRest;}
+                    var local=Matrix4x4.TRS(actor.position,actor.rotation,Vector3.one).inverse;
+                    var frame=local*Skin.transform.localToWorldMatrix;
+                    for(int i=0;i<posed.Length;i++) {
+                        posed[i]=frame.MultiplyPoint3x4(posed[i]);
+                        bare[i]=frame.MultiplyPoint3x4(bare[i]);
+                        legs[i]=frame.MultiplyPoint3x4(legs[i]);
+                    }
+                    var fit=new LapFit[lap.Length];
+                    for(int i=0;i<lap.Length;i++) {
+                        var side=lap[i];
+                        if(!side.palm.TryPose(out var palm,out _)){fit[i]=new LapFit(.26f);continue;}
+                        fit[i]=FitLapContact(posed,bare,legs,faces,local.MultiplyPoint3x4(side.ThighPoint),
+                            local.MultiplyPoint3x4(palm),local.MultiplyVector((side.knee.position-side.thigh.position).normalized),
+                            side.Length,i==0?-1:1);
+                    }
+                    return fit;
+                } finally {
+                    left.localPosition=l;right.localPosition=r;
+                    Object.Destroy(baked);
+                }
+            }
+
+            static LapFit FitLapContact(Vector3[] hands,Vector3[] bare,Vector3[] legs,int[] faces,
+                Vector3 thigh,Vector3 palm,Vector3 forward,float length,int side)
+            {
+                var points=new List<Vector3>();
+                var footprint=new Bounds(palm,Vector3.zero);
+                for(int i=0;i<hands.Length;i++) {
+                    if((bare[i].x-hands[i].x)*side<.24f)continue;
+                    footprint.Encapsulate(hands[i]);
+                    points.Add(hands[i]);
+                }
+                footprint.Expand(.10f);
+                var surface=new List<(Vector3 origin,Vector3 ab,Vector3 ac,Vector3 min,Vector3 max,float inverseDet)>();
+                for(int i=0;i<faces.Length;i+=3) {
+                    int ia=faces[i],ib=faces[i+1],ic=faces[i+2];
+                    // The moving thigh identifies its own clothes, even when a sleeve
+                    // or the other leg overlaps the hand in this projection.
+                    float legShift=(legs[ia].x-hands[ia].x)+(legs[ib].x-hands[ib].x)+(legs[ic].x-hands[ic].x);
+                    if(legShift*side<.69f)continue;
+                    var a=bare[ia];var b=bare[ib];var c=bare[ic];
+                    var min=Vector3.Min(a,Vector3.Min(b,c));var max=Vector3.Max(a,Vector3.Max(b,c));
+                    if(min.x>footprint.max.x||max.x<footprint.min.x||min.z>footprint.max.z||max.z<footprint.min.z||
+                        min.y>thigh.y+length*.55f||max.y<thigh.y-length*.35f)continue;
+                    var ab=b-a;var ac=c-a;
+                    float det=ab.x*ac.z-ab.z*ac.x;
+                    if(Mathf.Abs(det)>1e-10f)surface.Add((a,ab,ac,min,max,1/det));
+                }
+                const float startingHeight=.26f;
+                var fit=new LapFit(startingHeight);
+                var gaps=new List<float>(points.Count);
+                float best=float.PositiveInfinity;
+                for(int pitch=-8;pitch<=24;pitch+=8)for(int roll=-12;roll<=12;roll+=12) {
+                    gaps.Clear();
+                    var tilt=LapTilt(forward,Vector3.up,pitch,roll);
+                    foreach(var vertex in points) {
+                        Vector3 point=palm+tilt*(vertex-palm);
+                        float gap=float.NegativeInfinity;
+                        foreach(var face in surface) {
+                            if(point.x<face.min.x||point.x>face.max.x||point.z<face.min.z||point.z>face.max.z)continue;
+                            var p=point-face.origin;
+                            float u=(p.x*face.ac.z-p.z*face.ac.x)*face.inverseDet;
+                            float v=(face.ab.x*p.z-face.ab.z*p.x)*face.inverseDet;
+                            if(u>=0&&v>=0&&u+v<=1)gap=Mathf.Max(gap,face.ab.y*u+face.ac.y*v-p.y);
+                        }
+                        if(float.IsFinite(gap))gaps.Add(gap);
+                    }
+                    if(gaps.Count<points.Count*.35f||gaps.Count<3)continue;
+                    gaps.Sort();
+                    float At(float fraction)=>gaps[Mathf.RoundToInt((gaps.Count-1)*fraction)];
+                    // Fit a patch of the hand to the cloth. Isolated skinning
+                    // outliers are allowed to overlap slightly at the contact.
+                    float lift=Mathf.Max(At(.86f)-.003f,At(.98f)-.012f);
+                    float cost=lift-At(.55f)+Mathf.Abs(roll)*.00025f+Mathf.Abs(pitch-8)*.00018f;
+                    if(cost>=best)continue;
+                    best=cost;fit=new LapFit(startingHeight+lift/length,pitch,roll);
+                }
+                return fit;
             }
 
             internal void RestoreIdleWrists()

@@ -150,7 +150,7 @@ namespace SubwayCarry.Gameplay3D
             // Blend with the pose that moves each hand onto its contact.
             // A change of AI state or Animator clip does not release a wrist on its own.
             float freeWeight = actor.world.RelaxIdlePassengerWrists && actor.CanCorrectVisualWrists &&
-                !Leaning && !posePlanted && !LifeActive && actor.NarrowPoseWeight < .05f
+                !Leaning && !LifeActive && actor.NarrowPoseWeight < .05f
                 ? 1 - actor.SeatContactWeight : 0;
             float left = freeWeight;
             float right = freeWeight * PhoneRightWristFreedom;
@@ -163,7 +163,30 @@ namespace SubwayCarry.Gameplay3D
                 if(arms[gateHand].left)left*=freedom;
                 else right*=freedom;
             }
-            actor.RetargetPassengerVisual(left, right);
+            if(PoseFrame==Time.frameCount&&rigReady) {
+                float motion=Mathf.InverseLerp(.05f,1.1f,actor.Velocity.magnitude);
+                float angle=Mathf.Lerp(7,10,motion);
+                float freedom=1-Mathf.Clamp01(doorBrace+doorRecoil);
+                LowerFreeUpperArm(arms[0],angle,left*freedom);
+                LowerFreeUpperArm(arms[1],angle,right*freedom);
+            }
+            actor.RetargetPassengerVisual(posePlanted?0:left,posePlanted?0:right);
+        }
+
+        void LowerFreeUpperArm(Arm arm,float limit,float weight)
+        {
+            if(weight<=0)return;
+            var frame=actor.transform;
+            var upper=arm.chain.upper;
+            Vector3 direction=arm.chain.lower.position-upper.position;
+            float down=-Vector3.Dot(direction.normalized,frame.up);
+            float hang=Mathf.InverseLerp(.50f,.82f,down);
+            float side=arm.left?-1:1;
+            float angle=Mathf.Atan2(side*Vector3.Dot(direction,frame.right),-Vector3.Dot(direction,frame.up))*Mathf.Rad2Deg;
+            if(hang<=0||angle<=limit)return;
+            Remember(upper);
+            // Rotate in the frontal plane so the authored forward/backward swing survives.
+            upper.rotation=Quaternion.AngleAxis(-side*(angle-limit)*weight*hang,frame.forward)*upper.rotation;
         }
 
         void ApplyContacts()

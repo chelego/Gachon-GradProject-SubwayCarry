@@ -28,6 +28,9 @@ namespace SubwayCarry.Gameplay3D
         // Prediction queries start at their predicted position, not repeatedly at
         // the live capsule. This is a read-only corridor test, never a Motor write.
         public bool CanShortenWalkingPath(Metro3DPassenger actor,Vector3 start,Vector3 target)
+            =>CanShortenWalkingPath(actor,start,target,false);
+
+        internal bool CanShortenWalkingPath(Metro3DPassenger actor,Vector3 start,Vector3 target,bool pastStair)
         {
             long started=System.Diagnostics.Stopwatch.GetTimestamp(),allocated=System.GC.GetAllocatedBytesForCurrentThread();
             try{
@@ -46,7 +49,7 @@ namespace SubwayCarry.Gameplay3D
             Vector3 previous=root.InverseTransformPoint(start);
             for(int i=1;i<=steps;i++) {
                 Vector3 p=Vector3.Lerp(start,target,i/(float)steps),local=root.InverseTransformPoint(p);
-                if(!OnOwnedSurface(actor,previous,local))return false;
+                if(!OnOwnedSurface(actor,previous,local,pastStair))return false;
                 for(int edge=-1;edge<=1;edge+=2) {
                     int supports=Physics.RaycastNonAlloc(p+side*edge+Vector3.up*.35f,Vector3.down,hits,.65f,~0,QueryTriggerInteraction.Ignore);
                     if(supports==hits.Length)return false;
@@ -166,6 +169,43 @@ namespace SubwayCarry.Gameplay3D
             }
             foreach(var root in scopes)
                 if(root!=null)AppendNearby(point,radius,root,scopeBounds[root]);
+        }
+        internal bool HasAscendingAtStair(Transform root,Vector3 top,Vector3 bottom,Vector3 descent)
+        {
+            if(hashDirty)RebuildHash();
+            // Inspect only this flight's cells in its own station frame. Holding
+            // departures must begin while the ascending group is on the flight.
+            Vector3 padding=new Vector3(.92f,.25f,1.65f);
+            var min=Cell(Vector3.Min(top,bottom)-padding);
+            var max=Cell(Vector3.Max(top,bottom)+padding);
+            Vector3 heading=root.TransformDirection(descent);
+            float depth=Vector3.Dot(bottom-top,descent);
+            for(int x=min.x;x<=max.x;x++)for(int y=min.y;y<=max.y;y++)for(int z=min.z;z<=max.z;z++) {
+                if(!cells.TryGetValue((root,new Vector3Int(x,y,z)),out var occupants))continue;
+                foreach(var other in occupants) {
+                    if(!other||!other.isActiveAndEnabled||other.transform.parent!=root)continue;
+                    var journey=other.Journey;
+                    bool ascending=(journey.OnStairs||journey.StairApproaching)&&Vector3.Dot(journey.StairForward,heading)<-.85f;
+                    if(!ascending&&!journey.ClearingStairLanding)continue;
+                    Vector3 offset=other.transform.localPosition-top;
+                    float along=Vector3.Dot(offset,descent);
+                    if(along>=-1.65f&&along<=depth+1&&Mathf.Abs(offset.x)<.92f)return true;
+                }
+            }
+            return false;
+        }
+
+        internal bool CanWaitOffStair(Metro3DPassenger actor,Vector3 local)
+        {
+            var frame=actor.transform.parent;
+            Vector3 point=frame.TransformPoint(local);
+            if(!SpaceFree(point,actor,.62f))return false;
+            Query(point,2,frame);
+            foreach(var other in nearby) {
+                if(!other||other==actor||!other.isActiveAndEnabled)continue;
+                if(other.Journey.DescendingWaitPoint is Vector3 held&&(held-local).sqrMagnitude<.68f*.68f)return false;
+            }
+            return CanShortenWalkingPath(actor,actor.transform.position,point,pastStair:true);
         }
         void AppendNearby(Vector3 point,int radius,Transform root,Bounds bounds)
         {
@@ -1042,11 +1082,11 @@ namespace SubwayCarry.Gameplay3D
             return frame==otherTransform.parent||
                 (actor.Riding==null||!actor.Riding.Moving)&&(other.Riding==null||!other.Riding.Moving);
         }
-        bool OnOwnedSurface(Metro3DPassenger actor,Vector3 current,Vector3 candidate)
+        bool OnOwnedSurface(Metro3DPassenger actor,Vector3 current,Vector3 candidate,bool pastStair=false)
         {
             if(actor.PortalCommitted)return true;
             if(!world.Traffic.GateSurfaceAllowed(actor,current,candidate))return false;
-            if(actor.Journey.OnStairs) {
+            if(!pastStair&&actor.Journey.OnStairs) {
                 if(actor.WalkReviewCandidate&&actor.Journey.ReviewStairActive) {
                     return actor.Journey.ReviewStairSurface(current,candidate);
                 }
