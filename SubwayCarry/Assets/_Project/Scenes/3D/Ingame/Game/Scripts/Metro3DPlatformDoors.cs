@@ -8,11 +8,18 @@ namespace SubwayCarry.Gameplay3D
         public Metro3DWorld world;
         public int stationIndex;
         public int trainSide=1;
+        public bool authoredAtServiceWidth;
         public List<Transform> panels=new List<Transform>();
         public List<Collider> blockers=new List<Collider>();
         Vector3[] rest;
         float amount,appliedAmount=-1;
         void Start()
+        {
+            if (!authoredAtServiceWidth) ResizeAuthoredDoors();
+            rest=new Vector3[panels.Count];for(int i=0;i<panels.Count;i++)rest[i]=panels[i].localPosition;
+            Physics.SyncTransforms();
+        }
+        void ResizeAuthoredDoors()
         {
             Metro3DTrain.ResizeSlidingLeaves(panels);
             foreach(var blocker in blockers)
@@ -43,12 +50,10 @@ namespace SubwayCarry.Gameplay3D
                         if(child.name=="DoorPocket")Metro3DTrain.ScaleAlongLength(child,part,Metro3DTrain.DoorScale);
                 }
             }
-            rest=new Vector3[panels.Count];for(int i=0;i<panels.Count;i++)rest[i]=panels[i].localPosition;
-            Physics.SyncTransforms();
         }
         void Update()
         {
-            if(world.session==null||world.session.SimulationPaused||stationIndex>=world.stations.Count)return;
+            if(world==null||world.session==null||world.session.SimulationPaused||stationIndex>=world.stations.Count)return;
             float target=0;
             foreach(var train in world.Trains)if(train!=null&&train.side==trainSide&&train.CurrentStop==stationIndex&&!train.Moving
                 &&Mathf.Abs(train.transform.position.z-world.stations[stationIndex].position.z)<.2f)target=Mathf.Max(target,train.OpenAmount);

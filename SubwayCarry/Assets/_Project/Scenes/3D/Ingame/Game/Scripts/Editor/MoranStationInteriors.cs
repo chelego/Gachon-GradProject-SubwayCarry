@@ -11,19 +11,19 @@ namespace SubwayCarry.Gameplay3D.Editor
 
         static void BuildInteriors(Transform root)
         {
-            var west = Group(root, "B2 west · Yatap");
-            var east = Group(root, "B2 east · Gachon");
+            var west = Group(root, "B2 west");
+            var east = Group(root, "B2 east");
             PlatformInteriors(west, -1, 13.2f, new[] {20f, 53f, 80f}, 80f);
             PlatformInteriors(east, 1, 12.4f, new[] {21f, 64f, 83f}, 21f);
 
             var hall = Group(root, "B1 · concourse fittings");
             SuspendedSign(hall, new Vector3(0, 6.29f, 27.5f), 7.7f, 5.2f,
-                "모란  Moran", "B2   타는 곳   ↓", "나가는 곳  ↑", "Exit");
+                "{station}  {english}", "B2   타는 곳   ↓", "나가는 곳  ↑", "Exit");
             SuspendedSign(hall, new Vector3(-2.25f, 6.29f, 33.4f), 7.7f, 5.4f,
-                "←   야탑 방면     |     가천대 방면   ↑", "B2   승강장",
-                "야탑 방면   →", "B2   승강장");
+                "←   {west}     |     {east}   ↑", "B2   승강장",
+                "{west}   →", "B2   승강장");
             SuspendedSign(hall, new Vector3(3.5f, 6.29f, 60.5f), 7.7f, 3.5f,
-                "가천대 방면   →", "B2   승강장", "←   가천대 방면", "B2   승강장");
+                "{east}   →", "B2   승강장", "←   {east}", "B2   승강장");
 
             // Keep the counter and machines on the public side of the fare line.
             var tickets = Group(hall, "Ticket machines", new Vector3(-12.57f, 3.6f, 23.4f));
@@ -67,7 +67,7 @@ namespace SubwayCarry.Gameplay3D.Editor
                 var board = Group(parent, "Platform wayfinding", new Vector3(side * 7.1f, 2.69f, z));
                 board.localRotation = Quaternion.Euler(0, towardStairs, 0);
                 SuspendedSign(board, Vector3.zero, .63f, 3.5f, "↑  나가는 곳", "B1   Exit",
-                    side < 0 ? "야탑 방면" : "가천대 방면", "수인분당선", .55f);
+                    side < 0 ? "{west}" : "{east}", side < 0 ? "{westLine}" : "{eastLine}", .55f);
             }
         }
 
@@ -104,12 +104,10 @@ namespace SubwayCarry.Gameplay3D.Editor
             for (int z = 21; z <= 71; z += 5)
                 foreach (float x in new[] { -6.7f, 0f, 6.7f })
                 {
-                    // Recess the centre row between the hanging sign supports.
-                    if (x == 0 && (z == 26 || z == 31 || z == 61)) continue;
                     bool castShadow = x == 0 && (z == 21 || z == 36 || z == 56);
-                    InteriorLight(fittings, new Vector3(x, 7.70f, z), 3.8f, 90, 8.2f, castShadow);
+                    InteriorLight(fittings, new Vector3(x, 7.70f, z), 3.8f, 90, 8.2f, castShadow, 10.8f);
                 }
-            InteriorLight(fittings, new Vector3(0, 7.16f, 14.3f), 2.5f, 90, 6, false);
+            InteriorLight(fittings, new Vector3(0, 7.16f, 14.3f), 2.5f, 90, 6, false, 10.8f);
         }
 
         static void PlatformLights(Transform fittings, int side)
@@ -125,7 +123,7 @@ namespace SubwayCarry.Gameplay3D.Editor
             }
         }
 
-        static void InteriorLight(Transform parent, Vector3 ceiling, float length, float yaw, float range, bool castShadow)
+        static void InteriorLight(Transform parent, Vector3 ceiling, float length, float yaw, float range, bool castShadow, float intensity = 8.4f)
         {
             // The kit's opal face is at 2.885 m and its mounting pad ends at 3.004 m.
             var fixture = InteriorModel(parent, "FluorescentLight", ceiling - Vector3.up * 3f, yaw);
@@ -138,7 +136,7 @@ namespace SubwayCarry.Gameplay3D.Editor
             light.range = range;
             light.spotAngle = 138f;
             light.innerSpotAngle = 100f;
-            light.intensity = 8.4f;
+            light.intensity = intensity;
             if (castShadow)
             {
                 light.shadows = LightShadows.Soft;
@@ -151,15 +149,15 @@ namespace SubwayCarry.Gameplay3D.Editor
 
         static void WallIdentity(Transform parent, Vector3 center, float yaw)
         {
-            var sign = Group(parent, "Station name · K225", center);
+            var sign = Group(parent, "Station name", center);
             sign.localRotation = Quaternion.Euler(0, yaw, 0);
             Box(sign, "Framed station name", Vector3.zero, new Vector3(4.54f, .91f, .075f), Finish("Brass"), false);
             Box(sign, "Enamel face", new Vector3(0, 0, -.043f), new Vector3(4.48f, .85f, .026f), Finish("Parchment"), false);
             Box(sign, "Line number field", new Vector3(-1.74f, 0, -.065f), new Vector3(.90f, .84f, .019f), Finish("Teal"), false);
             Box(sign, "Bundang line bar", new Vector3(-1.74f, -.34f, -.081f), new Vector3(.90f, .075f, .008f), Mat("Yellow"), false);
-            Lettering(sign, "K225", new Vector3(-1.74f, .02f, -.085f), new Vector2(.78f, .30f), 2.6f, SignCream);
-            Lettering(sign, "모란", new Vector3(.43f, .12f, -.064f), new Vector2(2.97f, .50f), 4.6f, SignInk);
-            Lettering(sign, "Moran", new Vector3(.43f, -.23f, -.064f), new Vector2(2.97f, .23f), 2.1f, SignInk);
+            Lettering(sign, "{number}", new Vector3(-1.74f, .02f, -.085f), new Vector2(.78f, .30f), 2.6f, SignCream);
+            Lettering(sign, "{station}", new Vector3(.43f, .12f, -.064f), new Vector2(2.97f, .50f), 4.6f, SignInk);
+            Lettering(sign, "{english}", new Vector3(.43f, -.23f, -.064f), new Vector2(2.97f, .23f), 2.1f, SignInk);
         }
 
         static void SuspendedSign(Transform parent, Vector3 center, float ceilingY, float width,
@@ -216,7 +214,7 @@ namespace SubwayCarry.Gameplay3D.Editor
 
         static void PeonyMural(Transform parent, Vector3 center, float yaw)
         {
-            var panel = Group(parent, "Moran · peony ceramic relief", center);
+            var panel = Group(parent, "Peony ceramic relief", center);
             panel.localRotation = Quaternion.Euler(0, yaw, 0);
             Box(panel, "Bronze edge", Vector3.zero, new Vector3(8.4f, 2.37f, .095f), Finish("Brass"), false);
             Box(panel, "Glazed jade panel", new Vector3(0, 0, -.055f),
@@ -226,8 +224,8 @@ namespace SubwayCarry.Gameplay3D.Editor
                     new Vector3(.011f, 2.23f, .008f), Finish("Seafoam"), false);
             Box(panel, "Name inset", new Vector3(-2.68f, 0, -.094f),
                 new Vector3(2.82f, 1.73f, .035f), Finish("Teal"), false);
-            Lettering(panel, "모란", new Vector3(-2.7f, .22f, -.126f), new Vector2(2.36f, .72f), 7.2f, SignCream);
-            Lettering(panel, "K225  ·  Moran", new Vector3(-2.7f, -.41f, -.126f),
+            Lettering(panel, "{station}", new Vector3(-2.7f, .22f, -.126f), new Vector2(2.36f, .72f), 7.2f, SignCream);
+            Lettering(panel, "{identity}", new Vector3(-2.7f, -.41f, -.126f),
                 new Vector2(2.42f, .29f), 2.5f, new Color32(244, 201, 140, 255));
 
             CeramicFlower(panel, new Vector2(-.38f, .04f), .79f, -9);

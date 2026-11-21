@@ -44,7 +44,7 @@ namespace SubwayCarry.Gameplay3D.Editor
                 bool west = serviceSide>0;
                 int xSign = -serviceSide;
                 float wall = west ? WestWall : EastWall;
-                var platform = Group(lower, west ? "West | Yatap - Jeongja" : "East | Gachon Univ. - Wangsimni");
+                var platform = Group(lower, west ? "West platform" : "East platform");
                 var bounds = Rect.MinMaxRect(west?wall:PlatformEdge,PlatformFirst,west?-PlatformEdge:wall,PlatformLast);
                 FloorPanel(platform,"Platform terrazzo",bounds,-.13f,.26f,Mat("Metro_Floor"),true);
                 Box(platform,"Track-facing concrete foundation",
@@ -65,8 +65,8 @@ namespace SubwayCarry.Gameplay3D.Editor
             BuildMoranEntrance(hall);
             EndWall(hall,WestWall,EastWall,72,HallFloor,4.1f);
             BuildMoranTrack(track);
-            BuildMoranStair(Group(shell,"West stair | Yatap - Jeongja"),-9.4f,46.1f,0);
-            BuildMoranStair(Group(shell,"East stair | Gachon Univ. - Wangsimni"),9.1f,46.9f,180);
+            BuildMoranStair(Group(shell,"West stair"),-9.4f,46.1f,0);
+            BuildMoranStair(Group(shell,"East stair"),9.1f,46.9f,180);
             BuildMoranGates(hall);
         }
 
@@ -405,7 +405,7 @@ namespace SubwayCarry.Gameplay3D.Editor
                 var motor=lane.gameObject.AddComponent<Metro3DFareDoor>();
                 motor.left=arm; motor.blocker=blocker; motor.tripod=true;
                 var facility=lane.gameObject.AddComponent<Metro3DFacility>();
-                facility.kind=Metro3DFacilityKind.FareGate; facility.caption="모란역 개찰구";
+                facility.kind=Metro3DFacilityKind.FareGate; facility.caption="개찰구";
                 facility.gateDoor=motor; facility.blocker=blocker;
                 facility.anchor=Group(lane,"Gate center");
                 facility.approach=Group(lane,"Unpaid approach",Vector3.back*1.2f);

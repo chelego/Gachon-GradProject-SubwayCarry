@@ -155260,6 +155260,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SubwayCarry.Gameplay3D.Metro3DWorld
   settings: {fileID: 11400000, guid: bb33fe75ec5069d449dd2bdcb712db73, type: 2}
+  stationLayouts:
+  - layoutId: common
+    prefab: {fileID: 0}
+  - layoutId: offset-stairs
+    prefab: {fileID: 3420126926575137208, guid: c9996438e4eb3e54eaaa775c606282ca, type: 3}
+  fixedStationLayouts:
+  - stationId: moran
+    layoutId: offset-stairs
   relaxIdlePassengerWrists: 1
   player: {fileID: 703712225}
   session: {fileID: 364627459}

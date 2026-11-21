@@ -1053,6 +1053,7 @@ namespace SubwayCarry.Gameplay3D
                 // Authored handrail clearance 1.648m minus two .24m body
                 // radii leaves +/- .584m; retain .024m edge safety per side.
                 float center=-actor.Journey.SurfaceSide*7.76f;
+                if(actor.Journey.Layout) center=actor.Journey.Layout.Stair(actor.Journey.SurfaceSide,true).x;
                 float oldSide=Mathf.Max(0,Mathf.Abs(current.x-center)-.56f);
                 float newSide=Mathf.Max(0,Mathf.Abs(candidate.x-center)-.56f);
                 if(newSide>.0001f&&newSide>=oldSide-.002f)return false;

@@ -83,6 +83,8 @@ namespace SubwayCarry.Gameplay3D
         {
             Vector3 p=root.InverseTransformPoint(start);bool upper=!train&&p.y>2;
             int side=train?0:upper?(p.z>60?3:2):(p.x<0?-1:1);
+            var layout=train?null:root.GetComponent<Metro3DStationLayout>();
+            if(upper&&layout)side=2;
             var key=(root,side); if(grids.TryGetValue(key,out var existing)) return existing;
             // Navigate in the actual aisle, not a rectangular car outline that
             // includes occupied seats. Symmetric lanes pass either side of poles.
@@ -97,11 +99,19 @@ namespace SubwayCarry.Gameplay3D
             float maxX=train?.48f:upper?(side==3?16.6f:8.6f):(side<0?-Metro3DWorld.ScreenDoorX-.32f:platformLimit);
             float minZ=train?Metro3DTrain.FloorStart+.35f:upper?(side==3?91.5f:-27):-1.5f;
             float maxZ=train?Metro3DTrain.FloorEnd-.35f:upper?(side==3?125.5f:15.5f):Metro3DWorld.PlatformLength-2.5f;
+            if(layout) {
+                var bounds=upper?layout.hallBounds:layout.platformBounds;
+                if(upper||side<0)minX=bounds.xMin;
+                if(upper||side>0)maxX=bounds.xMax;
+                minZ=bounds.yMin;maxZ=bounds.yMax;
+            }
             var grid=new Grid {root=root,minX=minX,minZ=minZ,floor=upper?3.6f:0,step=step,width=Mathf.FloorToInt((maxX-minX)/step)+1,height=Mathf.FloorToInt((maxZ-minZ)/step)+1};
             int total=grid.width*grid.height; grid.clear=new bool[total]; grid.sampled=new bool[total]; grid.g=new float[total]; grid.crowdCost=new float[total]; grid.parent=new int[total]; grid.closed=new bool[total];
             var lifts=train?System.Array.Empty<Metro3DLift>():root.GetComponentsInChildren<Metro3DLift>();
-            grid.liftFrames=new Matrix4x4[lifts.Length];
+            var prefabLifts=layout?root.GetComponentsInChildren<MoranStationLift>():System.Array.Empty<MoranStationLift>();
+            grid.liftFrames=new Matrix4x4[lifts.Length+prefabLifts.Length];
             for(int i=0;i<lifts.Length;i++)grid.liftFrames[i]=lifts[i].transform.worldToLocalMatrix*root.localToWorldMatrix;
+            for(int i=0;i<prefabLifts.Length;i++)grid.liftFrames[lifts.Length+i]=prefabLifts[i].transform.worldToLocalMatrix*root.localToWorldMatrix;
             var banks=new List<float>();
             if(upper)foreach(var facility in root.GetComponentsInChildren<Metro3DFacility>())
                 if(facility.gateDoor!=null&&facility.transform.parent==root&&!banks.Contains(facility.transform.localPosition.z))banks.Add(facility.transform.localPosition.z);

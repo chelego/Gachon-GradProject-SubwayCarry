@@ -13,6 +13,9 @@ namespace SubwayCarry.Gameplay3D
         public Vector3 HubSpawn => new Vector3(0, settings.departureFloor, -13);
         public int ServiceSide {get;private set;}=1;
         public Metro3DSettings settings;
+        readonly Dictionary<int, Metro3DStationLayout> authoredLayouts = new();
+        internal Metro3DStationLayout LayoutAt(int index) =>
+            authoredLayouts.TryGetValue(index, out var layout) ? layout : null;
         [SerializeField] bool relaxIdlePassengerWrists;
         internal bool RelaxIdlePassengerWrists => relaxIdlePassengerWrists;
         readonly Dictionary<int,(Metro3DTrain train,Vector3 location,float ends,float next)> crowdRushByStation=new();
@@ -339,6 +342,7 @@ namespace SubwayCarry.Gameplay3D
             string identity=string.Join("|",System.Array.ConvertAll(route,s=>s.id));
             if(routeIdentity==identity) return;
             CancelStationBuild();
+            authoredLayouts.Clear();
             int direction=route.Length>1&&(route[1].id=="suseo"||route[1].id=="bokjeong")?-1:1;
             if(routeIdentity!=null) {
                 Traffic.RecycleAll();
@@ -403,7 +407,29 @@ namespace SubwayCarry.Gameplay3D
         IEnumerable<Transform> BuildRouteStation(int index)
         {
             var stop=session.Route.stops[index];
-            foreach(var part in BuildStationParts(index,stop.label,stop.id)) {
+            Metro3DStationLayout layout = null;
+            var prefab = SelectStationPrefab(stop.id);
+            if (prefab) {
+                layout = Instantiate(prefab, transform, false);
+                buildingStation = layout.transform;
+                buildingStation.localPosition = Vector3.forward * (index * StationSpacing);
+                buildingStation.name = "Station_" + index + "_" + stop.label;
+                layout.Connect(this, index);
+                GetPlatformWayfinding(index, 1, out var west, out var westLine);
+                GetPlatformWayfinding(index, -1, out var east, out var eastLine);
+                layout.ApplySignage(stop.label, StationEnglish(stop.id), stop.id == "moran" ? "K225" : "",
+                    west, westLine, east, eastLine);
+                MarkPlatformCars(buildingStation);
+                foreach (var bank in layout.GetComponentsInChildren<Metro3DPlatformDoors>()) {
+                    foreach (var blocker in bank.blockers) {
+                        float z = buildingStation.InverseTransformPoint(blocker.transform.position).z;
+                        int side = bank.trainSide;
+                        Text(buildingStation,new Vector3(-side*(ScreenDoorX+.15f),2.54f,z),
+                            stop.label+"  |  "+(side == 1 ? west : east),Color.black,.085f,side==1?90:270,2.8f,.11f);
+                    }
+                }
+                yield return null;
+            } else foreach(var part in BuildStationParts(index,stop.label,stop.id)) {
                 if(part!=null)buildingStation=part;
                 yield return null;
             }
@@ -412,8 +438,9 @@ namespace SubwayCarry.Gameplay3D
                 buildingDeck=new GameObject("Rail corridor to station "+index).transform;
                 buildingDeck.SetParent(routeDecks,false);
                 Slab("Rail corridor deck",buildingDeck,new Vector3(0,-1.55f,segment*StationSpacing+StationSpacing*.5f),new Vector3(6.54f,.15f,StationSpacing),settings.rubber);
-                float start=segment*StationSpacing+PlatformLength-2;
-                float end=(segment+1)*StationSpacing-2;
+                var previous = LayoutAt(segment);
+                float start=segment*StationSpacing+(previous ? previous.tunnelEnd : PlatformLength-2);
+                float end=(segment+1)*StationSpacing+(layout ? layout.tunnelStart : -2);
                 foreach(float track in new[]{-TrackCenterX,TrackCenterX}) for(float z=start+1;z<end;z+=2) {
                     Module("TrackModule",buildingDeck,new Vector3(track,-1,z));
                     yield return null;
@@ -430,6 +457,7 @@ namespace SubwayCarry.Gameplay3D
                 }
             }
             stations.Add(buildingStation);
+            if (layout) authoredLayouts.Add(index, layout);
             Traffic.Seed(index,false);
         }
 

@@ -15,7 +15,7 @@ namespace SubwayCarry.Gameplay3D.Editor
         const string Game = Metro3DBuilder.Root;
         const string MaterialFolder = Game + "/Art/Materials";
         const string FinishFolder = MaterialFolder + "/Moran";
-        internal const string PrefabPath = Game + "/Prefabs/MoranStation.prefab";
+        internal const string PrefabPath = Game + "/Prefabs/StationLayout_OffsetStairs.prefab";
         internal const string ScenePath = "Assets/_Project/Scenes/3D/MoranStation_Preview.unity";
         static readonly Dictionary<string, Material> materials = new Dictionary<string, Material>();
 
@@ -52,13 +52,14 @@ namespace SubwayCarry.Gameplay3D.Editor
         {
             if (!AssetDatabase.IsValidFolder(FinishFolder))
                 AssetDatabase.CreateFolder(MaterialFolder, "Moran");
-            var root = new GameObject("MoranStation");
+            var root = new GameObject("StationLayout_OffsetStairs");
             try
             {
                 BuildArchitecture(root.transform);
                 BuildLifts(root.transform);
                 BuildInteriors(root.transform);
                 BuildRoomReflections(root.transform);
+                BindPassengerLayout(root.transform);
                 return root;
             }
             catch
@@ -187,6 +188,42 @@ namespace SubwayCarry.Gameplay3D.Editor
             var data = camera.GetUniversalAdditionalCameraData();
             data.SetRenderer(0);
             data.renderPostProcessing = true;
+        }
+
+        static void BindPassengerLayout(Transform root)
+        {
+            var layout = root.gameObject.AddComponent<Metro3DStationLayout>();
+            layout.entrance = Group(root, "Public entrance arrival", new Vector3(0, HallFloor, 14));
+            layout.unpaidHall = Group(root, "Ticket hall arrival", new Vector3(0, HallFloor, 21.5f));
+            layout.hallBounds = Rect.MinMaxRect(WestWall + .3f, 10.95f, EastWall - .3f, 71.7f);
+            layout.platformBounds = Rect.MinMaxRect(WestWall + .3f, PlatformFirst + .3f, EastWall - .3f, PlatformLast - .3f);
+            layout.tunnelStart = PlatformFirst - 10;
+            layout.tunnelEnd = PlatformLast + 10;
+            var architecture = root.Find("Architecture");
+            var west = architecture.Find("West stair");
+            var east = architecture.Find("East stair");
+            layout.westTop = west.Find("B1 Landing");
+            layout.westBottom = west.Find("B2 Landing");
+            layout.eastTop = east.Find("B1 Landing");
+            layout.eastBottom = east.Find("B2 Landing");
+            var ends = new List<GameObject>();
+            foreach (Transform part in architecture.GetComponentsInChildren<Transform>())
+            {
+                if (part.name == "Distant tunnel shadow") ends.Add(part.gameObject);
+                if (part.name != "Platform screen doors") continue;
+                var bank = part.gameObject.AddComponent<Metro3DPlatformDoors>();
+                bank.authoredAtServiceWidth = true;
+                for (int i = 0; i < Metro3DTrain.DoorZ.Length; i++)
+                {
+                    var pair = part.Find("Door " + Metro3DTrain.DoorNumber(i));
+                    bank.trainSide = pair.localPosition.x < 0 ? 1 : -1;
+                    foreach (Transform child in pair)
+                        if (child.name == "PlatformDoor") bank.panels.Add(child);
+                    bank.blockers.Add(pair.Find("Closed screen door").GetComponent<BoxCollider>());
+                    pair.Find("DoorStatusLight").gameObject.AddComponent<Metro3DDoorStatus>();
+                }
+            }
+            layout.previewTunnelEnds = ends.ToArray();
         }
 
         static void CreateVisitor(Transform station)

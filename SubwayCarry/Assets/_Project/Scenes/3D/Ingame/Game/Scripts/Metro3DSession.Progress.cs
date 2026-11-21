@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using SubwayCarry.Prototype.ArtMapSlice;
 using UnityEngine;
 
@@ -28,6 +29,7 @@ namespace SubwayCarry.Gameplay3D
             public Vector3 openGatePosition;
             public bool success,usedInsurance,usedFare;
             public int fee,compensation,returnFare;
+            public Metro3DWorld.StationLayoutChoice[] stationLayouts;
         }
         Save pendingProgress;
         bool restoringProgress;
@@ -127,7 +129,7 @@ namespace SubwayCarry.Gameplay3D
             bool aboard=player.Riding!=null;
             Transform frame=aboard?player.Riding.transform:World.transform;
             var d=player.package.CurrentDurability;
-            var save=new Save{version=2,cash=Economy.CurrentEconomyState.CurrentCash,unlocked=Unlocked,
+            var save=new Save{version=World.UsesStationLayouts ? 3 : 2,cash=Economy.CurrentEconomyState.CurrentCash,unlocked=Unlocked,
                 stamina=StaminaLevel,balance=BalanceLevel,agility=AgilityLevel,insurance=Insurance,fareSupport=FareSupport,
                 cushionPad=HasCushionPad,energyGel=HasEnergyGel,
                 leg=legStart,transferWalked=transferConcourseVisited,destinationReached=destinationReached,accepted=HasPackage,settled=ResultOpen,bankrupt=Bankrupt,paid=gatePaid,transfer=transferNeeded,
@@ -144,15 +146,17 @@ namespace SubwayCarry.Gameplay3D
                 facility=player.Using!=null?(int)player.Using.kind:-1,
                 facilityAnchor=player.Using!=null?frame.InverseTransformPoint(player.Using.anchor.position):Vector3.zero,
                 resultReason=ResultReason,success=Settlement.Success,usedInsurance=Settlement.UsedInsurance,usedFare=Settlement.UsedFareSupport,
-                fee=Settlement.Fee,compensation=Settlement.Compensation,returnFare=Settlement.ReturnFare};
+                fee=Settlement.Fee,compensation=Settlement.Compensation,returnFare=Settlement.ReturnFare,
+                stationLayouts=World.CaptureStationLayouts()};
             PlayerPrefs.SetString(SaveKey,JsonUtility.ToJson(save));PlayerPrefs.Save();
             nextProgressSave=Time.unscaledTime+15;
         }
         void Load()
         {
-            if(!PlayerPrefs.HasKey(SaveKey))return;
+            string key=PlayerPrefs.HasKey(SaveKey) ? SaveKey : StandardSaveKey;
+            if(!PlayerPrefs.HasKey(key))return;
             try{
-                var save=JsonUtility.FromJson<Save>(PlayerPrefs.GetString(SaveKey));if(save==null)return;
+                var save=JsonUtility.FromJson<Save>(PlayerPrefs.GetString(key));if(save==null)return;
                 Economy.ApplyDelta(Mathf.Max(0,save.cash)-Economy.CurrentEconomyState.CurrentCash);
                 Unlocked=Mathf.Clamp(save.unlocked,1,World.settings.deliveries.orders.Length);
                 int cap=World.settings.deliveries.maximumUpgradeLevel;
@@ -163,6 +167,9 @@ namespace SubwayCarry.Gameplay3D
                 int order=Array.FindIndex(World.settings.deliveries.orders,o=>o.id==save.orderId);
                 if(order<0){Notice="저장된 배송이 현재 목록에 없습니다. 보유 현금과 서비스는 유지됩니다.";return;}
                 SelectedIndex=order;activeRoute=World.settings.deliveries.orders[order];
+                // Legacy progress can contain a player or an open gate away from the hub.
+                World.RestoreStationLayouts(save.version >= 3 ? save.stationLayouts : null,
+                    save.accepted || save.playerStation > 0 ? activeRoute.stops.Select(stop => stop.id) : Array.Empty<string>());
                 HasPackage=save.accepted;Order=HasPackage?activeRoute:null;
                 pendingProgress=save;
             }catch(ArgumentException){Notice="저장 데이터를 읽지 못했습니다.";}

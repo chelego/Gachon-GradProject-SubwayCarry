@@ -576,6 +576,7 @@ namespace SubwayCarry.Gameplay3D
                 case "moran":return "Moran"; case "jeongja":return "Jeongja";
                 case "bokjeong":return "Bokjeong"; case "suseo":return "Suseo";
                 case "imae":return "Imae"; case "seolleung":return "Seolleung";
+                case "station_야탑":return "Yatap"; case "station_서현":return "Seohyeon";
                 case "wangsimni":return "Wangsimni"; case "jamsil":return "Jamsil";
                 case "garak":return "Garak Market";
                 default:return id.StartsWith("station_",System.StringComparison.Ordinal)?null:id;
@@ -594,19 +595,28 @@ namespace SubwayCarry.Gameplay3D
         string DirectionBoard(int index,int side)
         {
             if(index==0) return side==1?"태평 · 모란 · 정자 →\n인천 방면":"복정 · 수서 · 왕십리 →\n청량리 방면";
+            GetPlatformWayfinding(index, side, out var destination, out var line);
+            return destination + (destination.StartsWith("내리는 곳") ? "" : " →") + "\n" + line;
+        }
+
+        void GetPlatformWayfinding(int index, int side, out string destination, out string line)
+        {
             var order=session!=null?session.Route:null;
             if(order!=null&&index<order.stops.Length){
                 int approachSide=ServiceSide;
                 for(int i=1;i<index;i++)if(order.stops[i].transfer)approachSide=-approachSide;
+                line=order.stops[index].line;
                 if(order.stops[index].transfer&&index+1<order.stops.Length){
-                    if(side==approachSide)return "내리는 곳 · 위층 연결통로 환승\n"+order.stops[index].line;
-                    return order.stops[index+1].label+" 방면 →\n"+order.stops[index+1].line;
+                    destination = side == approachSide ? "내리는 곳 · 위층 연결통로 환승" : order.stops[index+1].label+" 방면";
+                    if (side != approachSide) line=order.stops[index+1].line;
+                    return;
                 }
-                return (side==approachSide?(index+1<order.stops.Length?order.stops[index+1].label+" 방면 →":"내리는 곳"):
-                    order.stops[index-1].label+" 방면 →")+"\n"+order.stops[index].line;
+                destination = side==approachSide ? (index+1<order.stops.Length?order.stops[index+1].label+" 방면":"내리는 곳")
+                    : order.stops[index-1].label+" 방면";
+                return;
             }
-            string line=order!=null&&index<order.stops.Length?order.stops[index].line:"승강장";
-            return DirectionDestination(index,side)+"\n"+line;
+            destination=DirectionDestination(index,side);
+            line="승강장";
         }
 
         void Notice(Transform t,Vector3 p,float yaw,string heading,bool gachon)

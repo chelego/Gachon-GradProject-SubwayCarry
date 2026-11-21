@@ -20,6 +20,7 @@ namespace SubwayCarry.Gameplay3D
         CharacterController visitor;
         Transform rider;
         Transform previousParent;
+        Metro3DWorld world;
 
         public Transform Cabin => cabin;
         public int CurrentFloor => floor;
@@ -40,7 +41,9 @@ namespace SubwayCarry.Gameplay3D
 
         void Update()
         {
-            if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
+            if (world && world.session && world.session.SimulationPaused) return;
+            if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame &&
+                (!world || !world.session || !world.session.Blocked))
             {
                 var main = Camera.main;
                 if (main != null) TryInteract(main.GetComponentInParent<CharacterController>());
@@ -82,6 +85,8 @@ namespace SubwayCarry.Gameplay3D
                     break;
             }
         }
+
+        void Awake() => world = GetComponentInParent<Metro3DWorld>();
 
         public bool TryInteract(CharacterController actor)
         {

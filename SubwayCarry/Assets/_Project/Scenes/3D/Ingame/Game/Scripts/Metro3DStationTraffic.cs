@@ -175,6 +175,8 @@ namespace SubwayCarry.Gameplay3D
                 for(int person=0;person<group&&CountAt(root)<world.settings.passengerCount;person++) {
                     int entry=entranceSerial++%3;bool far=entry!=0;
                     Vector3 p=entry==2?new Vector3(14.6f,world.settings.departureFloor,55+Metro3DWorld.PlatformExpansion):Entrance(far,world.settings.departureFloor);
+                    var layout=world.LayoutAt(stop);
+                    if(layout) { p=layout.Local(layout.entrance); far=false; entry=0; }
                     p.x+=((float)arrivals.NextDouble()-.5f)*1.1f;
                     p.z+=((float)arrivals.NextDouble()-.5f)*.8f;
                     if(!SpawnClear(root,p)) continue;
@@ -218,6 +220,8 @@ namespace SubwayCarry.Gameplay3D
                 if(!concourse)ChoosePassengerDestination(stop,false,0,new System.Random(unchecked(serial*7919+stop*104729+17)),out _,out _,out _,out direction);
                 Vector3 p=concourse?new Vector3(-4+(i%4)*2.5f,world.settings.departureFloor,far?117+(i/4%3)*2.1f:-14+(i/4%3)*2.2f)
                     :new Vector3(-world.ServiceSide*direction*(4.6f+(i%2)*.78f),0,Metro3DTrain.DoorZ[i%Metro3DTrain.DoorZ.Length]+(i%2==0?-.95f:.95f));
+                var layout=world.LayoutAt(stop);
+                if(concourse&&layout) {p=layout.Local(layout.unpaidHall)+new Vector3(-4+(i%4)*2.5f,0,i/4%3*1.4f);far=false;}
                 if(!SpawnClear(root,p))continue;
                 Rent(stop,false,p,!concourse,concourse?far:p.z>Metro3DWorld.PlatformLength*.5f,null,0,concourse);
             }
@@ -420,10 +424,11 @@ namespace SubwayCarry.Gameplay3D
                 found.Sort((a,b)=> {int z=a.transform.localPosition.z.CompareTo(b.transform.localPosition.z);return z!=0?z:a.transform.localPosition.x.CompareTo(b.transform.localPosition.x);});
                 bank=found.ToArray();gates[root]=bank;
             }
-            if(bank.Length<10) return null;
+            int offset=far && bank.Length>=10 ? 5 : 0;
+            if(bank.Length<offset+5) return null;
             float direction=(far?-1:1)*(outgoing?-1:1);
             Metro3DFacility chosen=null;float best=float.PositiveInfinity;
-            int begin=(far?5:0)+(outgoing?3:0),end=(far?5:0)+(outgoing?5:3);
+            int begin=offset+(outgoing?3:0),end=offset+(outgoing?5:3);
             var crowd=world.GetComponent<Metro3DCrowd>();
             for(int i=begin;i<end;i++) {
                 var gate=bank[i];
@@ -1096,6 +1101,13 @@ namespace SubwayCarry.Gameplay3D
         static float PlatformStandingClearance(Metro3DPassenger actor)
             =>Metro3DWorld.ScreenDoorX+.90f+actor.BodyRadius+.07f;
 
+        static float OuterPlatformX(Metro3DPassenger actor)
+        {
+            var layout=actor.Journey.Layout;
+            if(!layout)return Metro3DWorld.ExpandedPlatformOuterX;
+            return actor.Journey.TrainSide>0?-layout.platformBounds.xMin:layout.platformBounds.xMax;
+        }
+
         internal bool StandingOnPlatformStrip(Metro3DPassenger actor)
         {
             Vector3 p=actor.transform.localPosition;
@@ -1111,7 +1123,7 @@ namespace SubwayCarry.Gameplay3D
                 return linePoint;
             Vector3 selected=actor.transform.position;float best=float.PositiveInfinity;
             float edge=PlatformStandingClearance(actor)+.18f;
-            float rear=Metro3DWorld.ExpandedPlatformOuterX-1.01f;
+            float rear=OuterPlatformX(actor)-1.01f;
             float clearance=Metro3DTrain.DoorWidth*.5f+actor.BodyRadius+.08f;
             foreach(float doorZ in Metro3DTrain.DoorZ) for(int row=0;row<2;row++) for(int flank=-1;flank<=1;flank+=2) {
                 Vector3 local=new Vector3(-actor.Journey.TrainSide*(row==0?edge:rear),0,doorZ+flank*clearance);
@@ -1180,7 +1192,7 @@ namespace SubwayCarry.Gameplay3D
 
             Vector3 away=Vector3.left*side;
             float edge=PlatformStandingClearance(actor)+.12f;
-            float outer=Metro3DWorld.ExpandedPlatformOuterX-1.25f;
+            float outer=OuterPlatformX(actor)-1.25f;
             float sideClearance=Metro3DTrain.DoorWidth*.5f+actor.BodyRadius+.06f;
             float personal=QueueGap(actor);
             int nearest=Metro3DTrain.NearestDoorIndex(feet.z);
@@ -1263,12 +1275,13 @@ namespace SubwayCarry.Gameplay3D
             Transform root=actor.transform.parent;Vector3 local=actor.transform.localPosition;
             float side=-actor.Journey.TrainSide*local.x;
             float edge=PlatformStandingClearance(actor);
-            float rear=Metro3DWorld.ExpandedPlatformOuterX-1.32f;
-            if(Mathf.Abs(local.y)>.18f||side<edge||side>Metro3DWorld.ExpandedPlatformOuterX-.28f||
+            float outer=OuterPlatformX(actor),rear=outer-1.32f;
+            if(Mathf.Abs(local.y)>.18f||side<edge||side>outer-.28f||
                 (side>edge+.48f&&side<rear)||local.z<10||local.z>Metro3DWorld.PlatformLength-10)return false;
             if(side<rear&&NearDoor(local.z,Metro3DTrain.DoorWidth*.5f+actor.BodyRadius))return false;
             foreach(bool far in new[]{false,true}) {
-                Vector3 delta=local-StairBottom(far,actor.Journey.TrainSide);delta.y=0;
+                var layout=actor.Journey.Layout;
+                Vector3 delta=local-(layout?layout.Stair(actor.Journey.TrainSide,false):StairBottom(far,actor.Journey.TrainSide));delta.y=0;
                 if(delta.sqrMagnitude<1.5f*1.5f)return false;
             }
             foreach(var claim in standing) if(claim.Key!=null&&claim.Key!=actor&&!claim.Key.inTrain&&claim.Key.transform.parent==root&&(claim.Value-local).sqrMagnitude<.6f*.6f)return false;
@@ -1388,10 +1401,14 @@ namespace SubwayCarry.Gameplay3D
             var frame=actor.transform.parent;
             if(!platformSupports.TryGetValue(frame,out var spots)) {
                 spots=new List<SupportSpot>();platformSupports.Add(frame,spots);
+                var layout=actor.Journey.Layout;
                 for(int side=-1;side<=1;side+=2) {
-                    for(float z=8;z<Metro3DWorld.PlatformLength-8;z+=3.6f) {
-                        Vector3 feet=new Vector3(side*(Metro3DWorld.ExpandedPlatformOuterX-.48f),0,z);
-                        AddLeanSpot(spots,frame,null,feet,Vector3.right*side,"Visible wall ground boundary");
+                    float wall=layout?(side<0?-layout.platformBounds.xMin:layout.platformBounds.xMax)+.3f:Metro3DWorld.ExpandedPlatformOuterX;
+                    float start=layout?layout.platformBounds.yMin+2f:8f;
+                    float end=layout?layout.platformBounds.yMax-2f:Metro3DWorld.PlatformLength-8;
+                    for(float z=start;z<end;z+=3.6f) {
+                        Vector3 feet=new Vector3(side*(wall-.48f),0,z);
+                        AddLeanSpot(spots,frame,null,feet,Vector3.right*side,layout?"Glazed ceramic cladding":"Visible wall ground boundary");
                     }
                 }
             }

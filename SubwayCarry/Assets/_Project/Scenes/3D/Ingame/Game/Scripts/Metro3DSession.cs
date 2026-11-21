@@ -105,7 +105,8 @@ namespace SubwayCarry.Gameplay3D
         }
         bool gatePaid,transferNeeded,middleBalanceTriggered;
         const string BoardingNotice="열차에 탑승하세요.";
-        const string SaveKey="SubwayCarry.3D.Progress.v1";
+        const string StandardSaveKey="SubwayCarry.3D.Progress.v1";
+        string SaveKey => World.UsesStationLayouts ? "SubwayCarry.3D.StationLayoutTest.Progress" : StandardSaveKey;
 
 
         public void Initialize(Metro3DWorld world)
@@ -295,7 +296,7 @@ namespace SubwayCarry.Gameplay3D
 
         public void ReturnToHub()
         {
-            if(Bankrupt){SelectedIndex=0;activeRoute=World.settings.deliveries.orders[0];}
+            if(Bankrupt){SelectedIndex=0;activeRoute=World.settings.deliveries.orders[0];World.ResetStationLayouts();}
             World.player.TeleportForReturn(World.HubSpawn);
             World.Traffic.RecycleAll();
             var oldTrains=GetComponentsInChildren<Metro3DTrain>(); foreach(var t in oldTrains) Destroy(t.gameObject);

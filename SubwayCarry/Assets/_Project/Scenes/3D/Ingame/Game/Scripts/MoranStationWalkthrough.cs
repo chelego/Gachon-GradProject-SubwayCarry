@@ -23,7 +23,13 @@ namespace SubwayCarry.Gameplay3D
             entrance = transform.position;
         }
 
-        void Start() => CaptureMouse(true);
+        void Start()
+        {
+            var layout = FindFirstObjectByType<Metro3DStationLayout>();
+            if (layout)
+                layout.ApplySignage("모란", "Moran", "K225", "야탑 방면", "수인분당선", "가천대 방면", "수인분당선");
+            CaptureMouse(true);
+        }
 
         void OnDisable() => CaptureMouse(false);
 
